@@ -6,7 +6,7 @@ from django.core.management.base import BaseCommand
 from django_apscheduler.jobstores import DjangoJobStore, register_events
 from django_apscheduler.models import DjangoJobExecution
 from django_apscheduler import util
-from atleti.tasks import task_ricalcolo_vam, task_ricalcolo_statistiche, task_scrape_itra_utmb, task_heartbeat
+from atleti.tasks import task_ricalcolo_vam, task_ricalcolo_statistiche, task_scrape_itra_utmb, task_heartbeat, task_sync_strava
 from atleti.models import TaskSettings
 
 # Configurazione Logging con Data e Ora per Docker
@@ -120,6 +120,14 @@ class Command(BaseCommand):
             "pulizia_log_settimanale",
             default_hour=0, default_minute=0, default_day='mon'
         )
+        
+        # 5. Sync Strava Automatico (Ogni 4 ore)
+        schedule_task(
+            task_sync_strava,
+            "sync_strava_periodico",
+            default_hour='*', default_minute=30 # Al minuto 30 di ogni ora (se configurato così) o default custom
+        )
+        # Nota: Per farlo ogni 4 ore, l'utente admin dovrà configurare "*/4" nel campo ora, oppure usiamo un trigger diverso qui sotto se vogliamo forzarlo
         
         # 5. SYSTEM HEARTBEAT (Ogni 10 secondi)
         # Serve a svegliare lo scheduler per fargli leggere i task manuali dal DB

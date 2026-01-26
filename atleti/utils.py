@@ -5,6 +5,7 @@ from .models import Attivita, ProfiloAtleta
 from django.utils import timezone
 from datetime import timedelta
 from django.db.models import Sum, Max
+from allauth.socialaccount.models import SocialApp
 
 
 def formatta_passo(velocita_ms):
@@ -15,6 +16,45 @@ def formatta_passo(velocita_ms):
         secondi = int((secondi_al_km - minuti) * 60)
         return f"{minuti}:{secondi:02d}"
     return "0:00"
+
+def refresh_strava_token(token_obj):
+    """
+    Controlla se il token è scaduto e lo rinnova usando il refresh_token.
+    Restituisce il token valido (stringa) o None se fallisce.
+    """
+    # Se il token scade tra meno di 10 minuti (o è già scaduto), lo rinnoviamo
+    if token_obj.expires_at and token_obj.expires_at > timezone.now() + timedelta(minutes=10):
+        return token_obj.token
+
+    print(f"DEBUG: Token scaduto per {token_obj.account.user.username}. Tento rinnovo...", flush=True)
+    
+    try:
+        # Recuperiamo le credenziali dell'app
+        app = SocialApp.objects.get(provider='strava')
+        
+        data = {
+            'client_id': app.client_id,
+            'client_secret': app.secret,
+            'grant_type': 'refresh_token',
+            'refresh_token': token_obj.token_secret, 
+        }
+        
+        response = requests.post('https://www.strava.com/oauth/token', data=data)
+        
+        if response.status_code == 200:
+            new_data = response.json()
+            token_obj.token = new_data['access_token']
+            token_obj.token_secret = new_data['refresh_token']
+            token_obj.expires_at = timezone.now() + timedelta(seconds=new_data['expires_in'])
+            token_obj.save()
+            print(f"DEBUG: Token Strava rinnovato con successo.", flush=True)
+            return token_obj.token
+        else:
+            print(f"ERRORE Refresh Token: {response.text}", flush=True)
+            return None
+    except Exception as e:
+        print(f"Eccezione Refresh Token: {e}", flush=True)
+        return None
 
 def calcola_vam_selettiva(activity_id, access_token):
     """
@@ -392,3 +432,56 @@ def analizza_performance_atleta(profilo):
     except Exception as e:
         print(f"DEBUG ERRORE FINALE: {e}")
         return "⚠️ Servizio AI momentaneamente non disponibile. Riprova tra un minuto."
+
+def processa_attivita_strava(act, profilo, access_token):
+    """
+    Logica centralizzata per salvare/aggiornare un'attività Strava nel DB.
+    Restituisce (Attivita, created).
+    """
+    # 1. Tipo Attività
+    strava_sport_type = act.get('sport_type') or act.get('type')
+    if strava_sport_type in ['TrailRun', 'Hike']:
+        tipo_finale = 'TrailRun'
+    else:
+        tipo_finale = 'Run'
+
+    # 2. Calcolo Potenza (Fallback)
+    watts = act.get('average_watts')
+    if not watts and profilo.peso:
+        watts = stima_potenza_watt(act['distance'], act['moving_time'], act.get('total_elevation_gain', 0), profilo.peso)
+
+    # 3. Salvataggio
+    nuova_attivita, created = Attivita.objects.update_or_create(
+        strava_activity_id=act['id'],
+        defaults={
+            'atleta': profilo,
+            'data': act['start_date'],
+            'distanza': act['distance'],
+            'durata': act['moving_time'],
+            'dislivello': act.get('total_elevation_gain', 0),
+            'fc_media': act.get('average_heartrate'),
+            'fc_max_sessione': act.get('max_heartrate'),
+            'passo_medio': formatta_passo(act.get('average_speed', 0)),
+            'cadenza_media': act.get('average_cadence'),
+            'sforzo_relativo': act.get('suffer_score'),
+            'potenza_media': watts,
+            'gap_passo': act.get('average_grade_adjusted_speed'),
+            'tipo_attivita': tipo_finale,
+        }
+    )
+    
+    # 4. Calcolo VO2max
+    nuova_attivita.vo2max_stimato = calcola_metrica_vo2max(nuova_attivita, profilo)
+    
+    # 5. Calcolo VAM Selettiva (Solo per TrailRun significativi)
+    if nuova_attivita.tipo_attivita == 'TrailRun' and nuova_attivita.dislivello > 150:
+        # Lo calcoliamo se è nuova o se non ce l'ha ancora
+        if created or nuova_attivita.vam_selettiva is None:
+            # Piccola pausa per rate limit se stiamo processando tante attività
+            # Ma qui siamo in una funzione singola, la gestione del rate limit massivo va fuori
+            vam_sel = calcola_vam_selettiva(act['id'], access_token)
+            if vam_sel and vam_sel > 0:
+                nuova_attivita.vam_selettiva = vam_sel
+
+    nuova_attivita.save()
+    return nuova_attivita, created

@@ -48,6 +48,7 @@ def task_heartbeat():
         'ricalcolo_stats_notturno': 'recalculate_stats',
         'scrape_itra_utmb_settimanale': 'scrape_indices',
         'pulizia_log_settimanale': 'clean_scheduler_logs',
+        'sync_strava_periodico': 'sync_strava_now', # Creeremo un comando wrapper o chiamiamo la funzione direttamente?
     }
 
     # Cerca task con trigger manuale attivo
@@ -61,7 +62,11 @@ def task_heartbeat():
             status = "Executed"
             exception = ""
             try:
-                call_command(cmd)
+                if cfg.task_id == 'sync_strava_periodico':
+                    task_sync_strava() # Chiamata diretta alla funzione
+                else:
+                    call_command(cmd)
+                
                 logger.info(f"SCHEDULER: Esecuzione manuale di {cfg.task_id} completata.")
             except Exception as e:
                 logger.error(f"SCHEDULER: Errore esecuzione manuale {cfg.task_id}: {e}")

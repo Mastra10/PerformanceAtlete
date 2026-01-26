@@ -89,6 +89,7 @@ class TaskSettings(models.Model):
         ('ricalcolo_stats_notturno', 'Ricalcolo Statistiche'),
         ('scrape_itra_utmb_settimanale', 'Scraping ITRA/UTMB'),
         ('pulizia_log_settimanale', 'Pulizia Log'),
+        ('sync_strava_periodico', 'Sync Strava Automatico'),
     ]
     task_id = models.CharField(max_length=50, choices=TASK_CHOICES, unique=True, verbose_name="Task")
     active = models.BooleanField(default=True, verbose_name="Attivo")

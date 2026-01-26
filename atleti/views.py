@@ -4,7 +4,7 @@ from django.http import HttpResponse, JsonResponse
 from allauth.socialaccount.models import SocialToken ,SocialAccount
 from .models import Attivita, ProfiloAtleta
 import math
-from .utils import analizza_performance_atleta, calcola_metrica_vo2max, stima_vo2max_atleta, stima_potenza_watt, calcola_trend_atleta, formatta_passo, stima_potenziale_gara, analizza_squadra_coach, calcola_vam_selettiva
+from .utils import analizza_performance_atleta, calcola_metrica_vo2max, stima_vo2max_atleta, stima_potenza_watt, calcola_trend_atleta, formatta_passo, stima_potenziale_gara, analizza_squadra_coach, calcola_vam_selettiva, refresh_strava_token, processa_attivita_strava
 import time
 from django.db.models import Sum, Max, Q, OuterRef, Subquery
 from django.utils import timezone
@@ -308,7 +308,14 @@ def sincronizza_strava(request):
         return redirect('home')
 
     print(f"DEBUG: Token trovato! Procedo con Strava per {request.user.username}", flush=True)
-    headers = {'Authorization': f'Bearer {token_obj.token}'}
+    
+    # 1. Refresh Token (Nuova logica centralizzata)
+    access_token = refresh_strava_token(token_obj)
+    if not access_token:
+        print("DEBUG: Token scaduto e refresh fallito. Reindirizzo al login.", flush=True)
+        return redirect('/accounts/strava/login/')
+        
+    headers = {'Authorization': f'Bearer {access_token}'}
 
     # --- 2. DATI PROFILO (PESO E NOMI) ---
     athlete_res = requests.get("https://www.strava.com/api/v3/athlete", headers=headers)
@@ -381,58 +388,8 @@ def sincronizza_strava(request):
         for act in activities:
             # Aggiunto supporto per Hike (Trekking) trattato come Trail
             if act['type'] in ['Run', 'TrailRun', 'Hike']:
-                # --- 5. FASCE CARDIO PER OGNI CORSA ---
-                # DISABILITATO: Consuma troppe chiamate API (Rate Limit Exceeded)
-                fasce_cardio = None
-
-                # 1. Recuperiamo il tipo usando sport_type (più preciso nel 2026) o type (fallback)
-                strava_sport_type = act.get('sport_type') or act.get('type')
-                
-                if strava_sport_type in ['TrailRun', 'Hike']:
-                    tipo_finale = 'TrailRun'
-                else:
-                    tipo_finale = 'Run'
-
-                # --- CALCOLO POTENZA (FALLBACK) ---
-                # Se Strava non ci da i Watt, li calcoliamo noi con Minetti
-                watts = act.get('average_watts')
-                if not watts and profilo.peso:
-                    watts = stima_potenza_watt(act['distance'], act['moving_time'], act.get('total_elevation_gain', 0), profilo.peso)
-
-                # --- 6. SALVATAGGIO O AGGIORNAMENTO ---
-                nuova_attivita, created = Attivita.objects.update_or_create(
-                    strava_activity_id=act['id'],
-                    defaults={
-                        'atleta': profilo,
-                        'data': act['start_date'],
-                        'distanza': act['distance'],
-                        'durata': act['moving_time'],
-                        'dislivello': act.get('total_elevation_gain', 0),
-                        'fc_media': act.get('average_heartrate'),
-                        'fc_max_sessione': act.get('max_heartrate'),
-                        'passo_medio': formatta_passo(act.get('average_speed', 0)),
-                        'cadenza_media': act.get('average_cadence'),
-                        'sforzo_relativo': act.get('suffer_score'),
-                        'potenza_media': watts,
-                        'gap_passo': act.get('average_grade_adjusted_speed'),
-                        'zone_cardiache': fasce_cardio,
-                        'tipo_attivita': tipo_finale,
-                    }
-                )
-                
-                # 7. CALCOLO VO2MAX PER OGNI ATTIVITÀ
-                nuova_attivita.vo2max_stimato = calcola_metrica_vo2max(nuova_attivita, profilo)
-                
-                # 7b. CALCOLO VAM SELETTIVA (Solo per TrailRun significativi)
-                # Evitiamo di farlo per tutte le corse per non finire le API
-                if nuova_attivita.tipo_attivita == 'TrailRun' and nuova_attivita.dislivello > 150:
-                    # Lo calcoliamo se è nuova o se non ce l'ha ancora
-                    if created or nuova_attivita.vam_selettiva is None:
-                        vam_sel = calcola_vam_selettiva(act['id'], token_obj.token)
-                        if vam_sel and vam_sel > 0:
-                            nuova_attivita.vam_selettiva = vam_sel
-
-                nuova_attivita.save()
+                # Usiamo la nuova utility centralizzata
+                processa_attivita_strava(act, profilo, access_token)
             else:
                 print(f"DEBUG: Saltata attività {act['id']} ({act['type']})", flush=True)
 
