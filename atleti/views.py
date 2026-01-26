@@ -534,7 +534,7 @@ def riepilogo_atleti(request):
         return redirect('home')
     
     # Aggiungiamo l'annotazione per l'ultima attività
-    atleti = ProfiloAtleta.objects.select_related('user').annotate(
+    atleti = ProfiloAtleta.objects.select_related('user').exclude(user__username='mastra').annotate(
         ultima_corsa=Max('sessioni__data')
     ).order_by('-vo2max_stima_statistica')
     
