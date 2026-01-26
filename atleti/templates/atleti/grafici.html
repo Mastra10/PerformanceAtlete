@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grafici Performance</title>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 20px; max-width: 1000px; margin: 0 auto; background-color: #f8f9fa; }
+        .container { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .chart-box { margin-bottom: 50px; }
+        .btn { display: inline-block; padding: 10px 20px; background: #fc4c02; color: white; text-decoration: none; border-radius: 5px; margin-bottom: 20px; font-weight: bold; }
+        .btn:hover { background: #e34402; }
+        h1 { color: #333; margin-bottom: 30px; }
+    </style>
+</head>
+<body>
+    <a href="{% url 'home' %}" class="btn">← Torna alla Dashboard</a>
+    
+    <div class="container">
+        <h1>Analisi Trend (Ultime 50 sessioni)</h1>
+
+        <div class="chart-box">
+            <canvas id="vo2Chart"></canvas>
+        </div>
+
+        <div class="chart-box">
+            <canvas id="fcChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        // Dati passati da Django
+        const labels = {{ labels|safe }};
+        const dataVo2 = {{ data_vo2|safe }};
+        const dataFc = {{ data_fc|safe }};
+
+        // Configurazione comune
+        const commonOptions = {
+            responsive: true,
+            interaction: { mode: 'index', intersect: false },
+            scales: { x: { grid: { display: false } } }
+        };
+
+        // 1. Grafico VO2max
+        new Chart(document.getElementById('vo2Chart'), {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'VO2max Stimato (ml/kg/min)',
+                    data: dataVo2,
+                    borderColor: 'rgb(75, 192, 192)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.3, // Linea curva
+                    fill: true
+                }]
+            },
+            options: { ...commonOptions, plugins: { title: { display: true, text: 'Andamento Efficienza Aerobica (VO2max)' } } }
+        });
+
+        // 2. Grafico FC Media
+        new Chart(document.getElementById('fcChart'), {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Frequenza Cardiaca Media (bpm)',
+                    data: dataFc,
+                    borderColor: 'rgb(255, 99, 132)',
+                    backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.3,
+                    fill: true
+                }]
+            },
+            options: { ...commonOptions, plugins: { title: { display: true, text: 'Carico Cardiaco (FC Media)' } } }
+        });
+    </script>
+</body>
+</html>

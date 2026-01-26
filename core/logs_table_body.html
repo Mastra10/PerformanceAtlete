@@ -1,0 +1,25 @@
+{% for log in logs %}
+<tr>
+    <td>
+        {% if log.status == "Executed" %}
+            <span class="badge bg-success">Successo</span>
+        {% elif log.status == "Error" %}
+            <span class="badge bg-danger">Errore</span>
+        {% else %}
+            <span class="badge bg-secondary">{{ log.status }}</span>
+        {% endif %}
+    </td>
+    <td class="fw-bold font-monospace">{{ log.job.id }}</td>
+    <td>{{ log.run_time|date:"d/m/Y H:i:s" }}</td>
+    <td>{{ log.duration|floatformat:2 }}</td>
+    <td class="small text-muted">
+        {% if log.exception %}
+            <span class="text-danger">{{ log.exception|truncatechars:80 }}</span>
+        {% else %}
+            OK
+        {% endif %}
+    </td>
+</tr>
+{% empty %}
+<tr><td colspan="5" class="text-center py-4">Nessun log presente.</td></tr>
+{% endfor %}

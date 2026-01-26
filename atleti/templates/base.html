@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Barilla Monitor 2026</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root { --barilla-blue: #003366; --strava-orange: #FC4C02; --ai-purple: #6e41e2; }
+        body { background-color: #f8f9fa; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+        
+        /* Sidebar Styles */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            z-index: 100;
+            padding: 0;
+            box-shadow: inset -1px 0 0 rgba(0, 0, 0, .1);
+            background-color: var(--barilla-blue);
+        }
+        .sidebar-sticky {
+            position: relative;
+            top: 0;
+            height: 100vh;
+            padding-top: 1.5rem;
+            overflow-x: hidden;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+        .sidebar .nav-link {
+            font-weight: 500;
+            color: rgba(255, 255, 255, .8);
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+        }
+        .sidebar .nav-link:hover, .sidebar .nav-link.active {
+            color: #fff;
+            background-color: rgba(255, 255, 255, .1);
+            border-right: 4px solid var(--strava-orange);
+        }
+        .sidebar .nav-link i { margin-right: 10px; font-size: 1.1rem; }
+        
+        /* Main Content */
+        main { padding-top: 20px; padding-bottom: 40px; }
+        
+        /* Common Card Styles */
+        .card { border: none; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        .stats-box { border-bottom: 4px solid var(--barilla-blue); transition: transform 0.2s; }
+        .stats-box:hover { transform: translateY(-5px); }
+        
+        {% block extra_css %}{% endblock %}
+    </style>
+</head>
+<body>
+
+{% if user.is_authenticated %}
+<div class="container-fluid">
+    <div class="row">
+        <nav id="sidebarMenu" class="col-md-3 col-lg-2 d-md-block sidebar collapse">
+            <div class="sidebar-sticky">
+                <div class="px-3 mb-4 text-white">
+                    <h4 class="fw-bold m-0"><i class="bi bi-graph-up-arrow me-2"></i>Barilla Monitor</h4>
+                    <small class="opacity-50">Performance System</small>
+                </div>
+                
+                <ul class="nav flex-column mb-auto">
+                    <li class="nav-item"><a class="nav-link {% if request.resolver_match.url_name == 'home' %}active{% endif %}" href="{% url 'home' %}"><i class="bi bi-speedometer2"></i> Dashboard</a></li>
+                    {% if user.is_staff %}
+                    <li class="nav-item"><a class="nav-link {% if request.resolver_match.url_name == 'dashboard_coach' %}active{% endif %}" href="{% url 'dashboard_coach' %}"><i class="bi bi-clipboard-data"></i> Dashboard Coach</a></li>
+                    <li class="nav-item"><a class="nav-link {% if request.resolver_match.url_name == 'riepilogo_atleti' %}active{% endif %}" href="{% url 'riepilogo_atleti' %}"><i class="bi bi-people"></i> Riepilogo Atleti</a></li>
+                    {% endif %}
+                    <li class="nav-item"><a class="nav-link {% if request.resolver_match.url_name == 'grafici' %}active{% endif %}" href="{% url 'grafici' %}"><i class="bi bi-graph-up"></i> Grafici</a></li>
+                    <li class="nav-item"><a class="nav-link {% if request.resolver_match.url_name == 'impostazioni' %}active{% endif %}" href="{% url 'impostazioni' %}"><i class="bi bi-gear"></i> Impostazioni</a></li>
+                </ul>
+
+                <div class="mt-auto p-3">
+                    <div class="d-flex align-items-center text-white p-2 rounded" style="background: rgba(255,255,255,0.1);">
+                        {% if user.profiloatleta.immagine_profilo %}
+                        <img src="{{ user.profiloatleta.immagine_profilo }}" class="rounded-circle me-2" width="32" height="32" style="object-fit: cover;">
+                        {% else %}
+                        <i class="bi bi-person-circle me-2 h4 m-0"></i>
+                        {% endif %}
+                        <div class="overflow-hidden">
+                            <div class="fw-bold text-truncate">{{ user.first_name|default:user.username }}</div>
+                            <a href="{% url 'account_logout' %}" class="text-white opacity-75 small text-decoration-none">Esci</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+</div>
+{% else %}
+    {% block content_unauth %}{% endblock %}
+{% endif %}
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

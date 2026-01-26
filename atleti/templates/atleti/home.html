@@ -1,0 +1,457 @@
+{% extends 'base.html' %}
+{% load socialaccount %}
+
+{% block extra_css %}
+<style>
+    .btn-strava { background-color: var(--strava-orange); color: white; border-radius: 10px; font-weight: 600; }
+</style>
+{% endblock %}
+
+{% block content_unauth %}
+<div class="container pb-5">
+    <div class="text-center py-5 mt-5">
+        <h1 class="display-3 fw-bold text-dark">Evolvi la tua Corsa</h1>
+        <p class="lead text-muted mb-5">Sincronizzazione Strava e analisi fisiologica AI per atleti con VO2max 65-69.</p>
+        <a href="{% provider_login_url 'strava' %}" class="btn btn-strava btn-lg px-5 py-3">CONNETTI STRAVA</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+    {% if error_message %}
+        <div class="alert alert-warning text-center my-5">
+            <i class="bi bi-lock-fill display-1 d-block mb-3"></i>
+            <h4>{{ error_message }}</h4>
+        </div>
+    {% else %}
+    <h2 class="fw-bold mb-4">Dashboard Personale</h2>
+    <div class="row g-4">
+        <div class="col-lg-4">
+            <div class="card p-4 text-center mb-4">
+                <div class="mb-3">
+                    {% if profilo.immagine_profilo %}
+                        <img src="{{ profilo.immagine_profilo }}" alt="Profilo Strava" class="rounded-circle shadow-sm" style="width: 120px; height: 120px; object-fit: cover; border: 4px solid var(--barilla-blue);">
+                    {% else %}
+                        <i class="bi bi-person-circle display-1 text-secondary"></i>
+                    {% endif %}
+                </div>
+                <h3 class="fw-bold m-0">
+                    {{ profilo.user.first_name }} {{ profilo.user.last_name }}
+                    {% if profilo.user.is_staff or request.user.is_staff and profilo.user.id == request.user.id %}
+                        <span class="badge bg-dark align-middle ms-2" style="font-size: 0.6em;">ADMIN</span>
+                    {% endif %}
+                </h3>
+                <small class="text-muted">(@{{ profilo.user.username }})</small>
+                <div class="badge bg-success my-3">Socio Cral Barilla</div>
+                <hr>
+                <div class="row text-start g-2">
+                    <div class="col-6 border-end text-center">
+                        <small class="text-muted d-block">Peso</small>
+                        <span class="h5 fw-bold">{{ profilo.peso|default:"--" }} kg</span>
+                    </div>
+                    <div class="col-6 text-center">
+                        <small class="text-muted d-block">FC Max</small>
+                        <span class="h5 fw-bold text-danger">{{ profilo.fc_massima_teorica }} bpm</span>
+                    </div>
+                </div>
+                <hr>
+                <div class="row text-start g-2">
+                    <div class="col-6 border-end text-center">
+                        <small class="text-muted d-block">ITRA Index</small>
+                        <span class="h5 fw-bold" style="color: #2c3e50;">{{ profilo.indice_itra|default:"--" }}</span>
+                        {% if profilo.indice_itra > 0 %}<div class="small fw-bold text-uppercase mt-1" style="color: #2c3e50; font-size: 0.7rem;">{{ livello_itra }}</div>{% endif %}
+                    </div>
+                    <div class="col-6 text-center">
+                        <small class="text-muted d-block">UTMB Index</small>
+                        <span class="h5 fw-bold" style="color: #ffc107;">{{ profilo.indice_utmb|default:"--" }}</span>
+                        {% if profilo.indice_utmb > 0 %}<div class="small fw-bold text-uppercase mt-1" style="color: #ffc107; font-size: 0.7rem;">{{ livello_utmb }}</div>{% endif %}
+                    </div>
+                </div>
+                <hr>
+                <div class="row text-start g-2">
+                    <div class="col-6 border-end text-center">
+                        <small class="text-muted d-block">Soglia Aerobica</small>
+                        <span class="h5 fw-bold text-success">{{ soglia_aerobica }} bpm</span>
+                        <div class="small text-muted" style="font-size: 0.7rem;">Stima Fondo (Z2)</div>
+                    </div>
+                    <div class="col-6 text-center">
+                        <small class="text-muted d-block">Soglia Anaerobica</small>
+                        <span class="h5 fw-bold text-danger">{{ soglia_anaerobica }} bpm</span>
+                        <div class="small text-muted" style="font-size: 0.7rem;">Stima Soglia (Z4)</div>
+                    </div>
+                </div>
+                <hr>
+                <div class="row text-start g-2">
+                    <div class="col-6 border-end text-center">
+                        <small class="text-muted d-block">Passo Medio</small>
+                        <span class="h5 fw-bold text-primary">{{ passo_media_recent }}</span>
+                        <div class="small text-muted" style="font-size: 0.7rem;">Recente</div>
+                    </div>
+                    <div class="col-6 text-center">
+                        <small class="text-muted d-block">FC Media</small>
+                        <span class="h5 fw-bold text-danger">{{ fc_media_recent }} bpm</span>
+                        <div class="small text-muted" style="font-size: 0.7rem;">Recente</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card p-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold m-0"><i class="bi bi-sliders me-2"></i>Controlli</h5>
+                    <a href="{% url 'impostazioni' %}" class="btn btn-outline-dark btn-sm"><i class="bi bi-gear-fill"></i> Settings</a>
+                </div>
+                <a href="{% url 'strava_sync' %}" class="btn btn-outline-secondary btn-sm w-100">
+                    <i class="bi bi-arrow-repeat me-1"></i>Sincronizza Strava
+                </a>
+                <a href="{% url 'export_csv' %}" class="btn btn-outline-success btn-sm w-100 mt-2">
+                    <i class="bi bi-download me-1"></i>Scarica Dati CSV
+                </a>
+                
+                {% if request.user.is_staff %}
+                <hr>
+                <small class="text-muted fw-bold text-uppercase mb-2 d-block">Admin Zone</small>
+                <a href="{% url 'scheduler_logs' %}" class="btn btn-outline-info btn-sm w-100">
+                    <i class="bi bi-list-task me-1"></i>Log Scheduler
+                </a>
+                <a href="{% url 'dashboard_coach' %}" class="btn btn-outline-primary btn-sm w-100 mt-2">
+                    <i class="bi bi-speedometer2 me-1"></i>Dashboard Coach
+                </a>
+                {% endif %}
+
+                <!-- DEBUG INFO (Rimuovere in produzione) -->
+                <div class="mt-3 p-2 bg-light border small text-muted">
+                    User: <strong>{{ request.user.username }}</strong><br>
+                    Staff: <strong class="{% if request.user.is_staff %}text-success{% else %}text-danger{% endif %}">{{ request.user.is_staff }}</strong>
+                    {% if not request.user.is_staff %}
+                    <hr class="my-1">
+                    <span class="text-danger fw-bold">NON SEI ADMIN!</span><br>
+                    Per abilitare il menu, esegui:<br>
+                    <code class="user-select-all" style="background: #eee; padding: 2px;">docker compose exec web python manage.py promote_admin {{ request.user.username }}</code>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-8">
+            <div class="row g-3 mb-4 text-center">
+                <!-- Riga 1: Metriche di Volume e Potenza -->
+                <div class="col-4">
+                    <div class="card p-3 stats-box h-100">
+                        <i class="bi bi-geo-alt stats-icon h3 text-muted"></i>
+                        <small class="text-muted d-block">Distanza</small>
+                        <span class="h4 fw-bold">{{ totale_km }} KM</span>
+                        {% if trends.distanza is not None %}
+                            <div class="small fw-bold mt-1 {% if trends.distanza > 0 %}text-success{% else %}text-muted{% endif %}">
+                                {% if trends.distanza > 0 %}<i class="bi bi-arrow-up-right"></i>{% elif trends.distanza < 0 %}<i class="bi bi-arrow-down-right"></i>{% endif %}
+                                {{ trends.distanza }}%
+                                <i class="bi bi-info-circle text-muted ms-1" style="font-size: 0.7rem;" data-bs-toggle="tooltip" title="Variazione media ultime 5 attività vs precedenti 15"></i>
+                                <span class="text-muted fw-normal" style="font-size: 0.7rem;">(Vol. Recente)</span>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="card p-3 stats-box h-100" style="border-color: #ffc107;">
+                        <i class="bi bi-graph-up-arrow h3 text-warning"></i>
+                        <small class="text-muted d-block">
+                            VAM (m/h)
+                            <i class="bi bi-info-circle-fill ms-1" data-bs-toggle="tooltip" data-bs-placement="top" title="{{ vam_tooltip }}"></i>
+                        </small>
+                        <span class="h4 fw-bold text-warning">{{ vam_media }}</span>
+                        {% if trends.vam is not None %}
+                            <div class="small fw-bold mt-1 {% if trends.vam > 0 %}text-success{% else %}text-danger{% endif %}">
+                                {% if trends.vam > 0 %}<i class="bi bi-arrow-up-right"></i>{% elif trends.vam < 0 %}<i class="bi bi-arrow-down-right"></i>{% endif %}
+                                {{ trends.vam }}%
+                                <i class="bi bi-info-circle text-muted ms-1" style="font-size: 0.7rem;" data-bs-toggle="tooltip" title="Variazione media ultime 5 attività vs precedenti 15"></i>
+                            </div>
+                        {% endif %}
+                        {% if vam_media > 0 %}<div class="small fw-bold text-uppercase mt-1" style="color: #ffc107; font-size: 0.8rem; letter-spacing: 1px;">{{ livello_vam }}</div>{% endif %}
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="card p-3 stats-box h-100" style="border-color: #6610f2;">
+                        <i class="bi bi-lightning h3" style="color: #6610f2;"></i>
+                        <small class="text-muted d-block">Potenza (W)</small>
+                        <span class="h4 fw-bold" style="color: #6610f2;">{{ potenza_media }}</span>
+                        {% if trends.potenza is not None %}
+                            <div class="small fw-bold mt-1 {% if trends.potenza > 0 %}text-success{% else %}text-danger{% endif %}">
+                                {% if trends.potenza > 0 %}<i class="bi bi-arrow-up-right"></i>{% elif trends.potenza < 0 %}<i class="bi bi-arrow-down-right"></i>{% endif %}
+                                {{ trends.potenza }}%
+                                <i class="bi bi-info-circle text-muted ms-1" style="font-size: 0.7rem;" data-bs-toggle="tooltip" title="Variazione media ultime 5 attività vs precedenti 15"></i>
+                            </div>
+                        {% endif %}
+                        {% if potenza_media > 0 %}<div class="small fw-bold text-uppercase mt-1" style="color: #6610f2; font-size: 0.8rem; letter-spacing: 1px;">{{ livello_potenza }}</div>{% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-3 mb-4 text-center">
+                <!-- Riga 2: Passo e FC -->
+                <div class="col-6">
+                    <div class="card p-3 stats-box h-100">
+                        <i class="bi bi-stopwatch h3 text-primary"></i>
+                        <small class="text-muted d-block">Passo Medio</small>
+                        <span class="h4 fw-bold text-primary">{{ passo_media_recent }}</span>
+                        {% if trends.passo is not None %}
+                            <div class="small fw-bold mt-1 {% if trends.passo > 0 %}text-success{% else %}text-danger{% endif %}">
+                                {% if trends.passo > 0 %}<i class="bi bi-arrow-up-right"></i>{% elif trends.passo < 0 %}<i class="bi bi-arrow-down-right"></i>{% endif %}
+                                {{ trends.passo }}%
+                                <i class="bi bi-info-circle text-muted ms-1" style="font-size: 0.7rem;" data-bs-toggle="tooltip" title="Variazione media ultime 5 attività vs precedenti 15"></i>
+                                <span class="text-muted fw-normal" style="font-size: 0.7rem;">(Velocità)</span>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="card p-3 stats-box h-100">
+                        <i class="bi bi-heart h3 text-danger"></i>
+                        <small class="text-muted d-block">FC Media</small>
+                        <span class="h4 fw-bold text-danger">{{ fc_media_recent }} bpm</span>
+                        {% if trends.fc_media is not None %}
+                            <div class="small fw-bold mt-1 {% if trends.fc_media < 0 %}text-success{% else %}text-muted{% endif %}">
+                                {% if trends.fc_media > 0 %}<i class="bi bi-arrow-up-right"></i>{% elif trends.fc_media < 0 %}<i class="bi bi-arrow-down-right"></i>{% endif %}
+                                {{ trends.fc_media }}%
+                                <i class="bi bi-info-circle text-muted ms-1" style="font-size: 0.7rem;" data-bs-toggle="tooltip" title="Variazione media ultime 5 attività vs precedenti 15"></i>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Riga 2: Metriche Fisiologiche -->
+                <div class="col-6">
+                    <div class="card p-3 stats-box h-100" style="border-color: #dc3545;">
+                        <i class="bi bi-heart-pulse h3 text-danger"></i>
+                        <small class="text-muted d-block">
+                            VO2max Stima Statistica
+                            <i class="bi bi-info-circle-fill ms-1" data-bs-toggle="tooltip" data-bs-placement="top" title="Media mobile (ultime 30 attività). Include Trail (con regola Km-Sforzo: 100m D+ = 800m piani + 10% penalità) e Strada."></i>
+                        </small>
+                        {% if profilo.vo2max_stima_statistica %}
+                            <span class="h4 fw-bold text-danger">{{ profilo.vo2max_stima_statistica }}</span>
+                            {% if trends.vo2max is not None %}
+                                <span class="small ms-2 {% if trends.vo2max > 0 %}text-success{% elif trends.vo2max < 0 %}text-danger{% else %}text-muted{% endif %}">
+                                    {% if trends.vo2max > 0 %}▲{% elif trends.vo2max < 0 %}▼{% endif %}
+                                    {{ trends.vo2max }}%
+                                    <i class="bi bi-info-circle text-muted ms-1" style="font-size: 0.7rem;" data-bs-toggle="tooltip" title="Variazione media ultime 5 attività vs precedenti 15"></i>
+                                </span>
+                            {% endif %}
+                            <div class="small fw-bold text-uppercase mt-1" style="color: #dc3545; font-size: 0.8rem; letter-spacing: 1px;">{{ livello_vo2max }}</div>
+                        {% else %}
+                            <span class="h4 fw-bold text-danger">--</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="card p-3 stats-box h-100" style="border-color: #0d6efd;">
+                        <i class="bi bi-speedometer2 h3 text-primary"></i>
+                        <small class="text-muted d-block">
+                            VO2max Solo Strada
+                            <i class="bi bi-info-circle-fill ms-1" data-bs-toggle="tooltip" data-bs-placement="top" title="Media mobile (ultime 30 attività solo Strada). Calcolato con formula scientifica ACSM pura su asfalto."></i>
+                        </small>
+                        {% if profilo.vo2max_strada %}
+                            <span class="h4 fw-bold text-primary">{{ profilo.vo2max_strada }}</span>
+                            {% if trends.vo2max_strada is not None %}
+                                <span class="small ms-2 {% if trends.vo2max_strada > 0 %}text-success{% elif trends.vo2max_strada < 0 %}text-danger{% else %}text-muted{% endif %}">
+                                    {% if trends.vo2max_strada > 0 %}▲{% elif trends.vo2max_strada < 0 %}▼{% endif %}
+                                    {{ trends.vo2max_strada }}%
+                                    <i class="bi bi-info-circle text-muted ms-1" style="font-size: 0.7rem;" data-bs-toggle="tooltip" title="Variazione media ultime 5 attività vs precedenti 15"></i>
+                                </span>
+                            {% endif %}
+                            <div class="small fw-bold text-uppercase mt-1" style="color: #0d6efd; font-size: 0.8rem; letter-spacing: 1px;">{{ livello_vo2max_strada }}</div>
+                        {% else %}
+                            <span class="h4 fw-bold text-primary">--</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Indici Internazionali -->
+            {% if profilo.indice_itra > 0 or profilo.indice_utmb > 0 %}
+            <div class="row g-3 mb-4">
+                {% if profilo.indice_itra > 0 %}
+                <div class="col-md-6">
+                    <div class="card p-3 text-center text-white shadow-sm" style="background-color: #2c3e50;">
+                        <small class="d-block text-uppercase opacity-75 fw-bold">ITRA Index</small>
+                        <span class="display-6 fw-bold">{{ profilo.indice_itra }}</span>
+                        <div class="fw-bold text-uppercase mt-2" style="font-size: 0.9rem; letter-spacing: 1px; opacity: 0.9;">{{ livello_itra }}</div>
+                    </div>
+                </div>
+                {% endif %}
+                {% if profilo.indice_utmb > 0 %}
+                <div class="col-md-6">
+                    <div class="card p-3 text-center text-black shadow-sm" style="background-color: #ffc107;">
+                        <small class="d-block text-uppercase opacity-75 fw-bold">UTMB Index</small>
+                        <span class="display-6 fw-bold">{{ profilo.indice_utmb }}</span>
+                        <div class="fw-bold text-uppercase mt-2" style="font-size: 0.9rem; letter-spacing: 1px; opacity: 0.8;">{{ livello_utmb }}</div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <!-- Grafici Dashboard -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-6">
+                    <div class="card p-3 h-100 shadow-sm">
+                        <h6 class="fw-bold text-muted mb-3 small text-uppercase">Frequenza Cardiaca (bpm)</h6>
+                        <canvas id="chartFC"></canvas>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card p-3 h-100 shadow-sm">
+                        <h6 class="fw-bold text-muted mb-3 small text-uppercase">Passo Medio (min/km)</h6>
+                        <canvas id="chartPace"></canvas>
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div class="card p-3 shadow-sm">
+                        <h6 class="fw-bold text-muted mb-3 small text-uppercase">Volume (Distanza & Dislivello)</h6>
+                        <canvas id="chartDistElev" height="300"></canvas>
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div class="card p-3 shadow-sm">
+                        <h6 class="fw-bold text-muted mb-3 small text-uppercase">Potenza Media (Watt)</h6>
+                        <canvas id="chartPower" height="300"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card p-4">
+                <h5 class="fw-bold mb-3"><i class="bi bi-calendar3 me-2"></i>Ultime Sessioni</h5>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Data</th>
+                                <th>Tipo</th>
+                                <th>KM</th>
+                                <th>Passo</th>
+                                <th>D+</th>
+                                <th>VAM</th>
+                                <th>FC Media</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for act in attivita_recenti %}
+                            <tr>
+                                <td class="small">{{ act.data|date:"d/m/Y" }}</td>
+                                <td>
+                                    {% if act.tipo_attivita == "TrailRun" %}
+                                        <i class="bi bi-mountain text-success me-1"></i> Trail
+                                    {% else %}
+                                        <i class="bi bi-signpost-split text-primary me-1"></i> Strada
+                                    {% endif %}
+                                </td>
+                                <td class="fw-bold">{{ act.distanza_km }}</td>
+                                <td>{{ act.passo_medio }}</td>
+                                <td><span class="text-muted">+{{ act.dislivello|floatformat:0 }}m</span></td>
+                                <td><span class="fw-bold text-warning">{{ act.vam }} m/h</span></td>
+                                <td><span class="badge bg-light text-dark">{{ act.fc_media }} bpm</span></td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="6" class="text-center py-4">Nessuna attività trovata. Sincronizza con Strava.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Inizializzazione Tooltip Bootstrap
+    const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]')
+    const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl))
+
+    // Configurazione Grafici
+    const labels = {{ chart_labels|safe }};
+    const commonOptions = {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: { x: { grid: { display: false } } }
+    };
+
+    // 1. FC Media
+    new Chart(document.getElementById('chartFC'), {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{ data: {{ chart_fc|safe }}, borderColor: '#dc3545', backgroundColor: 'rgba(220, 53, 69, 0.1)', tension: 0.3, fill: true }]
+        },
+        options: commonOptions
+    });
+
+    // 2. Passo Medio
+    new Chart(document.getElementById('chartPace'), {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{ data: {{ chart_pace|safe }}, borderColor: '#0d6efd', backgroundColor: 'rgba(13, 110, 253, 0.1)', tension: 0.3, fill: true }]
+        },
+        options: commonOptions // Ripristinato: asse standard come richiesto
+    });
+
+    // 3. Distanza & Dislivello (Combinato)
+    new Chart(document.getElementById('chartDistElev'), {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Distanza (km)',
+                    data: {{ chart_dist|safe }},
+                    backgroundColor: '#198754',
+                    borderRadius: 4,
+                    yAxisID: 'y',
+                    order: 2
+                },
+                {
+                    label: 'Dislivello (m)',
+                    data: {{ chart_elev|safe }},
+                    type: 'line',
+                    borderColor: '#6c757d',
+                    backgroundColor: 'rgba(108, 117, 125, 0.2)',
+                    borderWidth: 2,
+                    tension: 0.3,
+                    fill: true,
+                    yAxisID: 'y1',
+                    order: 1
+                }
+            ]
+        },
+        options: {
+            ...commonOptions,
+            plugins: { legend: { display: true } },
+            scales: {
+                x: { grid: { display: false } },
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    title: { display: true, text: 'km' }
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    grid: { drawOnChartArea: false },
+                    title: { display: true, text: 'm' }
+                }
+            }
+        }
+    });
+
+    // 5. Potenza
+    new Chart(document.getElementById('chartPower'), {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{ data: {{ chart_power|safe }}, borderColor: '#6610f2', backgroundColor: 'rgba(102, 16, 242, 0.1)', tension: 0.3, fill: true }]
+        },
+        options: commonOptions
+    });
+</script>
+{% endblock %}

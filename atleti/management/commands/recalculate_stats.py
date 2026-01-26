@@ -1,0 +1,32 @@
+from django.core.management.base import BaseCommand
+from atleti.models import ProfiloAtleta, Attivita
+from atleti.utils import stima_vo2max_atleta, calcola_metrica_vo2max
+
+class Command(BaseCommand):
+    help = 'Ricalcola le statistiche (VO2max Strada/Stima) per tutti gli atleti'
+
+    def handle(self, *args, **kwargs):
+        self.stdout.write("Inizio ricalcolo statistiche...")
+        
+        atleti = ProfiloAtleta.objects.all()
+        count = 0
+        
+        for profilo in atleti:
+            self.stdout.write(f"Elaborazione: {profilo.user.username}...")
+            
+            # 1. Ricalcola VO2max per ogni singola attività (se necessario)
+            # Utile se abbiamo cambiato la formula in utils.py
+            attivita = Attivita.objects.filter(atleta=profilo)
+            for act in attivita:
+                if act.distanza > 0 and act.durata > 0:
+                    # Ricalcoliamo sempre per essere sicuri di avere il dato aggiornato con l'ultima formula
+                    nuovo_vo2 = calcola_metrica_vo2max(act, profilo)
+                    if nuovo_vo2:
+                        act.vo2max_stimato = nuovo_vo2
+                        act.save()
+
+            # 2. Aggiorna i campi aggregati del profilo (incluso vo2max_strada)
+            stima_vo2max_atleta(profilo)
+            count += 1
+
+        self.stdout.write(self.style.SUCCESS(f'Fatto! Aggiornati {count} profili.'))

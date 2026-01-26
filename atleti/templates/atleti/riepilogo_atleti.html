@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="fw-bold m-0">Riepilogo Atleti</h2>
+    <span class="badge bg-primary rounded-pill">{{ atleti.count }} Atleti Registrati</span>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-4">Atleta</th>
+                        <th class="text-center">VO2max (Stat)</th>
+                        <th class="text-center">VO2max (Strada)</th>
+                        <th class="text-center">ITRA</th>
+                        <th class="text-center">UTMB</th>
+                        <th class="text-center">FC Max</th>
+                        <th class="text-center">Peso</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for atleta in atleti %}
+                    <tr>
+                        <td class="ps-4">
+                            <div class="d-flex align-items-center">
+                                {% if atleta.immagine_profilo %}
+                                <img src="{{ atleta.immagine_profilo }}" class="rounded-circle me-3" width="40" height="40" style="object-fit: cover;">
+                                {% else %}
+                                <div class="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
+                                    <i class="bi bi-person"></i>
+                                </div>
+                                {% endif %}
+                                <div>
+                                    <a href="{% url 'dashboard_atleta' atleta.user.username %}" class="text-decoration-none text-dark">
+                                        <div class="fw-bold">{{ atleta.user.first_name }} {{ atleta.user.last_name }}</div>
+                                        <div class="small text-muted">@{{ atleta.user.username }}</div>
+                                    </a>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="text-center fw-bold text-danger">{{ atleta.vo2max_stima_statistica|default:"--" }}</td>
+                        <td class="text-center fw-bold text-primary">{{ atleta.vo2max_strada|default:"--" }}</td>
+                        <td class="text-center"><span class="badge bg-dark">{{ atleta.indice_itra|default:"-" }}</span></td>
+                        <td class="text-center"><span class="badge bg-warning text-dark">{{ atleta.indice_utmb|default:"-" }}</span></td>
+                        <td class="text-center text-muted">{{ atleta.fc_massima_teorica }} bpm</td>
+                        <td class="text-center text-muted">
+                            {% if atleta.mostra_peso or request.user.is_staff %}
+                                {{ atleta.peso|default:"-" }} kg
+                            {% else %}
+                                <i class="bi bi-eye-slash" title="Nascosto"></i>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

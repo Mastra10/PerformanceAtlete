@@ -1,0 +1,10 @@
+django>=5.0
+psycopg2-binary          # Per connettersi a PostgreSQL
+google-genai             # Il nuovo SDK per Gemini
+django-allauth           # Per l'autenticazione Strava
+requests                 # Per chiamate API generiche
+python-dotenv            # Per leggere il file .env
+google-generativeai
+django-apscheduler       # Per schedulare i task
+undetected-chromedriver  # Per lo scraping anti-bot
+setuptools

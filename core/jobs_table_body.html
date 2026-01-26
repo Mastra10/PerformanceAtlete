@@ -1,0 +1,24 @@
+{% for job in jobs %}
+<tr>
+    <td class="fw-bold font-monospace">{{ job.id }}</td>
+    <td>
+        {% if job.next_run_time %}
+            <span class="{% if job.next_run_time < now %}text-danger fw-bold{% else %}text-primary{% endif %}">
+                {{ job.next_run_time|date:"d/m/Y H:i:s" }}
+            </span>
+            {% if job.next_run_time < now %}<i class="bi bi-exclamation-circle-fill text-danger ms-1" title="In ritardo! Scheduler forse fermo?"></i>{% endif %}
+        {% else %}
+            <span class="text-muted">In pausa</span>
+        {% endif %}
+    </td>
+    <td>
+        {% if job.next_run_time %}
+            <span class="badge bg-info text-dark">Attivo</span>
+        {% else %}
+            <span class="badge bg-secondary">Pausa</span>
+        {% endif %}
+    </td>
+</tr>
+{% empty %}
+<tr><td colspan="3" class="text-center">Nessun job configurato.</td></tr>
+{% endfor %}
