@@ -104,8 +104,8 @@ def calcola_metrica_vo2max(attivita, profilo):
         
         if is_trail:
             # LOGICA TRAIL (Km-Effort Rule)
-            # Nel trail, 100m di D+ equivalgono a circa 800m di sforzo in piano (coefficiente 8)
-            distanza_equivalente = distanza_metri + (8 * d_plus)
+            # Nel trail, 100m di D+ equivalgono a circa 600m di sforzo in piano (coefficiente 6)
+            distanza_equivalente = distanza_metri + (6 * d_plus)
             velocita_eq = distanza_equivalente / (durata_secondi / 60)
             
             # Fattore Terreno: +10% costo ossigeno per instabilità
@@ -120,15 +120,25 @@ def calcola_metrica_vo2max(attivita, profilo):
             # 0.2 * v (Orizzontale) + 0.9 * v * pendenza (Verticale) + 3.5 (Basale)
             vo2_attivita = (0.2 * velocita_m_min) + (0.9 * velocita_m_min * pendenza) + 3.5
         
-        # 5. Normalizzazione Karvonen (Intensità)
-        percentuale_sforzo = (fc_media - hr_rest) / (hr_max - hr_rest)
-        print(f"Intensità (Karvonen): {percentuale_sforzo:.2%}", flush=True)
+        # 5. Calcolo VO2max
+        # Metodo 1: Prestazione (VO2 attività / % Riserva Cardiaca)
+        # Se HR_rest scende, %HRR sale, quindi questo valore scende (corretto matematicamente per la singola seduta)
+        karvonen_percent = (fc_media - hr_rest) / (hr_max - hr_rest)
         
-        if percentuale_sforzo < 0.65 or durata_secondi < 1200:
+        if karvonen_percent < 0.60 or durata_secondi < 1200:
             print("Sforzo < 65% o Durata < 20min, calcolo ignorato.", flush=True)
             return None
+            
+        vo2_performance = vo2_attivita / karvonen_percent
 
-        vo2max_stima_trail_strada = vo2_attivita / percentuale_sforzo
+        # Metodo 2: Fisiologia Pura (Uth-Sørensen-Overgaard-Pedersen)
+        # VO2max = 15 * (HRmax / HRrest). Questo SALE se HRrest scende.
+        vo2_fisiologico = 15.3 * (hr_max / hr_rest)
+        
+        # Mix Ponderato: 70% Prestazione Reale (quello che hai fatto), 30% Potenziale Fisiologico (chi sei)
+        # Questo stabilizza il dato e fa sì che se HRrest scende, il bonus fisiologico compensi il calcolo Karvonen.
+        vo2max_stima_trail_strada = (vo2_performance * 0.70) + (vo2_fisiologico * 0.30)
+        
         print(f"VO2 Attività: {vo2_attivita:.2f} -> VO2max Stimato: {vo2max_stima_trail_strada:.2f}", flush=True)
         
         return round(vo2max_stima_trail_strada, 2)
