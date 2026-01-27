@@ -3,16 +3,75 @@
 {% load static %}
 
 {% block extra_css %}
+<style>
+    /* Stile Login Full Screen */
+    body, html {
+        height: 100%;
+        margin: 0;
+        font-family: 'Inter', sans-serif;
+    }
+
+    .bg-image {
+        background-image: url("{% static 'images/barilla4.png' %}");
+        height: 100vh;
+        background-position: center;
+        background-repeat: no-repeat;
+        background-size: cover;
+        position: relative;
+    }
+
+    .overlay {
+        background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.7));
+        height: 100%;
+        width: 100%;
+        display: flex;
+        align-items: flex-start;
+        justify-content: flex-start;
+        padding-left: 5%;
+        padding-top: 5%;
+    }
+
+    .login-box {
+        background: white;
+        padding: 40px;
+        border-radius: 8px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        text-align: center;
+        width: 90%;
+        max-width: 400px;
+    }
+
+    .strava-btn {
+        display: inline-block;
+        margin-top: 20px;
+        transition: transform 0.2s;
+    }
+
+    .strava-btn:hover {
+        transform: scale(1.05);
+    }
+
+    @media (max-width: 768px) {
+        .overlay {
+            justify-content: center;
+            align-items: center;
+            padding-left: 0;
+            padding-top: 0;
+        }
+    }
+</style>
 {% endblock %}
 
 {% block content_unauth %}
-<div class="container pb-5">
-    <div class="text-center py-5 mt-5">
-        <h1 class="display-3 fw-bold text-dark">Evolvi la tua Corsa</h1>
-        <p class="lead text-muted mb-5">Sincronizzazione Strava e analisi fisiologica AI per atleti</p>
-        <a href="{% provider_login_url 'strava' %}" class="d-inline-block">
-            <img src="{% static 'images/btn_strava_connect_with_orange.svg' %}" alt="Connect with Strava" width="237" height="48">
-        </a>
+<div class="bg-image">
+    <div class="overlay">
+        <div class="login-box">
+            <p class="lead text-muted">Monitora i tuoi progressi, contribuisci al successo del gruppo.</p>
+            <hr class="my-4">
+            <a href="{% provider_login_url 'strava' %}" class="strava-btn">
+                <img src="{% static 'images/btn_strava_connect_with_orange.svg' %}" alt="Connect with Strava" width="237" height="48">
+            </a>
+        </div>
     </div>
 </div>
 {% endblock %}
