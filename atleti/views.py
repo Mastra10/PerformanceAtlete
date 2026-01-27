@@ -151,6 +151,11 @@ def _get_dashboard_context(user):
         else:
             pace_data.append(None)
 
+    # Warning Peso
+    warning_peso = None
+    if not profilo.peso or profilo.peso <= 0:
+        warning_peso = "Peso non configurato per l'atleta! Fondamentale impostarlo nei settings. Stiamo assumendo un valore di default (70kg) per i calcoli."
+
     return {
         'totale_km': totale_km,
         'vam_media': vam_media,
@@ -175,6 +180,7 @@ def _get_dashboard_context(user):
         'chart_power': json.dumps(power_data),
         'chart_elev': json.dumps(elev_data),
         'vam_tooltip': "VAM Selettiva (Pro): Calcolata isolando solo i tratti di salita con pendenza > 7% (dati reali secondo per secondo). Esclude pause, discese e tratti in piano per riflettere la tua vera velocità ascensionale.",
+        'warning_peso': warning_peso,
     }
 
 # 1. Questa mostra la pagina (NON cancellarla!)

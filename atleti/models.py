@@ -71,6 +71,36 @@ class Attivita(models.Model):
             return int((self.dislivello / self.durata) * 3600)
         return 0
     
+    @property
+    def vo2max_assoluto(self):
+        """Calcola VO2max Assoluto in L/min"""
+        peso = self.atleta.peso if (self.atleta.peso and self.atleta.peso > 0) else 70.0
+        if self.vo2max_stimato:
+            return round((self.vo2max_stimato * peso) / 1000, 2)
+        return None
+
+    @property
+    def kcal_stimate(self):
+        """Stima Kcal basata su VO2 dell'attività"""
+        peso = self.atleta.peso if (self.atleta.peso and self.atleta.peso > 0) else 70.0
+        if self.durata <= 0: return None
+        
+        # Ricostruzione VO2 Attività (approssimata per display)
+        distanza_metri = self.distanza
+        durata_secondi = self.durata
+        d_plus = self.dislivello
+        
+        if self.tipo_attivita == 'TrailRun':
+             distanza_equivalente = distanza_metri + (5 * d_plus)
+             velocita_eq = distanza_equivalente / (durata_secondi / 60)
+             vo2_attivita = (0.2 * velocita_eq * 1.05) + 3.5
+        else:
+             velocita_m_min = distanza_metri / (durata_secondi / 60)
+             pendenza = d_plus / distanza_metri if distanza_metri > 0 else 0
+             vo2_attivita = (0.2 * velocita_m_min) + (0.9 * velocita_m_min * pendenza) + 3.5
+             
+        return int(((vo2_attivita - 3.5) * peso * (durata_secondi / 60) * 5) / 1000)
+
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):
     if created:

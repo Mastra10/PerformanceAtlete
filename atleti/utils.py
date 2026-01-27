@@ -131,6 +131,12 @@ def calcola_metrica_vo2max(attivita, profilo):
         hr_max = profilo.fc_massima_teorica
         hr_rest = profilo.fc_riposo # Il campo nel tuo modello è fc_riposo
         
+        # Controllo Peso (Default 70kg se mancante)
+        peso_atleta = profilo.peso
+        if not peso_atleta or peso_atleta <= 0:
+            print("Peso non configurato per l'atleta fondamentale impostarlo nel settings stai assumendo un valore di default 70", flush=True)
+            peso_atleta = 70.0
+        
         # DEBUG: Stampa i valori usati per il calcolo
         print(f"\n--- DEBUG CALCOLO VO2MAX (ID: {getattr(attivita, 'strava_activity_id', 'N/A')}) ---", flush=True)
         print(f"Dati: Dist={distanza_metri}m, Durata={durata_secondi}s, FC_Avg={fc_media}, D+={d_plus}", flush=True)
@@ -144,12 +150,12 @@ def calcola_metrica_vo2max(attivita, profilo):
         
         if is_trail:
             # LOGICA TRAIL (Km-Effort Rule)
-            # Nel trail, 100m di D+ equivalgono a circa 600m di sforzo in piano (coefficiente 6)
-            distanza_equivalente = distanza_metri + (6 * d_plus)
+            # Nel trail, 100m di D+ equivalgono a circa 500m di sforzo in piano (coefficiente 5)
+            distanza_equivalente = distanza_metri + (5 * d_plus)
             velocita_eq = distanza_equivalente / (durata_secondi / 60)
             
-            # Fattore Terreno: +10% costo ossigeno per instabilità
-            vo2_attivita = (0.2 * velocita_eq * 1.10) + 3.5
+            # Fattore Terreno: +5% costo ossigeno per instabilità (Elite efficiency)
+            vo2_attivita = (0.2 * velocita_eq * 1.05) + 3.5
             
         else:
             # LOGICA STRADA (Formula ACSM Standard)
@@ -178,6 +184,12 @@ def calcola_metrica_vo2max(attivita, profilo):
         # Mix Ponderato: 70% Prestazione Reale (quello che hai fatto), 30% Potenziale Fisiologico (chi sei)
         # Questo stabilizza il dato e fa sì che se HRrest scende, il bonus fisiologico compensi il calcolo Karvonen.
         vo2max_stima_trail_strada = (vo2_performance * 0.70) + (vo2_fisiologico * 0.30)
+        
+        # Calcolo Metriche Aggiuntive (Kcal e VO2 Assoluto) per debug/log
+        vo2_assoluto_l_min = (vo2max_stima_trail_strada * peso_atleta) / 1000
+        # Formula Kcal Attive: ((vo2_attivita - 3.5) * peso * minuti * 5 kcal/L) / 1000
+        kcal_totali = ((vo2_attivita - 3.5) * peso_atleta * (durata_secondi / 60) * 5) / 1000
+        print(f"DEBUG EXTRA: VO2 Abs: {vo2_assoluto_l_min:.2f} L/min, Kcal: {kcal_totali:.0f}", flush=True)
         
         print(f"VO2 Attività: {vo2_attivita:.2f} -> VO2max Stimato: {vo2max_stima_trail_strada:.2f}", flush=True)
         
