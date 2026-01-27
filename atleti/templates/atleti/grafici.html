@@ -6,6 +6,7 @@
     <title>Grafici Performance</title>
     <!-- Chart.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 20px; max-width: 1000px; margin: 0 auto; background-color: #f8f9fa; }
         .container { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
@@ -16,7 +17,10 @@
     </style>
 </head>
 <body>
-    <a href="{% url 'home' %}" class="btn">← Torna alla Dashboard</a>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <a href="{% url 'home' %}" class="btn" style="margin-bottom: 0;">← Torna alla Dashboard</a>
+        <span style="color: #fc4c02; font-weight: bold; font-size: 0.9rem;"><i class="bi bi-strava"></i> Powered by Strava</span>
+    </div>
     
     <div class="container">
         <h1>Analisi Trend (Ultime 50 sessioni)</h1>
