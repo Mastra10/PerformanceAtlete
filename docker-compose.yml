@@ -16,7 +16,7 @@ services:
     volumes:
       - .:/code
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     shm_size: '2gb'
     environment:
       - DATABASE_URL=postgres://admin:atleti_pass@db:5432/atleti_db
