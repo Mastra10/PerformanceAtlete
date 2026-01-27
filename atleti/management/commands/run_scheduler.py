@@ -34,7 +34,12 @@ class Command(BaseCommand):
         # --- FILTRO ANTI-SPAM ---
         class HeartbeatFilter(logging.Filter):
             def filter(self, record):
-                return "task_heartbeat" not in record.getMessage()
+                msg = record.getMessage()
+                if "task_heartbeat" in msg:
+                    # Nascondiamo solo i log di routine (INFO), ma mostriamo gli ERRORI
+                    if "Running job" in msg or "executed successfully" in msg:
+                        return False
+                return True
 
         f = HeartbeatFilter()
         file_handler.addFilter(f)
@@ -122,11 +127,11 @@ class Command(BaseCommand):
         )
         
         # 5. Sync Strava Automatico (Ogni 4 ore)
-        schedule_task(
-            task_sync_strava,
-            "sync_strava_periodico",
-            default_hour='*', default_minute=30 # Al minuto 30 di ogni ora (se configurato così) o default custom
-        )
+        # schedule_task(
+        #     task_sync_strava,
+        #     "sync_strava_periodico",
+        #     default_hour='*', default_minute=30 # Al minuto 30 di ogni ora (se configurato così) o default custom
+        # )
         # Nota: Per farlo ogni 4 ore, l'utente admin dovrà configurare "*/4" nel campo ora, oppure usiamo un trigger diverso qui sotto se vogliamo forzarlo
         
         # 5. SYSTEM HEARTBEAT (Ogni 10 secondi)

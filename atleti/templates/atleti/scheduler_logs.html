@@ -30,7 +30,11 @@
             <div class="row g-3">
                 {% for task_id, task_name, setting in tasks %}
                 <div class="col-md-3 col-sm-6">
-                    <a href="{% url 'run_task_manually' task_id %}" id="btn-task-{{ task_id }}" data-task-name="{{ task_name }}" class="btn {% if setting.manual_trigger %}btn-warning disabled{% else %}btn-outline-primary{% endif %} w-100 h-100 d-flex align-items-center justify-content-center gap-2">
+                    {% if setting.manual_trigger %}
+                        <a href="{% url 'reset_task_trigger' task_id %}" id="btn-task-{{ task_id }}" data-task-name="{{ task_name }}" class="btn btn-warning w-100 h-100 d-flex align-items-center justify-content-center gap-2" title="Clicca per annullare">
+                    {% else %}
+                        <a href="{% url 'run_task_manually' task_id %}" id="btn-task-{{ task_id }}" data-task-name="{{ task_name }}" class="btn btn-outline-primary w-100 h-100 d-flex align-items-center justify-content-center gap-2">
+                    {% endif %}
                         {% if setting.manual_trigger %}
                             <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                             In Coda...
@@ -179,9 +183,11 @@
                     if (btn) {
                         const taskName = btn.getAttribute('data-task-name');
                         if (isTriggered) {
-                            btn.className = "btn btn-warning disabled w-100 h-100 d-flex align-items-center justify-content-center gap-2";
+                            btn.href = `/reset-task/${taskId}/`;
+                            btn.className = "btn btn-warning w-100 h-100 d-flex align-items-center justify-content-center gap-2";
                             btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> In Coda...';
                         } else {
+                            btn.href = `/run-task/${taskId}/`;
                             btn.className = "btn btn-outline-primary w-100 h-100 d-flex align-items-center justify-content-center gap-2";
                             btn.innerHTML = `<i class="bi bi-lightning-fill"></i> ${taskName}`;
                         }

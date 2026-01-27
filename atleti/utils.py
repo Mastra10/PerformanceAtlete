@@ -39,7 +39,7 @@ def refresh_strava_token(token_obj):
             'refresh_token': token_obj.token_secret, 
         }
         
-        response = requests.post('https://www.strava.com/oauth/token', data=data)
+        response = requests.post('https://www.strava.com/oauth/token', data=data, timeout=10)
         
         if response.status_code == 200:
             new_data = response.json()
@@ -69,7 +69,7 @@ def calcola_vam_selettiva(activity_id, access_token):
     headers = {'Authorization': f'Bearer {access_token}'}
     
     try:
-        response = requests.get(url, headers=headers, params=params)
+        response = requests.get(url, headers=headers, params=params, timeout=15)
         
         if response.status_code == 429:
             print("Rate Limit Strava raggiunto durante calcolo VAM.")

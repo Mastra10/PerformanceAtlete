@@ -14,6 +14,6 @@ class AttivitaAdmin(admin.ModelAdmin):
 
 @admin.register(TaskSettings)
 class TaskSettingsAdmin(admin.ModelAdmin):
-    list_display = ('get_task_id_display', 'active', 'hour', 'minute', 'day_of_week')
-    list_editable = ('active', 'hour', 'minute', 'day_of_week')
+    list_display = ('get_task_id_display', 'active', 'manual_trigger', 'hour', 'minute', 'day_of_week')
+    list_editable = ('active', 'manual_trigger', 'hour', 'minute', 'day_of_week')
     help_text = "NOTA: Dopo aver modificato questi valori, è necessario riavviare il container 'scheduler' per applicare le modifiche."

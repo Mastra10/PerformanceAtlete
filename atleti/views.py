@@ -760,3 +760,26 @@ def scheduler_logs_update(request):
         'jobs_html': jobs_html,
         'manual_triggers': settings_map
     })
+
+def reset_task_trigger(request, task_id):
+    """Annulla il flag di esecuzione manuale per un task bloccato"""
+    if not request.user.is_staff:
+        return redirect('home')
+        
+    try:
+        setting = TaskSettings.objects.get(task_id=task_id)
+        setting.manual_trigger = False
+        setting.save()
+        
+        # Scriviamo direttamente nel file di log dello scheduler per feedback immediato nella dashboard
+        log_path = '/code/scheduler.log'
+        if os.path.exists(log_path):
+            with open(log_path, 'a') as f:
+                timestamp = timezone.now().strftime('%Y-%m-%d %H:%M:%S')
+                f.write(f"{timestamp} [INFO] WEB: Trigger per '{task_id}' ANNULLATO da {request.user.username}\n")
+        
+        messages.info(request, f"Trigger per '{task_id}' annullato manualmente.")
+    except TaskSettings.DoesNotExist:
+        pass
+    
+    return redirect('scheduler_logs')
