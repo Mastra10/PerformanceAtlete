@@ -18,6 +18,10 @@ from django.contrib import admin
 from django.urls import path, include
 from atleti.views import home
 from atleti import views
+from django.conf import settings
+from django.conf.urls.static import static
+from django.contrib.staticfiles.urls import staticfiles_urlpatterns
+
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -39,3 +43,7 @@ urlpatterns = [
     path('scheduler-logs-update/', views.scheduler_logs_update, name='scheduler_logs_update'),
     path('reset-task/<str:task_id>/', views.reset_task_trigger, name='reset_task_trigger'),
 ]
+
+
+if settings.DEBUG:
+    urlpatterns += staticfiles_urlpatterns()

@@ -3,9 +3,6 @@
 {% load static %}
 
 {% block extra_css %}
-<style>
-    .btn-strava { background-color: var(--strava-orange); color: white; border-radius: 10px; font-weight: 600; }
-</style>
 {% endblock %}
 
 {% block content_unauth %}
@@ -14,7 +11,7 @@
         <h1 class="display-3 fw-bold text-dark">Evolvi la tua Corsa</h1>
         <p class="lead text-muted mb-5">Sincronizzazione Strava e analisi fisiologica AI per atleti</p>
         <a href="{% provider_login_url 'strava' %}" class="d-inline-block">
-            <img src="{% static 'images/btn_strava_connect_with_orange.svg' %}" alt="Connect with Strava">
+            <img src="{% static 'images/btn_strava_connect_with_orange.svg' %}" alt="Connect with Strava" width="237" height="48">
         </a>
     </div>
 </div>
