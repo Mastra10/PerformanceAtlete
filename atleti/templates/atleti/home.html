@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load socialaccount %}
+{% load static %}
 
 {% block extra_css %}
 <style>
@@ -12,8 +13,8 @@
     <div class="text-center py-5 mt-5">
         <h1 class="display-3 fw-bold text-dark">Evolvi la tua Corsa</h1>
         <p class="lead text-muted mb-5">Sincronizzazione Strava e analisi fisiologica AI per atleti</p>
-        <a href="{% provider_login_url 'strava' %}" class="btn btn-strava btn-lg px-5 py-3">
-            <i class="bi bi-strava me-2"></i>CONNETTI STRAVA
+        <a href="{% provider_login_url 'strava' %}" class="d-inline-block">
+            <img src="{% static 'images/btn_strava_connect_with_orange.svg' %}" alt="Connect with Strava">
         </a>
     </div>
 </div>
