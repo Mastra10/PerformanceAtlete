@@ -165,3 +165,6 @@ SOCIALACCOUNT_LOGIN_ON_GET = True
 # Configurazione Scheduler
 APSCHEDULER_DATETIME_FORMAT = "N j, Y, f:s a"
 APSCHEDULER_RUN_NOW_TIMEOUT = 25  # Secondi
+
+# certificato
+CSRF_TRUSTED_ORIGINS = os.getenv('CSRF_TRUSTED_ORIGINS', 'http://localhost:8000').split(',')
