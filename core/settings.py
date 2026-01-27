@@ -168,3 +168,7 @@ APSCHEDULER_RUN_NOW_TIMEOUT = 25  # Secondi
 
 # certificato
 CSRF_TRUSTED_ORIGINS = os.getenv('CSRF_TRUSTED_ORIGINS', 'http://localhost:8000').split(',')
+
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+SECURE_SSL_REDIRECT = True
