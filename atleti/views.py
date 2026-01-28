@@ -483,6 +483,30 @@ def sincronizza_strava(request):
     cache.set(cache_key, {'status': 'Completato!', 'progress': 100}, timeout=300)
     return redirect('home')
 
+@login_required
+def ricalcola_statistiche(request):
+    """Ricalcola manualmente le statistiche (VO2max, ecc) per l'utente corrente"""
+    profilo, _ = ProfiloAtleta.objects.get_or_create(user=request.user)
+    
+    # 1. Ricalcola VO2max per ogni singola attività
+    attivita = Attivita.objects.filter(atleta=profilo)
+    count = 0
+    for act in attivita:
+        if act.distanza > 0 and act.durata > 0:
+            nuovo_vo2 = calcola_metrica_vo2max(act, profilo)
+            if nuovo_vo2:
+                act.vo2max_stimato = nuovo_vo2
+                act.save()
+                count += 1
+
+    # 2. Aggiorna i campi aggregati del profilo
+    profilo.data_ultimo_ricalcolo_statistiche = timezone.now()
+    stima_vo2max_atleta(profilo)
+    profilo.save()
+    
+    messages.success(request, f"Statistiche ricalcolate per {count} attività.")
+    return redirect('home')
+
 def grafici_atleta(request):
     if not request.user.is_authenticated:
         return redirect('home')

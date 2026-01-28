@@ -28,6 +28,7 @@ urlpatterns = [
     path('accounts/', include('allauth.urls')), # Gestisce tutto il flusso login/logout
     path('', home, name='home'), # Questo gestisce l'indirizzo http://localhost:8000/
     path('sync/', views.sincronizza_strava, name='strava_sync'),
+    path('ricalcola-statistiche/', views.ricalcola_statistiche, name='ricalcola_statistiche'),
     path('calcola-vo2max/', views.calcola_vo2max, name='calcola_vo2max'),
     path('grafici/', views.grafici_atleta, name='grafici'),
     path('impostazioni/', views.impostazioni, name='impostazioni'),
