@@ -1,357 +1,521 @@
 {% extends 'base.html' %}
-{% load static %}
 
 {% block content %}
-<div class="container-fluid py-4">
-    <!-- Header & Navigation -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h2 class="fw-bold mb-0">Coach Dashboard 🧢</h2>
-            <p class="text-muted mb-0">Panoramica squadra e stato di forma</p>
-        </div>
-        <div class="btn-group">
-            <a href="?week={{ prev_offset }}" class="btn btn-outline-secondary"><i class="bi bi-chevron-left"></i> Settimana Precedente</a>
-            <button type="button" class="btn btn-secondary disabled">{{ week_label }}</button>
-            <a href="?week={{ next_offset }}" class="btn btn-outline-secondary {% if week_offset >= 0 %}disabled{% endif %}">Settimana Successiva <i class="bi bi-chevron-right"></i></a>
-        </div>
-    </div>
+<!-- Libreria per PDF -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
-    <!-- KPI Cards -->
-    <div class="row g-3 mb-4">
-        <div class="col-md-3">
-            <div class="card p-3 border-0 shadow-sm h-100">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <h6 class="text-muted text-uppercase small">Volume Squadra</h6>
-                        <h3 class="fw-bold mb-0">{{ vol_current_km }} km</h3>
-                    </div>
-                    <div class="text-end">
-                        <span class="badge {% if trend_vol >= 0 %}bg-success{% else %}bg-danger{% endif %}">
-                            {% if trend_vol >= 0 %}+{% endif %}{{ trend_vol }}%
-                        </span>
-                        <small class="d-block text-muted mt-1">vs {{ vol_prev_km }} km</small>
-                    </div>
-                </div>
-            </div>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="fw-bold m-0">Dashboard Coach <span class="text-muted h4">| Panoramica Squadra</span></h2>
+    <div class="d-flex align-items-center">
+        <div class="btn-group shadow-sm me-3">
+            <a href="?week={{ prev_offset }}" class="btn btn-outline-secondary"><i class="bi bi-chevron-left"></i></a>
+            <button class="btn btn-outline-secondary disabled text-dark fw-bold" style="min-width: 200px;">{{ week_label }}</button>
+            <a href="{% if week_offset < 0 %}?week={{ next_offset }}{% else %}#{% endif %}" class="btn btn-outline-secondary {% if week_offset >= 0 %}disabled{% endif %}"><i class="bi bi-chevron-right"></i></a>
         </div>
-        <div class="col-md-3">
-            <div class="card p-3 border-0 shadow-sm h-100">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <h6 class="text-muted text-uppercase small">Atleti Attivi</h6>
-                        <h3 class="fw-bold mb-0">{{ total_athletes }}</h3>
-                    </div>
-                    <div class="text-end">
-                        <i class="bi bi-people-fill h3 text-primary"></i>
-                    </div>
+        <button class="btn btn-primary shadow-sm" onclick="generaAnalisiAI()">
+            <i class="bi bi-stars me-2"></i>Analisi AI Squadra
+        </button>
+    </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="row g-4 mb-4">
+    <div class="col-md-4">
+        <div class="card p-3 border-start border-4 border-primary shadow-sm">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <small class="text-muted text-uppercase fw-bold">
+                        Atleti Totali
+                        <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip" title="Numero totale di atleti registrati con profilo attivo."></i>
+                    </small>
+                    <h3 class="fw-bold m-0">{{ total_athletes }}</h3>
                 </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card p-3 border-0 shadow-sm h-100">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <h6 class="text-muted text-uppercase small">Tasso Inattività</h6>
-                        <h3 class="fw-bold mb-0">{{ perc_inattivi }}%</h3>
-                    </div>
-                    <div class="text-end">
-                        <span class="badge {% if perc_inattivi < 20 %}bg-success{% else %}bg-warning{% endif %}">
-                            {{ atleti_inattivi|length }} atleti
-                        </span>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card p-3 border-0 shadow-sm h-100 bg-light">
-                <button onclick="generaAnalisiCoach()" class="btn btn-primary w-100 h-100 d-flex align-items-center justify-content-center">
-                    <i class="bi bi-stars me-2"></i> Genera Report AI
-                </button>
+                <i class="bi bi-people h1 text-primary opacity-25"></i>
             </div>
         </div>
     </div>
-
-    <!-- AI Report Area -->
-    <div id="aiReportArea" class="alert alert-info d-none">
-        <h5 class="alert-heading"><i class="bi bi-robot me-2"></i>Analisi Coach AI</h5>
-        <div id="aiReportContent" style="white-space: pre-line;"></div>
-    </div>
-
-    <div class="row g-4">
-        <!-- Colonna Sinistra: Allarmi e Liste -->
-        <div class="col-lg-8">
-            
-            <!-- ACWR Alerts (NEW) -->
-            <div class="card mb-4 border-0 shadow-sm">
-                <div class="card-header bg-white py-3">
-                    <h5 class="fw-bold m-0 text-danger"><i class="bi bi-activity me-2"></i>Allarmi Carico (ACWR)</h5>
-                </div>
-                <div class="card-body">
-                    {% if acwr_alerts %}
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Atleta</th>
-                                    <th>Status</th>
-                                    <th>Ratio</th>
-                                    <th>Carico Acuto (7gg)</th>
-                                    <th>Carico Cronico (28gg)</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for alert in acwr_alerts %}
-                                <tr>
-                                    <td class="fw-bold">
-                                        <a href="{% url 'dashboard_atleta' alert.atleta.user.username %}" class="text-decoration-none text-dark">
-                                            {{ alert.atleta.user.first_name }} {{ alert.atleta.user.last_name }}
-                                        </a>
-                                    </td>
-                                    <td>
-                                        {% if 'Risk' in alert.status %}
-                                            <span class="badge bg-danger"><i class="bi bi-exclamation-triangle me-1"></i>High Risk</span>
-                                        {% else %}
-                                            <span class="badge bg-warning text-dark"><i class="bi bi-graph-down me-1"></i>Detraining</span>
-                                        {% endif %}
-                                    </td>
-                                    <td class="fw-bold {% if 'Risk' in alert.status %}text-danger{% else %}text-warning{% endif %}">{{ alert.ratio }}</td>
-                                    <td>{{ alert.acute }} <small class="text-muted">km-sforzo</small></td>
-                                    <td>{{ alert.chronic }} <small class="text-muted">km-sforzo</small></td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+    <div class="col-md-4">
+        <div class="card p-3 border-start border-4 border-success shadow-sm">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <small class="text-muted text-uppercase fw-bold">
+                        Volume Settimanale
+                        <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip" title="Somma totale dei km percorsi da tutti gli atleti nella settimana selezionata."></i>
+                    </small>
+                    <h3 class="fw-bold m-0">{{ vol_current_km }} km</h3>
+                    <div class="small {% if trend_vol >= 0 %}text-success{% else %}text-danger{% endif %}">
+                        {% if trend_vol >= 0 %}▲{% else %}▼{% endif %} {{ trend_vol }}% vs settimana scorsa
                     </div>
-                    {% else %}
-                    <div class="text-center py-4 text-success">
-                        <i class="bi bi-check-circle-fill h3 d-block mb-2"></i>
-                        <p class="mb-0">Nessun allarme di carico rilevato. La squadra si allena in modo bilanciato (0.8 - 1.3).</p>
-                    </div>
-                    {% endif %}
                 </div>
+                <i class="bi bi-graph-up h1 text-success opacity-25"></i>
             </div>
-
-            <!-- FC Alerts -->
-            {% if fc_alerts %}
-            <div class="card mb-4 border-0 shadow-sm">
-                <div class="card-header bg-white py-3">
-                    <h5 class="fw-bold m-0 text-warning"><i class="bi bi-heart-pulse me-2"></i>Allarmi Frequenza Cardiaca</h5>
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-sm table-hover">
-                            <thead><tr><th>Atleta</th><th>Aumento FC Media</th><th>Dettagli</th></tr></thead>
-                            <tbody>
-                                {% for item in fc_alerts %}
-                                <tr>
-                                    <td>{{ item.atleta.user.first_name }} {{ item.atleta.user.last_name }}</td>
-                                    <td class="text-danger fw-bold">+{{ item.trends.fc_media }}%</td>
-                                    <td class="small text-muted">Possibile affaticamento o disidratazione</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-            {% endif %}
-
-            <!-- Performance Lists -->
-            <div class="row g-4">
-                <div class="col-md-6">
-                    <div class="card h-100 border-0 shadow-sm">
-                        <div class="card-header bg-success text-white">
-                            <h6 class="m-0"><i class="bi bi-graph-up-arrow me-2"></i>Top Improvers (VO2max)</h6>
-                        </div>
-                        <ul class="list-group list-group-flush">
-                            {% for item in top_improvers %}
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                {{ item.atleta.user.first_name }} {{ item.atleta.user.last_name }}
-                                <span class="badge bg-success rounded-pill">+{{ item.trends.vo2max }}%</span>
-                            </li>
-                            {% empty %}
-                            <li class="list-group-item text-muted text-center">Nessun miglioramento significativo</li>
-                            {% endfor %}
-                        </ul>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="card h-100 border-0 shadow-sm">
-                        <div class="card-header bg-secondary text-white">
-                            <h6 class="m-0"><i class="bi bi-graph-down-arrow me-2"></i>In Calo / Struggling</h6>
-                        </div>
-                        <ul class="list-group list-group-flush">
-                            {% for item in struggling %}
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                {{ item.atleta.user.first_name }} {{ item.atleta.user.last_name }}
-                                <span class="badge bg-secondary rounded-pill">{{ item.trends.vo2max }}%</span>
-                            </li>
-                            {% empty %}
-                            <li class="list-group-item text-muted text-center">Nessun calo significativo</li>
-                            {% endfor %}
-                        </ul>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Inattivi -->
-            {% if atleti_inattivi %}
-            <div class="card mt-4 border-0 shadow-sm">
-                <div class="card-header bg-light">
-                    <h6 class="m-0 text-muted">Atleti Inattivi (> 7 giorni)</h6>
-                </div>
-                <div class="card-body">
-                    <div class="d-flex flex-wrap gap-2">
-                        {% for a in atleti_inattivi %}
-                        <span class="badge bg-light text-dark border">
-                            {{ a.user.first_name }} {{ a.user.last_name }}
-                            <span class="text-muted ms-1">({{ a.last_act|date:"d/m"|default:"Mai" }})</span>
-                        </span>
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
-            {% endif %}
-
         </div>
-
-        <!-- Colonna Destra: Grafici e Classifiche -->
-        <div class="col-lg-4">
-            <!-- Charts -->
-            <div class="card mb-4 border-0 shadow-sm">
-                <div class="card-body">
-                    <h6 class="fw-bold text-center mb-3">Distribuzione VO2max (Stimato)</h6>
-                    <canvas id="vo2PieChart" height="200"></canvas>
-                </div>
-            </div>
-
-            <div class="card mb-4 border-0 shadow-sm">
-                <div class="card-body">
-                    <h6 class="fw-bold text-center mb-3">Trail vs Strada (90gg)</h6>
-                    <canvas id="trailRoadChart" height="150"></canvas>
-                </div>
-            </div>
-
-            <!-- Rankings -->
-            <div class="card mb-3 border-0 shadow-sm">
-                <div class="card-header bg-white fw-bold">🏆 Top ITRA Index</div>
-                <ul class="list-group list-group-flush small">
-                    {% for a in top_itra %}
-                    <li class="list-group-item d-flex justify-content-between">
-                        <span>{{ forloop.counter }}. {{ a.user.first_name }} {{ a.user.last_name }}</span>
-                        <span class="fw-bold">{{ a.indice_itra }}</span>
-                    </li>
-                    {% endfor %}
-                </ul>
-            </div>
-
-            <div class="card mb-3 border-0 shadow-sm">
-                <div class="card-header bg-white fw-bold">⚡ Top Power (W)</div>
-                <ul class="list-group list-group-flush small">
-                    {% for item in top_power %}
-                    <li class="list-group-item d-flex justify-content-between">
-                        <span>{{ forloop.counter }}. {{ item.atleta.user.first_name }} {{ item.atleta.user.last_name }}</span>
-                        <span class="fw-bold">{{ item.power }} W</span>
-                    </li>
-                    {% endfor %}
-                </ul>
-            </div>
-            
-            <!-- Race Readiness -->
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white fw-bold">🏁 Race Readiness</div>
-                <div class="card-body p-2">
-                    {% for cat, data in readiness.items %}
-                    {% if data.percentage > 0 %}
-                    <div class="mb-2">
-                        <div class="d-flex justify-content-between small mb-1">
-                            <span>{{ cat }}</span>
-                            <span>{{ data.percentage }}%</span>
-                        </div>
-                        <div class="progress" style="height: 6px;">
-                            <div class="progress-bar bg-info" role="progressbar" style="width: {{ data.percentage }}%"></div>
-                        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card p-3 border-start border-4 border-danger shadow-sm">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <small class="text-muted text-uppercase fw-bold">
+                        Atleti Inattivi (>7gg)
+                        <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip" title="Atleti che non hanno registrato attività negli ultimi 7 giorni rispetto alla fine della settimana visualizzata."></i>
+                    </small>
+                    <h3 class="fw-bold m-0">{{ atleti_inattivi.count }}</h3>
+                    <div class="small text-danger">
+                        {{ perc_inattivi }}% del totale
                     </div>
-                    {% endif %}
-                    {% endfor %}
                 </div>
+                <i class="bi bi-exclamation-triangle h1 text-danger opacity-25"></i>
             </div>
-
         </div>
     </div>
 </div>
-{% endblock %}
 
-{% block extra_js %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- Alerts Section -->
+{% if fc_alerts %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card p-3 border-start border-4 border-warning shadow-sm bg-light">
+            <h5 class="fw-bold text-warning mb-2">
+                <i class="bi bi-heart-pulse-fill me-2"></i>Allarmi Fisiologici (FC in aumento)
+                <i class="bi bi-info-circle text-muted ms-1 h6" data-bs-toggle="tooltip" title="Atleti con aumento della FC Media > 5% nelle ultime 5 sessioni rispetto allo storico."></i>
+            </h5>
+            <p class="small text-muted mb-2">Questi atleti mostrano un aumento della FC Media (>5%) nelle ultime sessioni rispetto al loro storico. Possibile affaticamento.</p>
+            <div class="table-responsive">
+                <table class="table table-sm table-borderless m-0">
+                    <thead>
+                        <tr>
+                            <th>Atleta</th>
+                            <th>Trend FC</th>
+                            <th>Trend Passo</th>
+                            <th>Stato</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in fc_alerts %}
+                        <tr>
+                            <td class="fw-bold">{{ item.atleta.user.first_name }} {{ item.atleta.user.last_name }}</td>
+                            <td class="text-danger fw-bold">+{{ item.trends.fc_media }}%</td>
+                            <td class="{% if item.trends.passo < 0 %}text-danger{% else %}text-success{% endif %}">{{ item.trends.passo }}%</td>
+                            <td><span class="badge bg-warning text-dark">Check Richiesto</span></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if acwr_alerts %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card p-3 border-start border-4 border-danger shadow-sm bg-light">
+            <h5 class="fw-bold text-danger mb-2">
+                <i class="bi bi-activity me-2"></i>Allarmi Carico (ACWR)
+                <i class="bi bi-info-circle text-muted ms-1 h6" data-bs-toggle="tooltip" title="Rapporto Carico Acuto (7gg) / Cronico (28gg). Range ottimale: 0.8 - 1.3"></i>
+            </h5>
+            <p class="small text-muted mb-2">Atleti con carico di lavoro sbilanciato. >1.3 Rischio Infortunio, <0.8 Detraining.</p>
+            <div class="table-responsive">
+                <table class="table table-sm table-borderless m-0">
+                    <thead>
+                        <tr>
+                            <th>Atleta</th>
+                            <th>Status</th>
+                            <th>Ratio</th>
+                            <th>Carico (Acuto/Cronico)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for alert in acwr_alerts %}
+                        <tr>
+                            <td class="fw-bold">
+                                <a href="{% url 'dashboard_atleta' alert.atleta.user.username %}" class="text-decoration-none text-dark">
+                                    {{ alert.atleta.user.first_name }} {{ alert.atleta.user.last_name }}
+                                </a>
+                            </td>
+                            <td>
+                                {% if 'Risk' in alert.status %}
+                                    <span class="badge bg-danger">High Risk ⚠️</span>
+                                {% else %}
+                                    <span class="badge bg-warning text-dark">Detraining 📉</span>
+                                {% endif %}
+                            </td>
+                            <td class="fw-bold {% if 'Risk' in alert.status %}text-danger{% else %}text-warning{% endif %}">{{ alert.ratio }}</td>
+                            <td class="small text-muted">{{ alert.acute }} / {{ alert.chronic }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="row g-4 mb-4">
+    <!-- VO2max Distribution Chart -->
+    <div class="col-md-4">
+        <div class="card p-4 shadow-sm h-100">
+            <h5 class="fw-bold mb-3" style="color: #2c3e50;">
+                Distribuzione Livello (Stima)
+                <i class="bi bi-info-circle text-muted ms-1 h6" data-bs-toggle="tooltip" title="Suddivisione della squadra in base al VO2max stimato (Media Mobile Trail + Strada)."></i>
+            </h5>
+            <div style="height: 250px; position: relative;">
+                <canvas id="vo2PieChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- VO2max Strada Distribution Chart -->
+    <div class="col-md-4">
+        <div class="card p-4 shadow-sm h-100">
+            <h5 class="fw-bold mb-3" style="color: #0d6efd;">
+                Distribuzione Livello (Strada)
+                <i class="bi bi-info-circle text-muted ms-1 h6" data-bs-toggle="tooltip" title="Suddivisione della squadra in base al VO2max Solo Strada (Media Mobile)."></i>
+            </h5>
+            <div style="height: 250px; position: relative;">
+                <canvas id="vo2StradaPieChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Road vs Trail Chart -->
+    <div class="col-md-4">
+        <div class="card p-4 shadow-sm h-100">
+            <h5 class="fw-bold mb-3" style="color: #198754;">
+                Tipologia Corsa (Ultimi 90gg)
+                <i class="bi bi-info-circle text-muted ms-1 h6" data-bs-toggle="tooltip" title="Percentuale di attività Trail vs Strada negli ultimi 90 giorni."></i>
+            </h5>
+            <div style="height: 250px; position: relative;">
+                <canvas id="typePieChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Race Readiness Section -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card p-4 shadow-sm">
+            <h5 class="fw-bold mb-4" style="color: #6f42c1;">
+                <i class="bi bi-trophy-fill me-2"></i>Race Readiness (Potenziale Gara Attuale)
+                <i class="bi bi-info-circle text-muted ms-1 h6" data-bs-toggle="tooltip" title="Stima della distanza di gara affrontabile basata su volume settimanale e lungo massimo (ultimi 45gg)."></i>
+            </h5>
+            <div class="row g-3 row-cols-1 row-cols-md-3">
+                {% for category, data in readiness.items %}
+                <div class="col">
+                    <div class="card h-100 border bg-light">
+                        <div class="card-header bg-white border-bottom-0 fw-bold text-center py-3">
+                            {{ category }}
+                            <div class="small text-muted fw-normal mt-1">{{ data.percentage }}%</div>
+                        </div>
+                        <div class="card-body text-center pt-0">
+                            {% if data.athletes %}
+                                <div class="d-flex flex-column gap-2">
+                                {% for a in data.athletes %}
+                                    <span class="badge bg-white text-dark border py-2">{{ a.user.first_name }} {{ a.user.last_name|slice:":1" }}.</span>
+                                {% endfor %}
+                                </div>
+                            {% else %}
+                                <span class="text-muted small opacity-50">-</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Trends Section -->
+<div class="row g-4">
+    <div class="col-md-6">
+        <div class="card p-4 shadow-sm">
+            <h5 class="fw-bold mb-3 text-success">
+                Top Improvers (Trend VO2max) 🚀
+                <i class="bi bi-info-circle text-muted ms-1 h6" data-bs-toggle="tooltip" title="Atleti con il miglior trend di crescita del VO2max (ultime 5 attività vs storico)."></i>
+            </h5>
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Atleta</th>
+                            <th class="text-end">Trend VO2</th>
+                            <th class="text-end">Trend Vol</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in top_improvers %}
+                        <tr>
+                            <td>{{ item.atleta.user.first_name }} {{ item.atleta.user.last_name }}</td>
+                            <td class="text-end fw-bold text-success">+{{ item.trends.vo2max }}%</td>
+                            <td class="text-end">{{ item.trends.distanza }}%</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="3">Dati insufficienti per calcolare i trend.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card p-4 shadow-sm">
+            <h5 class="fw-bold mb-3 text-warning">
+                Trend in Calo 📉
+                <i class="bi bi-info-circle text-muted ms-1 h6" data-bs-toggle="tooltip" title="Atleti con trend negativo del VO2max (ultime 5 attività vs storico)."></i>
+            </h5>
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Atleta</th>
+                            <th class="text-end">Trend VO2</th>
+                            <th class="text-end">Trend Vol</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in struggling %}
+                        <tr>
+                            <td>{{ item.atleta.user.first_name }} {{ item.atleta.user.last_name }}</td>
+                            <td class="text-end fw-bold text-danger">{{ item.trends.vo2max }}%</td>
+                            <td class="text-end">{{ item.trends.distanza }}%</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="3">Nessun calo significativo rilevato.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Rankings & Inactive -->
+<div class="row g-4 mt-1">
+    <div class="col-md-3">
+        <div class="card p-4 shadow-sm h-100">
+            <h5 class="fw-bold mb-3" style="color: #2c3e50;">
+                Top ITRA Index 🏔️
+                <i class="bi bi-info-circle text-muted ms-1 h6" data-bs-toggle="tooltip" title="Migliori punteggi ITRA ufficiali scaricati."></i>
+            </h5>
+            <ul class="list-group list-group-flush">
+                {% for a in top_itra %}
+                <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                    <span>{{ forloop.counter }}. {{ a.user.first_name }} {{ a.user.last_name }}</span>
+                    <span class="badge bg-dark rounded-pill">{{ a.indice_itra }}</span>
+                </li>
+                {% empty %}
+                <li class="list-group-item text-muted">Nessun dato ITRA.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card p-4 shadow-sm h-100">
+            <h5 class="fw-bold mb-3" style="color: #ffc107;">
+                Top UTMB Index 🌍
+                <i class="bi bi-info-circle text-muted ms-1 h6" data-bs-toggle="tooltip" title="Migliori punteggi UTMB ufficiali scaricati."></i>
+            </h5>
+            <ul class="list-group list-group-flush">
+                {% for a in top_utmb %}
+                <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                    <span>{{ forloop.counter }}. {{ a.user.first_name }} {{ a.user.last_name }}</span>
+                    <span class="badge bg-warning text-dark rounded-pill">{{ a.indice_utmb }}</span>
+                </li>
+                {% empty %}
+                <li class="list-group-item text-muted">Nessun dato UTMB.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card p-4 shadow-sm h-100">
+            <h5 class="fw-bold mb-3" style="color: #6610f2;">
+                Top Potenza (W) ⚡
+                <i class="bi bi-info-circle text-muted ms-1 h6" data-bs-toggle="tooltip" title="Miglior Potenza Media (ultime 30 attività)."></i>
+            </h5>
+            <ul class="list-group list-group-flush">
+                {% for a in top_power %}
+                <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                    <span>{{ forloop.counter }}. {{ a.atleta.user.first_name }} {{ a.atleta.user.last_name }}</span>
+                    <span class="badge bg-primary rounded-pill" style="background-color: #6610f2 !important;">{{ a.power }} W</span>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card p-4 shadow-sm h-100">
+            <h5 class="fw-bold mb-3 text-danger">
+                Inattivi (>7gg) 😴
+                <i class="bi bi-info-circle text-muted ms-1 h6" data-bs-toggle="tooltip" title="Atleti senza attività registrate da più di 7 giorni."></i>
+            </h5>
+            {% if atleti_inattivi %}
+                <ul class="list-group list-group-flush">
+                    {% for a in atleti_inattivi %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                        <div class="d-flex align-items-center">
+                            {% if a.immagine_profilo %}
+                            <img src="{{ a.immagine_profilo }}" class="rounded-circle me-2" width="24" height="24" style="object-fit: cover;">
+                            {% endif %}
+                            <span>{{ a.user.first_name }} {{ a.user.last_name }}</span>
+                        </div>
+                        <span class="small text-danger">
+                            {% if a.last_act %}{{ a.last_act|timesince }}{% else %}Mai{% endif %}
+                        </span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <div class="text-success small"><i class="bi bi-check-circle me-1"></i> Tutti attivi!</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal Analisi AI -->
+<div class="modal fade" id="aiAnalysisModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="bi bi-robot me-2"></i>Analisi Coach AI</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="aiLoading" class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-3 text-muted">Gemini sta analizzando i dati della squadra...</p>
+                </div>
+                <div id="aiContent" class="d-none" style="white-space: pre-wrap; font-family: sans-serif; line-height: 1.6;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Chiudi</button>
+                <button type="button" class="btn btn-success" onclick="scaricaPDF()"><i class="bi bi-file-earmark-pdf me-2"></i>Scarica PDF</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
-    // VO2max Pie Chart
-    const ctxVo2 = document.getElementById('vo2PieChart').getContext('2d');
-    new Chart(ctxVo2, {
-        type: 'doughnut',
-        data: {
-            labels: {{ vo2_labels|safe }},
-            datasets: [{
-                data: {{ vo2_data|safe }},
-                backgroundColor: ['#ffc107', '#0dcaf0', '#0d6efd', '#198754', '#6c757d'],
-                borderWidth: 0
-            }]
-        },
-        options: {
-            plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } }
-        }
+    document.addEventListener("DOMContentLoaded", function() {
+        // 1. Inizializzazione Tooltip
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+
+        // Dati dai template Django
+        const vo2Labels = {{ vo2_labels|safe }};
+        const vo2Data = {{ vo2_data|safe }};
+        const vo2StradaData = {{ vo2_strada_data|safe }};
+        const trailRoadData = {{ trail_road_data|safe }};
+
+        console.log("DEBUG JS - VO2 Data:", vo2Data);
+        console.log("DEBUG JS - VO2 Strada Data:", vo2StradaData);
+        console.log("DEBUG JS - Trail/Road Data:", trailRoadData);
+
+        // Configurazione comune colori
+        const colorsLevel = ['#dc3545', '#fd7e14', '#ffc107', '#198754', '#6c757d'];
+
+        // 2. VO2max Chart
+        const ctx = document.getElementById('vo2PieChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: vo2Labels,
+                datasets: [{
+                    data: vo2Data,
+                    backgroundColor: colorsLevel,
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom' } }
+            }
+        });
+
+        // 3. VO2max Strada Chart
+        const ctxVo2Strada = document.getElementById('vo2StradaPieChart').getContext('2d');
+        new Chart(ctxVo2Strada, {
+            type: 'doughnut',
+            data: {
+                labels: vo2Labels,
+                datasets: [{
+                    data: vo2StradaData,
+                    backgroundColor: colorsLevel,
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom' } }
+            }
+        });
+
+        // 4. Road vs Trail Chart
+        const ctxType = document.getElementById('typePieChart').getContext('2d');
+        new Chart(ctxType, {
+            type: 'pie',
+            data: {
+                labels: ['Strada 🛣️', 'Trail 🏔️'],
+                datasets: [{
+                    data: trailRoadData,
+                    backgroundColor: ['#0d6efd', '#198754'],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom' } }
+            }
+        });
     });
 
-    // Trail vs Road Bar Chart
-    const ctxTR = document.getElementById('trailRoadChart').getContext('2d');
-    new Chart(ctxTR, {
-        type: 'bar',
-        data: {
-            labels: ['Strada', 'Trail'],
-            datasets: [{
-                label: 'Attività',
-                data: {{ trail_road_data|safe }},
-                backgroundColor: ['#6c757d', '#198754'],
-                borderRadius: 4
-            }]
-        },
-        options: {
-            indexAxis: 'y',
-            plugins: { legend: { display: false } },
-            scales: { x: { display: false }, y: { grid: { display: false } } }
-        }
-    });
-
-    // Funzione per chiamare l'analisi AI
-    function generaAnalisiCoach() {
-        const btn = document.querySelector('button[onclick="generaAnalisiCoach()"]');
-        const area = document.getElementById('aiReportArea');
-        const content = document.getElementById('aiReportContent');
+    // Funzioni per Analisi AI
+    function generaAnalisiAI() {
+        const modal = new bootstrap.Modal(document.getElementById('aiAnalysisModal'));
+        modal.show();
         
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Analisi in corso...';
+        document.getElementById('aiLoading').classList.remove('d-none');
+        document.getElementById('aiContent').classList.add('d-none');
         
-        // Recupera week offset dall'URL
+        // Recupera il week offset dall'URL
         const urlParams = new URLSearchParams(window.location.search);
         const week = urlParams.get('week') || 0;
 
-        fetch(`/coach/analisi/?week=${week}`)
+        fetch(`{% url 'analisi_coach_gemini' %}?week=${week}`)
             .then(response => response.json())
             .then(data => {
-                area.classList.remove('d-none');
-                // Formattazione base del markdown
-                let html = data.analisi
-                    .replace(/## (.*)/g, '<h5>$1</h5>')
-                    .replace(/\*\*(.*)\*\*/g, '<strong>$1</strong>')
-                    .replace(/- /g, '• ');
-                content.innerHTML = html;
-                btn.innerHTML = '<i class="bi bi-check-lg me-2"></i>Fatto';
+                document.getElementById('aiLoading').classList.add('d-none');
+                const contentDiv = document.getElementById('aiContent');
+                contentDiv.classList.remove('d-none');
+                // Converti Markdown base in HTML semplice (opzionale, qui testo puro)
+                contentDiv.innerHTML = data.analisi.replace(/\n/g, '<br>').replace(/## (.*)/g, '<h5 class="fw-bold mt-3">$1</h5>');
             })
-            .catch(err => {
-                alert("Errore durante l'analisi: " + err);
-                btn.disabled = false;
-                btn.innerHTML = '<i class="bi bi-stars me-2"></i> Riprova';
+            .catch(error => {
+                document.getElementById('aiLoading').classList.add('d-none');
+                document.getElementById('aiContent').classList.remove('d-none');
+                document.getElementById('aiContent').innerHTML = `<div class="alert alert-danger">Errore durante l'analisi: ${error}</div>`;
             });
+    }
+
+    function scaricaPDF() {
+        const element = document.getElementById('aiContent');
+        const opt = {
+            margin: 10,
+            filename: 'Report_Coach_BarillaMonitor.pdf',
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2 },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+        html2pdf().set(opt).from(element).save();
     }
 </script>
 {% endblock %}
