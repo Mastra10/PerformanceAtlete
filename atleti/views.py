@@ -498,7 +498,8 @@ def ricalcola_statistiche(request):
     for act in attivita:
         if act.distanza > 0 and act.durata > 0:
             nuovo_vo2 = calcola_metrica_vo2max(act, profilo)
-            if nuovo_vo2:
+            # Aggiorniamo anche se è None (per rimuovere valori vecchi non più validi per passo lento)
+            if act.vo2max_stimato != nuovo_vo2:
                 act.vo2max_stimato = nuovo_vo2
                 act.save()
                 count += 1

@@ -127,6 +127,14 @@ def calcola_metrica_vo2max(attivita, profilo):
         fc_media = attivita.fc_media
         d_plus = attivita.dislivello
         
+        # Filtro Passo Lento: Se > 9:30 min/km (570 sec/km), ignoriamo l'attività.
+        # Evita che camminate o recuperi abbassino drasticamente la media VO2max.
+        if distanza_metri > 0 and durata_secondi > 0:
+            passo_sec_km = durata_secondi / (distanza_metri / 1000)
+            if passo_sec_km > 570:
+                print(f"Passo > 9:30 min/km, calcolo VO2max ignorato.", flush=True)
+                return None
+
         # Parametri Atleta
         hr_max = profilo.fc_massima_teorica
         hr_rest = profilo.fc_riposo # Il campo nel tuo modello è fc_riposo

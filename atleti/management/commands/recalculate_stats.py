@@ -24,7 +24,8 @@ class Command(BaseCommand):
                 if act.distanza > 0 and act.durata > 0:
                     # Ricalcoliamo sempre per essere sicuri di avere il dato aggiornato con l'ultima formula
                     nuovo_vo2 = calcola_metrica_vo2max(act, profilo)
-                    if nuovo_vo2:
+                    # Aggiorniamo anche se è None (es. attività ora esclusa per passo lento)
+                    if act.vo2max_stimato != nuovo_vo2:
                         act.vo2max_stimato = nuovo_vo2
                         act.save()
 
