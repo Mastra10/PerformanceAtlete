@@ -140,7 +140,14 @@
                         {% for alert in acwr_alerts %}
                         <tr>
                             <td class="fw-bold">
-                                <a href="{% url 'dashboard_atleta' alert.atleta.user.username %}" class="text-decoration-none text-dark">
+                                <a href="#" class="text-decoration-none text-dark"
+                                   data-bs-toggle="modal" data-bs-target="#alertACWRModal"
+                                   data-name="{{ alert.atleta.user.first_name }} {{ alert.atleta.user.last_name }}"
+                                   data-username="{{ alert.atleta.user.username }}"
+                                   data-ratio="{{ alert.ratio }}"
+                                   data-acute="{{ alert.acute }}"
+                                   data-chronic="{{ alert.chronic }}"
+                                   data-status="{{ alert.status }}">
                                     {{ alert.atleta.user.first_name }} {{ alert.atleta.user.last_name }}
                                 </a>
                             </td>
@@ -451,6 +458,46 @@
     </div>
 </div>
 
+<!-- Modal Dettaglio Alert ACWR -->
+<div class="modal fade" id="alertACWRModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title fw-bold"><i class="bi bi-activity me-2"></i>Dettaglio Carico (ACWR)</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <h4 id="modalACWRAthleteName" class="fw-bold mb-3"></h4>
+                
+                <div class="row g-3 mb-3">
+                    <div class="col-6">
+                        <div class="p-3 bg-light rounded border">
+                            <small class="text-muted d-block text-uppercase">Carico Acuto (7gg)</small>
+                            <span id="modalAcuteVal" class="h3 fw-bold text-dark">--</span> <small>km-sforzo</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="p-3 bg-light rounded border">
+                            <small class="text-muted d-block text-uppercase">Carico Cronico (28gg)</small>
+                            <span id="modalChronicVal" class="h3 fw-bold text-secondary">--</span> <small>km-sforzo</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="alert alert-light border d-flex flex-column align-items-center justify-content-center" role="alert">
+                    <div class="display-4 fw-bold mb-2" id="modalRatioVal">--</div>
+                    <span id="modalStatusBadge" class="badge bg-danger mb-2">--</span>
+                    <div class="small text-muted" id="modalStatusDesc">--</div>
+                </div>
+                
+                <div class="d-grid">
+                    <a id="modalACWRAthleteLink" href="#" class="btn btn-outline-dark btn-sm">Vai alla Dashboard Completa</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     document.addEventListener("DOMContentLoaded", function() {
         // 1. Inizializzazione Tooltip
@@ -544,6 +591,46 @@
                 // Link alla dashboard completa
                 const username = button.getAttribute('data-username');
                 document.getElementById('modalAthleteLink').href = `/atleta/${username}/`;
+            });
+        }
+
+        // 6. Gestione Modal Alert ACWR
+        const acwrModal = document.getElementById('alertACWRModal');
+        if (acwrModal) {
+            acwrModal.addEventListener('show.bs.modal', event => {
+                const button = event.relatedTarget;
+                
+                // Dati
+                const name = button.getAttribute('data-name');
+                const ratio = parseFloat(button.getAttribute('data-ratio'));
+                const acute = button.getAttribute('data-acute');
+                const chronic = button.getAttribute('data-chronic');
+                const username = button.getAttribute('data-username');
+
+                // Popola UI
+                document.getElementById('modalACWRAthleteName').textContent = name;
+                document.getElementById('modalAcuteVal').textContent = acute;
+                document.getElementById('modalChronicVal').textContent = chronic;
+                
+                const ratioEl = document.getElementById('modalRatioVal');
+                ratioEl.textContent = ratio;
+                
+                const badgeEl = document.getElementById('modalStatusBadge');
+                const descEl = document.getElementById('modalStatusDesc');
+                
+                if (ratio >= 1.3) {
+                    ratioEl.className = "display-4 fw-bold mb-2 text-danger";
+                    badgeEl.className = "badge bg-danger mb-2";
+                    badgeEl.textContent = "High Risk ⚠️";
+                    descEl.textContent = "Il carico acuto è molto superiore alla media storica. Rischio infortunio elevato.";
+                } else {
+                    ratioEl.className = "display-4 fw-bold mb-2 text-warning";
+                    badgeEl.className = "badge bg-warning text-dark mb-2";
+                    badgeEl.textContent = "Detraining 📉";
+                    descEl.textContent = "Il carico di allenamento è troppo basso rispetto allo storico. Perdita di forma.";
+                }
+
+                document.getElementById('modalACWRAthleteLink').href = `/atleta/${username}/`;
             });
         }
     });
