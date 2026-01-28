@@ -28,6 +28,9 @@ class ProfiloAtleta(models.Model):
     indice_itra = models.IntegerField(default=0, verbose_name="ITRA Index")
     indice_utmb = models.IntegerField(default=0, verbose_name="UTMB Index")
     data_aggiornamento_indici = models.DateTimeField(null=True, blank=True)
+    
+    data_ultima_sincronizzazione = models.DateTimeField(null=True, blank=True, verbose_name="Ultima Sincronizzazione Strava")
+    data_ultimo_ricalcolo_statistiche = models.DateTimeField(null=True, blank=True, verbose_name="Ultimo Ricalcolo Statistiche")
 
     def __str__(self):
         return f"Profilo di {self.user.username}"

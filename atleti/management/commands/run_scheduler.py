@@ -126,13 +126,12 @@ class Command(BaseCommand):
             default_hour=0, default_minute=0, default_day='mon'
         )
         
-        # 5. Sync Strava Automatico (Ogni 4 ore)
-        # schedule_task(
-        #     task_sync_strava,
-        #     "sync_strava_periodico",
-        #     default_hour='*', default_minute=30 # Al minuto 30 di ogni ora (se configurato così) o default custom
-        # )
-        # Nota: Per farlo ogni 4 ore, l'utente admin dovrà configurare "*/4" nel campo ora, oppure usiamo un trigger diverso qui sotto se vogliamo forzarlo
+        # 5. Sync Strava Automatico (Ogni notte alle 02:30)
+        schedule_task(
+            task_sync_strava,
+            "sync_strava_periodico",
+            default_hour=2, default_minute=30
+        )
         
         # 5. SYSTEM HEARTBEAT (Ogni 10 secondi)
         # Serve a svegliare lo scheduler per fargli leggere i task manuali dal DB

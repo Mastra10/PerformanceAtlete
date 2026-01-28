@@ -186,6 +186,21 @@
                     <i class="bi bi-download me-1"></i>Scarica Dati CSV
                 </a>
                 
+                <div class="mt-3 small text-muted text-center border-top pt-2">
+                    <div class="mb-1">
+                        <i class="bi bi-clock-history me-1"></i>Ultima Sync:<br>
+                        <span class="fw-bold text-dark">
+                            {% if profilo.data_ultima_sincronizzazione %}{{ profilo.data_ultima_sincronizzazione|date:"d/m H:i" }}{% else %}--{% endif %}
+                        </span>
+                    </div>
+                    <div>
+                        <i class="bi bi-calculator me-1"></i>Ultimo Ricalcolo:<br>
+                        <span class="fw-bold text-dark">
+                            {% if profilo.data_ultimo_ricalcolo_statistiche %}{{ profilo.data_ultimo_ricalcolo_statistiche|date:"d/m H:i" }}{% else %}--{% endif %}
+                        </span>
+                    </div>
+                </div>
+                
                 {% if request.user.is_staff %}
                 <hr>
                 <small class="text-muted fw-bold text-uppercase mb-2 d-block">Admin Zone</small>

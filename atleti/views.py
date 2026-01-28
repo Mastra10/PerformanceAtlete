@@ -477,6 +477,7 @@ def sincronizza_strava(request):
             print(f"DEBUG: FC Max rilevata {max_fc_reale} (il {data_record}) ma IGNORATA perché impostata manualmente.", flush=True)
 
     # --- 9. CALCOLO VO2MAX CONSOLIDATO (MEDIA MOBILE) ---
+    profilo.data_ultima_sincronizzazione = timezone.now()
     stima_vo2max_atleta(profilo)
 
     cache.set(cache_key, {'status': 'Completato!', 'progress': 100}, timeout=300)

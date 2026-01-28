@@ -136,6 +136,10 @@ def task_sync_strava():
                     logger.info(f"Importate {count_new} nuove attività.")
                 else:
                     logger.info("Nessuna nuova attività.")
+                
+                # Aggiorniamo timestamp sync
+                profilo.data_ultima_sincronizzazione = timezone.now()
+                profilo.save()
                     
             elif response.status_code == 429:
                 logger.warning("Rate Limit Strava raggiunto. Interrompo sync globale.")
@@ -146,6 +150,6 @@ def task_sync_strava():
         except Exception as e:
             logger.error(f"Errore durante sync per {user.username}: {e}")
             
-        time.sleep(2) # Pausa etica tra utenti
+        time.sleep(30) # Pausa etica tra utenti (30s per evitare Rate Limits)
         
     logger.info("SCHEDULER: Sincronizzazione Strava completata.")

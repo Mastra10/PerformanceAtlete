@@ -1,6 +1,7 @@
 from django.core.management.base import BaseCommand
 from atleti.models import ProfiloAtleta, Attivita
 from atleti.utils import stima_vo2max_atleta, calcola_metrica_vo2max
+from django.utils import timezone
 
 class Command(BaseCommand):
     help = 'Ricalcola le statistiche (VO2max Strada/Stima) per tutti gli atleti'
@@ -26,6 +27,7 @@ class Command(BaseCommand):
                         act.save()
 
             # 2. Aggiorna i campi aggregati del profilo (incluso vo2max_strada)
+            profilo.data_ultimo_ricalcolo_statistiche = timezone.now()
             stima_vo2max_atleta(profilo)
             count += 1
 
