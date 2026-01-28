@@ -38,6 +38,11 @@
                                         <div class="fw-bold">{{ atleta.user.first_name }} {{ atleta.user.last_name }}</div>
                                         <div class="small text-muted">@{{ atleta.user.username }}</div>
                                     </a>
+                                    {% if request.user.is_staff %}
+                                    <a href="{% url 'impersonate_user' atleta.user.username %}" class="btn btn-sm btn-outline-dark ms-2 py-0 px-1" title="Impersona Utente" onclick="return confirm('Sei sicuro di voler entrare come {{ atleta.user.username }}?');">
+                                        <i class="bi bi-mask"></i>
+                                    </a>
+                                    {% endif %}
                                 </div>
                             </div>
                         </td>

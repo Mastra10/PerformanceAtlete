@@ -20,6 +20,7 @@ from django.core.management import call_command
 from django.contrib import messages
 from datetime import timedelta
 from django.template.loader import render_to_string
+from django.contrib.auth import login
 import os
 
 def _get_dashboard_context(user):
@@ -933,3 +934,23 @@ def reset_task_trigger(request, task_id):
         pass
     
     return redirect('scheduler_logs')
+
+@login_required
+def impersonate_user(request, username):
+    """Permette a un admin di loggarsi come un altro utente"""
+    if not request.user.is_staff:
+        messages.error(request, "Azione non autorizzata.")
+        return redirect('home')
+    
+    original_admin = request.user.username
+    target_user = get_object_or_404(User, username=username)
+    
+    # Effettua il login forzato come l'utente target
+    # Usiamo il ModelBackend standard di Django
+    login(request, target_user, backend='django.contrib.auth.backends.ModelBackend')
+    
+    # Impostiamo un flag nella sessione del nuovo utente per ricordare chi sta impersonando
+    request.session['impersonator'] = original_admin
+    
+    messages.warning(request, f"⚠️ ATTENZIONE: Ora stai agendo come {target_user.username}. Effettua il Logout per uscire.")
+    return redirect('home')

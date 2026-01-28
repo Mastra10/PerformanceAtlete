@@ -84,6 +84,13 @@
         </div>
     {% else %}
     
+    {% if request.session.impersonator %}
+    <div class="alert alert-danger text-center fw-bold shadow-sm border-danger">
+        <i class="bi bi-mask me-2"></i> MODALITÀ IMPERSONIFICAZIONE ATTIVA
+        <span class="fw-normal d-block small mt-1">Stai agendo come <u>{{ request.user.username }}</u> (Admin originale: {{ request.session.impersonator }}). <a href="/accounts/logout/" class="text-danger fw-bold">Logout per uscire</a>.</span>
+    </div>
+    {% endif %}
+    
     {% if warning_peso %}
     <div class="alert alert-warning text-center fw-bold">
         <i class="bi bi-exclamation-triangle-fill me-2"></i> {{ warning_peso }}
