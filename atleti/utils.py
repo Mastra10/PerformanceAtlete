@@ -209,11 +209,11 @@ def stima_vo2max_atleta(profilo):
     Analizza lo storico delle attività per calcolare un VO2max consolidato (Media Mobile).
     Scarta gli outlier e stabilizza il dato.
     """
-    # 1. Stima Statistica (Trail + Strada) - Ultime 30 attività valide
+    # 1. Stima Statistica (Trail + Strada) - Ultime 60 attività valide (Stagionale)
     sessioni_all = Attivita.objects.filter(
         atleta=profilo, 
         vo2max_stimato__isnull=False
-    ).order_by('-data')[:30]
+    ).order_by('-data')[:60]
 
     if sessioni_all and len(sessioni_all) >= 3:
         valori_all = [s.vo2max_stimato for s in sessioni_all]
@@ -222,12 +222,12 @@ def stima_vo2max_atleta(profilo):
     else:
         profilo.vo2max_stima_statistica = None
 
-    # 2. VO2max Solo Strada - Ultime 30 attività SOLO 'Run'
+    # 2. VO2max Solo Strada - Ultime 60 attività SOLO 'Run'
     sessioni_strada = Attivita.objects.filter(
         atleta=profilo,
         tipo_attivita='Run',
         vo2max_stimato__isnull=False
-    ).order_by('-data')[:30]
+    ).order_by('-data')[:60]
 
     if sessioni_strada and len(sessioni_strada) >= 3:
         valori_strada = [s.vo2max_stimato for s in sessioni_strada]
