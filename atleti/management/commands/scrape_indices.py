@@ -89,10 +89,10 @@ class Command(BaseCommand):
                 punteggio = score_el.text.strip()
                 if punteggio.isdigit():
                     profilo.indice_itra = int(punteggio)
-                    self.stdout.write(self.style.SUCCESS(f"⭐ ITRA per {nome_completo}: {punteggio}"))
+                    logger.info(f"⭐ ITRA per {nome_completo}: {punteggio}")
                 
             except Exception as e:
-                self.stdout.write(self.style.ERROR(f"Errore ITRA {nome_completo}: {str(e)[:50]}"))
+                logger.error(f"Errore ITRA {nome_completo}: {str(e)[:50]}")
                 driver.save_screenshot(f"error_itra_{profilo.id}.png")
 
             # 2. LOGICA UTMB
@@ -129,12 +129,12 @@ class Command(BaseCommand):
                         val = element.text.strip()
                         if val.isdigit():
                             profilo.indice_utmb = int(val)
-                            self.stdout.write(self.style.SUCCESS(f"⭐ UTMB per {nome_completo}: {val}"))
+                            logger.info(f"⭐ UTMB per {nome_completo}: {val}")
                             break
                     except: continue
 
             except Exception as e:
-                self.stdout.write(self.style.ERROR(f"Errore UTMB {nome_completo}: {str(e)[:50]}"))
+                logger.error(f"Errore UTMB {nome_completo}: {str(e)[:50]}")
                 driver.save_screenshot(f"error_utmb_{profilo.id}.png")
             
             # Salvataggio e pausa "umana"
