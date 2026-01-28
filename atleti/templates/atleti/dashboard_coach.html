@@ -93,7 +93,11 @@
                     <tbody>
                         {% for item in fc_alerts %}
                         <tr>
-                            <td class="fw-bold">{{ item.atleta.user.first_name }} {{ item.atleta.user.last_name }}</td>
+                            <td class="fw-bold">
+                                <a href="{% url 'dashboard_atleta' item.atleta.user.username %}" class="text-decoration-none text-dark">
+                                    {{ item.atleta.user.first_name }} {{ item.atleta.user.last_name }}
+                                </a>
+                            </td>
                             <td class="text-danger fw-bold">+{{ item.trends.fc_media }}%</td>
                             <td class="{% if item.trends.passo < 0 %}text-danger{% else %}text-success{% endif %}">{{ item.trends.passo }}%</td>
                             <td><span class="badge bg-warning text-dark">Check Richiesto</span></td>
