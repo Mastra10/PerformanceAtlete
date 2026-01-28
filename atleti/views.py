@@ -495,11 +495,14 @@ def ricalcola_statistiche(request):
     # 1. Ricalcola VO2max per ogni singola attività
     attivita = Attivita.objects.filter(atleta=profilo)
     count = 0
+    cleaned_count = 0
     for act in attivita:
         if act.distanza > 0 and act.durata > 0:
             nuovo_vo2 = calcola_metrica_vo2max(act, profilo)
             # Aggiorniamo anche se è None (per rimuovere valori vecchi non più validi per passo lento)
             if act.vo2max_stimato != nuovo_vo2:
+                if nuovo_vo2 is None:
+                    cleaned_count += 1
                 act.vo2max_stimato = nuovo_vo2
                 act.save()
                 count += 1
@@ -509,7 +512,7 @@ def ricalcola_statistiche(request):
     stima_vo2max_atleta(profilo)
     profilo.save()
     
-    messages.success(request, f"Statistiche ricalcolate per {count} attività.")
+    messages.success(request, f"Statistiche aggiornate: {count} ricalcolate (di cui {cleaned_count} rimosse per passo lento).")
     return redirect('home')
 
 def grafici_atleta(request):
