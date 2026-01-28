@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="fw-bold m-0"><i class="bi bi-trophy-fill text-warning me-2"></i>Le mie Gare</h2>
+    <span class="badge bg-warning text-dark rounded-pill">{{ gare.count }} Gare Disputate</span>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Data</th>
+                        <th>Nome Evento</th>
+                        <th>Distanza</th>
+                        <th>Passo</th>
+                        <th>Dislivello</th>
+                        <th>FC Media</th>
+                        <th>VO2max</th>
+                        <th>Link</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for gara in gare %}
+                    <tr>
+                        <td class="fw-bold">{{ gara.data|date:"d/m/Y" }}</td>
+                        <td>
+                            <span class="fw-bold text-dark">{{ gara.nome|default:gara.tipo_attivita }}</span>
+                            {% if gara.tipo_attivita == 'TrailRun' %}
+                                <span class="badge bg-success ms-1" style="font-size: 0.6em;">TRAIL</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ gara.distanza_km }} km</td>
+                        <td>{{ gara.passo_medio }}</td>
+                        <td>+{{ gara.dislivello|floatformat:0 }}m</td>
+                        <td><span class="badge bg-light text-dark">{{ gara.fc_media }} bpm</span></td>
+                        <td>
+                            {% if gara.tipo_attivita == 'TrailRun' %}
+                                <span class="text-muted" title="Dato non significativo per Trail">--</span>
+                            {% else %}
+                                <span class="fw-bold text-primary">{{ gara.vo2max_stimato|default:"--" }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="https://www.strava.com/activities/{{ gara.strava_activity_id }}" target="_blank" class="btn btn-sm btn-outline-secondary">
+                                <i class="bi bi-strava"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center py-5">
+                            <div class="text-muted">
+                                <i class="bi bi-trophy display-4 d-block mb-3 opacity-50"></i>
+                                <h5>Nessuna gara trovata</h5>
+                                <small>Assicurati di impostare il tipo "Gara" nelle tue attività su Strava e risincronizza.</small>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

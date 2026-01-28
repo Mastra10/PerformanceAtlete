@@ -1,7 +1,9 @@
 import requests
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse, JsonResponse
+from django.contrib.auth.decorators import login_required
 from allauth.socialaccount.models import SocialToken ,SocialAccount
+from django.core.cache import cache
 from .models import Attivita, ProfiloAtleta
 import math
 from .utils import analizza_performance_atleta, calcola_metrica_vo2max, stima_vo2max_atleta, stima_potenza_watt, calcola_trend_atleta, formatta_passo, stima_potenziale_gara, analizza_squadra_coach, calcola_vam_selettiva, refresh_strava_token, processa_attivita_strava
@@ -185,6 +187,14 @@ def _get_dashboard_context(user):
 
 # 1. Questa mostra la pagina (NON cancellarla!)
 def home(request):
+    # Endpoint per polling stato sync (chiamato via AJAX dal modal)
+    if request.GET.get('sync_status'):
+        if not request.user.is_authenticated:
+            return JsonResponse({'status': 'Login richiesto', 'progress': 0}, status=401)
+            
+        status = cache.get(f"sync_progress_{request.user.id}", {'status': 'In attesa...', 'progress': 0})
+        return JsonResponse(status)
+
     if request.user.is_authenticated:
         context = _get_dashboard_context(request.user)
         return render(request, 'atleti/home.html', context)
@@ -268,6 +278,14 @@ def impostazioni(request):
             profilo.fc_riposo = fc_riposo
             profilo.fc_max = fc_max
             profilo.fc_massima_teorica = fc_max
+            
+            # Gestione checkbox manuale
+            if request.POST.get('fc_max_manuale') == 'on':
+                profilo.fc_max_manuale = True
+                profilo.data_fc_max = None
+            else:
+                profilo.fc_max_manuale = False
+                
             if indice_itra > 0: profilo.indice_itra = indice_itra
             if indice_utmb > 0: profilo.indice_utmb = indice_utmb
             profilo.save()
@@ -300,17 +318,22 @@ def aggiorna_dati_profilo(request):
             
     return redirect('impostazioni')
 
+@login_required
 def sincronizza_strava(request):
     print("DEBUG: Avvio sincronizzazione...", flush=True)
+    cache_key = f"sync_progress_{request.user.id}"
+    cache.set(cache_key, {'status': 'Connessione a Strava...', 'progress': 5}, timeout=300)
     
     social_acc = SocialAccount.objects.filter(user=request.user, provider='strava').first()
     if not social_acc:
         print("DEBUG: ESCI - SocialAccount non trovato", flush=True)
+        messages.error(request, "Nessun account Strava collegato. Vai nelle impostazioni.")
         return redirect('home')
 
     token_obj = SocialToken.objects.filter(account=social_acc).first()
     if not token_obj:
         print("DEBUG: ESCI - SocialToken non trovato", flush=True)
+        messages.error(request, "Token Strava mancante o scaduto. Prova a scollegare e ricollegare l'account.")
         return redirect('home')
 
     print(f"DEBUG: Token trovato! Procedo con Strava per {request.user.username}", flush=True)
@@ -323,6 +346,7 @@ def sincronizza_strava(request):
         
     headers = {'Authorization': f'Bearer {access_token}'}
 
+    cache.set(cache_key, {'status': 'Aggiornamento profilo...', 'progress': 10}, timeout=300)
     # --- 2. DATI PROFILO (PESO E NOMI) ---
     athlete_res = requests.get("https://www.strava.com/api/v3/athlete", headers=headers)
     
@@ -366,55 +390,96 @@ def sincronizza_strava(request):
         print("DEBUG: Dati profilo mancanti. Reindirizzo a impostazioni.", flush=True)
         return redirect('impostazioni')
 
-    # --- 4. SCARICAMENTO ATTIVITÀ (SOLO ULTIME 50) ---
+    # --- 4. SCARICAMENTO ATTIVITÀ (FULL SYNC + CHECKPOINT) ---
+    # Cerchiamo l'ultima attività salvata per usare il parametro 'after' (Checkpoint)
+    last_activity = Attivita.objects.filter(atleta=profilo).order_by('-data').first()
+    timestamp_checkpoint = None
+    
+    if last_activity:
+        # Aggiungiamo 1 secondo per non riscaricare l'ultima attività
+        timestamp_checkpoint = int(last_activity.data.timestamp()) + 1
+        print(f"DEBUG: Checkpoint trovato: {last_activity.data} (Epoch: {timestamp_checkpoint})", flush=True)
+    else:
+        print("DEBUG: Nessuna attività precedente (Primo Download Completo).", flush=True)
+
     url_activities = "https://www.strava.com/api/v3/athlete/activities"
     
-    # Modifica: Scarichiamo solo la prima pagina (ultime 50)
-    params = {'page': 1, 'per_page': 50}
-    response = requests.get(url_activities, headers=headers, params=params)
+    page = 1
+    per_page = 100 # Ottimizzazione: scarichiamo blocchi più grandi (max supportato ~200)
     
-    print(f"DEBUG: Richiesta Strava (Ultime 50) - Status: {response.status_code}", flush=True)
-
-    if response.status_code == 401:
-        print("DEBUG: Token scaduto (Attività). Reindirizzo al login Strava per refresh.", flush=True)
-        return redirect('/accounts/strava/login/')
-
-    if response.status_code == 429:
-        print("DEBUG: ⚠️ LIMITE API STRAVA RAGGIUNTO. Sincronizzazione parziale interrotta.", flush=True)
-        return redirect('home')
-
-    if response.status_code != 200:
-        print(f"DEBUG: Errore API: {response.text}", flush=True)
-        return redirect('home')
+    while True:
+        params = {'page': page, 'per_page': per_page}
+        cache.set(cache_key, {'status': f'Scaricamento attività (Pagina {page})...', 'progress': min(15 + (page * 10), 80)}, timeout=300)
+        if timestamp_checkpoint:
+            params['after'] = timestamp_checkpoint
+            
+        response = requests.get(url_activities, headers=headers, params=params)
         
-    activities = response.json()
-    print(f"DEBUG: Attività trovate: {len(activities)}", flush=True)
+        print(f"DEBUG: Richiesta Strava (Pagina {page}) - Status: {response.status_code}", flush=True)
 
-    if activities:
+        if response.status_code == 401:
+            print("DEBUG: Token scaduto (Attività). Reindirizzo al login Strava per refresh.", flush=True)
+            return redirect('/accounts/strava/login/')
+
+        if response.status_code == 429:
+            print("DEBUG: ⚠️ LIMITE API STRAVA RAGGIUNTO. Sincronizzazione parziale interrotta.", flush=True)
+            break
+
+        if response.status_code != 200:
+            print(f"DEBUG: Errore API: {response.text}", flush=True)
+            break
+            
+        activities = response.json()
+        if not activities:
+            print("DEBUG: Nessuna altra attività trovata. Sync completato.", flush=True)
+            break
+            
+        print(f"DEBUG: Attività trovate pagina {page}: {len(activities)}", flush=True)
+
         for act in activities:
             # Aggiunto supporto per Hike (Trekking) trattato come Trail
             if act['type'] in ['Run', 'TrailRun', 'Hike']:
                 # Usiamo la nuova utility centralizzata
                 processa_attivita_strava(act, profilo, access_token)
-            else:
-                print(f"DEBUG: Saltata attività {act['id']} ({act['type']})", flush=True)
+        
+        # Se la pagina è incompleta, significa che abbiamo finito
+        if len(activities) < per_page:
+            break
+            
+        page += 1
 
+    cache.set(cache_key, {'status': 'Analisi fisiologica e statistiche...', 'progress': 90}, timeout=300)
     # --- 8. AUTO-CALCOLO FC MAX REALE ---
-    # Invece di chiederla a Strava (che da errore permessi), prendiamo il picco massimo mai registrato
-    max_fc_reale = Attivita.objects.filter(atleta=profilo).aggregate(Max('fc_max_sessione'))['fc_max_sessione__max']
+    # Modifica: cattura la fc max degli ultimi 5 mesi (approx 150 giorni)
+    five_months_ago = timezone.now() - timedelta(days=150)
     
-    # FIX: Aggiorniamo la FC Max solo se il valore rilevato è SUPERIORE a quello attuale.
-    # Se l'atleta fa un periodo di scarico (bassa intensità), non dobbiamo abbassare la sua FC Max fisiologica.
-    if max_fc_reale and max_fc_reale > 160: 
-        if max_fc_reale > profilo.fc_max:
+    # Cerchiamo l'attività con la FC più alta nel periodo per estrarre anche la data
+    best_activity = Attivita.objects.filter(
+        atleta=profilo, 
+        data__gte=five_months_ago,
+        fc_max_sessione__gt=160  # Filtriamo valori non fisiologici/bassi
+    ).order_by('-fc_max_sessione').first()
+    
+    if best_activity:
+        max_fc_reale = best_activity.fc_max_sessione
+        data_record = best_activity.data.strftime('%d/%m/%Y')
+        data_obj = best_activity.data.date()
+        
+        # Aggiorniamo il profilo al "Season Best" (ultimi 5 mesi).
+        # FIX: Se l'utente ha impostato la FC manualmente, NON sovrascriviamo.
+        if not profilo.fc_max_manuale:
             profilo.fc_massima_teorica = max_fc_reale
             profilo.fc_max = max_fc_reale
+            profilo.data_fc_max = data_obj
             profilo.save()
-            print(f"DEBUG: Nuova FC Max record rilevata! Aggiornato a: {max_fc_reale}", flush=True)
+            print(f"DEBUG: FC Max rilevata (ultimi 5 mesi): {max_fc_reale} bpm il {data_record}", flush=True)
+        else:
+            print(f"DEBUG: FC Max rilevata {max_fc_reale} (il {data_record}) ma IGNORATA perché impostata manualmente.", flush=True)
 
     # --- 9. CALCOLO VO2MAX CONSOLIDATO (MEDIA MOBILE) ---
     stima_vo2max_atleta(profilo)
 
+    cache.set(cache_key, {'status': 'Completato!', 'progress': 100}, timeout=300)
     return redirect('home')
 
 def grafici_atleta(request):
@@ -502,6 +567,17 @@ def riepilogo_atleti(request):
     ).order_by('-vo2max_stima_statistica')
     
     return render(request, 'atleti/riepilogo_atleti.html', {'atleti': atleti})
+
+def gare_atleta(request):
+    """Visualizza solo le attività taggate come Gara su Strava"""
+    if not request.user.is_authenticated:
+        return redirect('home')
+    
+    profilo = request.user.profiloatleta
+    # Strava workout_type: 1 = Race (Gara)
+    gare = Attivita.objects.filter(atleta=profilo, workout_type=1).order_by('-data')
+    
+    return render(request, 'atleti/gare.html', {'gare': gare})
 
 def _get_coach_dashboard_context(week_offset):
     """Helper per calcolare i dati della dashboard coach per una specifica settimana"""

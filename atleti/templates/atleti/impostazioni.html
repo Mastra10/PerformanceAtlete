@@ -49,6 +49,10 @@
                             <div class="mb-3">
                                 <label class="form-label fw-bold">Frequenza Cardiaca Massima (bpm)</label>
                                 <input type="number" name="fc_max" class="form-control" value="{{ profilo.fc_max|default:190 }}" required>
+                                <div class="form-check mt-2">
+                                    <input class="form-check-input" type="checkbox" name="fc_max_manuale" id="fcMaxManuale" {% if profilo.fc_max_manuale %}checked{% endif %}>
+                                    <label class="form-check-label text-muted small" for="fcMaxManuale">Blocca questo valore (impedisci aggiornamento automatico da Strava)</label>
+                                </div>
                             </div>
                             
                             <hr class="my-4">

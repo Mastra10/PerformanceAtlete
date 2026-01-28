@@ -118,6 +118,15 @@
                     <div class="col-6 text-center">
                         <small class="text-muted d-block">FC Max</small>
                         <span class="h5 fw-bold text-danger">{{ profilo.fc_massima_teorica }} bpm</span>
+                        <div class="small text-muted" style="font-size: 0.7rem;">
+                            {% if profilo.fc_max_manuale %}
+                                (Impostata a mano)
+                            {% elif profilo.data_fc_max %}
+                                {{ profilo.data_fc_max|date:"d/m/Y" }}
+                            {% else %}
+                                <span class="text-muted" title="Data non disponibile. Sincronizza Strava.">--/--/----</span>
+                            {% endif %}
+                        </div>
                     </div>
                 </div>
                 <hr>
@@ -166,7 +175,11 @@
                     <h5 class="fw-bold m-0"><i class="bi bi-sliders me-2"></i>Controlli</h5>
                     <a href="{% url 'impostazioni' %}" class="btn btn-outline-dark btn-sm"><i class="bi bi-gear-fill"></i> Settings</a>
                 </div>
-                <a href="{% url 'strava_sync' %}" class="btn btn-outline-secondary btn-sm w-100">
+                <a href="{% url 'strava_sync' %}" 
+                   data-bs-toggle="modal" 
+                   data-bs-target="#syncModal" 
+                   onclick="startSyncRedirect(event)"
+                   class="btn btn-outline-secondary btn-sm w-100">
                     <i class="bi bi-arrow-repeat me-1"></i>Sincronizza Strava
                 </a>
                 <a href="{% url 'export_csv' %}" class="btn btn-outline-success btn-sm w-100 mt-2">
@@ -428,6 +441,22 @@
         </div>
     </div>
     {% endif %}
+
+<!-- Modal Loading Sync -->
+<div class="modal fade" id="syncModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content text-center p-4">
+            <div class="modal-body">
+                <h4 class="fw-bold mb-3">Sincronizzazione in corso...</h4>
+                <div class="progress mb-3" style="height: 25px;">
+                    <div id="syncProgressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-warning text-dark fw-bold" role="progressbar" style="width: 0%">0%</div>
+                </div>
+                <p id="syncStatusText" class="text-muted mb-0">Inizializzazione connessione...</p>
+                <p class="small text-warning mt-3 bg-light p-2 rounded"><i class="bi bi-info-circle-fill me-1"></i>Se è il primo download, l'operazione potrebbe richiedere alcuni minuti. Non chiudere la pagina.</p>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -522,6 +551,74 @@
             datasets: [{ data: {{ chart_power|safe }}, borderColor: '#6610f2', backgroundColor: 'rgba(102, 16, 242, 0.1)', tension: 0.3, fill: true }]
         },
         options: commonOptions
+    });
+
+    let isReloading = false;
+
+    // Funzione per avviare il sync e mostrare il modal
+    function startSyncRedirect(event) {
+        // Impediamo il reindirizzamento immediato del link
+        event.preventDefault();
+        
+        const syncUrl = event.currentTarget.getAttribute('href');
+        
+        // Reset UI del Modal
+        const progressBar = document.getElementById('syncProgressBar');
+        const statusText = document.getElementById('syncStatusText');
+        progressBar.style.width = '1%';
+        progressBar.innerText = '';
+        statusText.innerText = 'Contatto il server...';
+
+        // Aggiungiamo timestamp per evitare che il browser usi la cache (es. redirect precedente)
+        const uniqueUrl = syncUrl + (syncUrl.includes('?') ? '&' : '?') + '_t=' + new Date().getTime();
+
+        // 1. Avvia la sincronizzazione in background
+        fetch(uniqueUrl, { cache: "no-store", credentials: "include" })
+            .then(response => {
+                // Se il server ci ha reindirizzato al login (token scaduto), andiamo lì
+                if (response.url && response.url.includes('login')) {
+                    window.location.href = response.url;
+                    return;
+                }
+                // Quando finisce, ricarica la pagina
+                isReloading = true;
+                window.location.reload();
+            })
+            .catch(error => {
+                console.error("Errore sync:", error);
+                // Mostriamo l'errore nel modal invece di ricaricare subito
+                statusText.innerText = "Errore di connessione: " + error.message;
+                statusText.classList.add('text-danger');
+                progressBar.classList.remove('bg-warning');
+                progressBar.classList.add('bg-danger');
+            });
+
+        // 2. Avvia il polling per aggiornare la barra (ogni 1s)
+        const intervalId = setInterval(() => {
+            fetch('/?sync_status=true', { credentials: "include" })
+                .then(response => {
+                    if (!response.ok) return null;
+                    return response.json();
+                })
+                .then(data => {
+                    if (!data) return;
+                    progressBar.style.width = data.progress + '%';
+                    progressBar.innerText = data.progress + '%';
+                    if (data.status) statusText.innerText = data.status;
+                    if (data.progress >= 100) clearInterval(intervalId);
+                });
+        }, 1000);
+    }
+
+    window.addEventListener('beforeunload', function (e) {
+        if (isReloading) return;
+
+        // Mostra un avviso solo se il modal di sync è visibile
+        var modal = document.getElementById('syncModal');
+        if (modal && modal.classList.contains('show')) {
+            e.preventDefault();
+            e.returnValue = '';
+        }
     });
 </script>
 {% endblock %}

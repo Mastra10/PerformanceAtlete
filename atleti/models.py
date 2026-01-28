@@ -16,6 +16,8 @@ class ProfiloAtleta(models.Model):
     immagine_profilo = models.URLField(max_length=500, blank=True, null=True)
     fc_max = models.IntegerField(help_text="Battiti massimi", default=190)
     fc_massima_teorica = models.IntegerField(default=190)
+    fc_max_manuale = models.BooleanField(default=False, verbose_name="FC Max impostata manualmente")
+    data_fc_max = models.DateField(null=True, blank=True, verbose_name="Data rilevamento FC Max")
     # Risultato dell'analisi AI
     vo2max_stima_statistica = models.FloatField(blank=True, null=True, verbose_name="VO2max Stima (Trail+Strada)")
     vo2max_strada = models.FloatField(blank=True, null=True, verbose_name="VO2max Solo Strada")
@@ -49,6 +51,8 @@ class Attivita(models.Model):
     vam_selettiva = models.FloatField(null=True, blank=True, help_text="VAM calcolata su pendenze > 7%")
 
     tipo_attivita = models.CharField(max_length=20, default='Run') # 'Run' o 'TrailRun'
+    nome = models.CharField(max_length=200, null=True, blank=True)
+    workout_type = models.IntegerField(null=True, blank=True, help_text="1=Gara, 2=Lungo, 3=Lavoro")
     
     # Campi compilati da Gemini
     vo2max_stimato = models.FloatField(null=True, blank=True)
@@ -91,9 +95,15 @@ class Attivita(models.Model):
         d_plus = self.dislivello
         
         if self.tipo_attivita == 'TrailRun':
-             distanza_equivalente = distanza_metri + (5 * d_plus)
-             velocita_eq = distanza_equivalente / (durata_secondi / 60)
-             vo2_attivita = (0.2 * velocita_eq * 1.05) + 3.5
+             # Se è una Gara (workout_type=1), usiamo la formula potenziata
+             if self.workout_type == 1:
+                 distanza_equivalente = distanza_metri + (5 * d_plus)
+                 velocita_eq = distanza_equivalente / (durata_secondi / 60)
+                 vo2_attivita = (0.2 * velocita_eq * 1.05) + 3.5
+             else:
+                 distanza_equivalente = distanza_metri + (5 * d_plus)
+                 velocita_eq = distanza_equivalente / (durata_secondi / 60)
+                 vo2_attivita = (0.2 * velocita_eq * 1.05) + 3.5
         else:
              velocita_m_min = distanza_metri / (durata_secondi / 60)
              pendenza = d_plus / distanza_metri if distanza_metri > 0 else 0

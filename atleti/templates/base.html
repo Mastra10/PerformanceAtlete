@@ -76,6 +76,7 @@
                     <li class="nav-item"><a class="nav-link {% if request.resolver_match.url_name == 'riepilogo_atleti' %}active{% endif %}" href="{% url 'riepilogo_atleti' %}"><i class="bi bi-people"></i> Riepilogo Atleti</a></li>
                     {% endif %}
                     <li class="nav-item"><a class="nav-link {% if request.resolver_match.url_name == 'grafici' %}active{% endif %}" href="{% url 'grafici' %}"><i class="bi bi-graph-up"></i> Grafici</a></li>
+                    <li class="nav-item"><a class="nav-link {% if request.resolver_match.url_name == 'gare_atleta' %}active{% endif %}" href="{% url 'gare_atleta' %}"><i class="bi bi-trophy"></i> Gare</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.resolver_match.url_name == 'impostazioni' %}active{% endif %}" href="{% url 'impostazioni' %}"><i class="bi bi-gear"></i> Impostazioni</a></li>
                 </ul>
 

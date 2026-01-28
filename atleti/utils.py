@@ -147,15 +147,21 @@ def calcola_metrica_vo2max(attivita, profilo):
             return None
 
         is_trail = getattr(attivita, 'tipo_attivita', 'Run') == 'TrailRun'
+        is_race = getattr(attivita, 'workout_type', 0) == 1
         
         if is_trail:
-            # LOGICA TRAIL (Km-Effort Rule)
-            # Nel trail, 100m di D+ equivalgono a circa 500m di sforzo in piano (coefficiente 5)
-            distanza_equivalente = distanza_metri + (5 * d_plus)
-            velocita_eq = distanza_equivalente / (durata_secondi / 60)
-            
-            # Fattore Terreno: +5% costo ossigeno per instabilità (Elite efficiency)
-            vo2_attivita = (0.2 * velocita_eq * 1.05) + 3.5
+            if is_race:
+                # LOGICA GARA TRAIL (Allineata a Dashboard)
+                # 100m D+ = 500m piani (Coeff 5) | Fattore Terreno: +5%
+                distanza_equivalente = distanza_metri + (5 * d_plus)
+                velocita_eq = distanza_equivalente / (durata_secondi / 60)
+                vo2_attivita = (0.2 * velocita_eq * 1.05) + 3.5
+            else:
+                # LOGICA TRAIL ALLENAMENTO (Standard)
+                # 100m D+ = 500m piani (Coeff 5) | Fattore Terreno: +5%
+                distanza_equivalente = distanza_metri + (5 * d_plus)
+                velocita_eq = distanza_equivalente / (durata_secondi / 60)
+                vo2_attivita = (0.2 * velocita_eq * 1.05) + 3.5
             
         else:
             # LOGICA STRADA (Formula ACSM Standard)
@@ -467,6 +473,8 @@ def processa_attivita_strava(act, profilo, access_token):
         strava_activity_id=act['id'],
         defaults={
             'atleta': profilo,
+            'nome': act.get('name'),
+            'workout_type': act.get('workout_type'),
             'data': act['start_date'],
             'distanza': act['distance'],
             'durata': act['moving_time'],
