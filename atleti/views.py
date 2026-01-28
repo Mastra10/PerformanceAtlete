@@ -708,8 +708,43 @@ def _get_coach_dashboard_context(week_offset):
     # 6. Allarmi FC (Aumento > 5% della FC Media = Possibile Fatica/Overreaching)
     fc_alerts = sorted([x for x in atleti_trends if x['trends'].get('fc_media', 0) > 5], key=lambda x: x['trends'].get('fc_media', 0), reverse=True)
 
-    # 7. Allarmi Efficienza (Crollo VO2max > 3% = Possibile Malattia/Stress)
-    vo2_alerts = sorted([x for x in atleti_trends if x['trends'].get('vo2max', 0) < -3.0], key=lambda x: x['trends'].get('vo2max', 0))
+    # 7. Allarmi ACWR (Acute:Chronic Workload Ratio) - Sostituisce VO2max drop
+    # Calcoliamo il carico basato sui "Km Sforzo" (1km + 100m D+)
+    acwr_alerts = []
+    
+    for a in all_atleti:
+        # Definiamo finestre temporali
+        start_acute = target_week_end - timedelta(days=7)
+        start_chronic = target_week_end - timedelta(days=28)
+        
+        # Recuperiamo attività degli ultimi 28gg
+        qs_chronic = Attivita.objects.filter(atleta=a, data__gte=start_chronic, data__lt=target_week_end)
+        
+        load_acute = 0
+        load_chronic_total = 0
+        
+        for act in qs_chronic:
+            km_flat = act.distanza / 1000
+            km_vert = act.dislivello / 100
+            load_val = km_flat + km_vert # Km Sforzo
+            
+            load_chronic_total += load_val
+            if act.data >= start_acute:
+                load_acute += load_val
+        
+        avg_chronic = load_chronic_total / 4
+        
+        # Analizziamo solo chi ha un volume minimo (>10 Km Sforzo/settimana)
+        if avg_chronic > 10:
+            ratio = load_acute / avg_chronic
+            
+            # Soglie: > 1.3 (Rischio Infortunio), < 0.6 (Detraining severo)
+            if ratio >= 1.3 or ratio <= 0.6:
+                status = "High Risk ⚠️" if ratio >= 1.3 else "Detraining 📉"
+                acwr_alerts.append({'atleta': a, 'ratio': round(ratio, 2), 'status': status, 'acute': int(load_acute), 'chronic': int(avg_chronic)})
+    
+    # Ordiniamo per gravità (distanza da 1.0)
+    acwr_alerts = sorted(acwr_alerts, key=lambda x: abs(x['ratio'] - 1.0), reverse=True)
 
     # 8. Race Readiness (Potenziale Gara)
     readiness_buckets = {
@@ -758,7 +793,7 @@ def _get_coach_dashboard_context(week_offset):
         'top_improvers': top_improvers,
         'struggling': struggling,
         'fc_alerts': fc_alerts,
-        'vo2_alerts': vo2_alerts,
+        'acwr_alerts': acwr_alerts, # Nuova chiave
         'readiness': readiness,
         'week_offset': week_offset,
         'week_label': f"Dal {target_week_start.strftime('%d/%m')} al {target_week_end.strftime('%d/%m')}",

@@ -386,7 +386,7 @@ def analizza_squadra_coach(context):
     top = context.get('top_improvers', [])
     struggling = context.get('struggling', [])
     fc_alerts = context.get('fc_alerts', [])
-    vo2_alerts = context.get('vo2_alerts', [])
+    acwr_alerts = context.get('acwr_alerts', [])
 
     prompt = f"""
     Sei il Capo Allenatore di una squadra di corsa. Analizza il report settimanale ({week_label}).
@@ -401,7 +401,7 @@ def analizza_squadra_coach(context):
 
     ALLARMI FISIOLOGICI:
     - FC in aumento anomalo: {len(fc_alerts)} atleti.
-    - Crollo Efficienza (VO2max): {len(vo2_alerts)} atleti.
+    - Rischio Carico (ACWR): {len(acwr_alerts)} atleti fuori range (Rischio Infortunio > 1.3 o Detraining < 0.6).
 
     Fornisci un'analisi sintetica e professionale (max 15 righe) per lo staff tecnico.
     1. Valuta lo stato di salute generale della squadra.
