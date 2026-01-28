@@ -274,6 +274,7 @@ def impostazioni(request):
             
             profilo.peso = peso
             profilo.mostra_peso = mostra_peso
+            profilo.peso_manuale = request.POST.get('peso_manuale') == 'on'
             profilo.dashboard_pubblica = dashboard_pubblica
             profilo.fc_riposo = fc_riposo
             profilo.fc_max = fc_max
@@ -360,8 +361,11 @@ def sincronizza_strava(request):
     # Recuperiamo il peso dai dati di login (extra_data) che spesso sono più completi dell'API limitata
     if social_acc.extra_data and social_acc.extra_data.get('weight'):
         weight_extra = social_acc.extra_data.get('weight')
-        profilo.peso = weight_extra
-        print(f"DEBUG: Peso recuperato da SocialAccount: {weight_extra}", flush=True)
+        if not profilo.peso_manuale:
+            profilo.peso = weight_extra
+            print(f"DEBUG: Peso recuperato da SocialAccount: {weight_extra}", flush=True)
+        else:
+            print(f"DEBUG: Peso Strava {weight_extra} ignorato (manuale).", flush=True)
         
         # Recuperiamo immagine da SocialAccount come fallback/init
         img_extra = social_acc.extra_data.get('profile')
@@ -372,7 +376,7 @@ def sincronizza_strava(request):
         athlete_data = athlete_res.json()
         # Aggiorniamo il peso SOLO se Strava ce lo fornisce (evita sovrascrittura con 70kg)
         strava_weight = athlete_data.get('weight')
-        if strava_weight:
+        if strava_weight and not profilo.peso_manuale:
             profilo.peso = strava_weight
         
         # Aggiorniamo immagine profilo dall'API (più recente)

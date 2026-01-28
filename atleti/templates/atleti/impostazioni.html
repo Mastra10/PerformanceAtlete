@@ -38,6 +38,10 @@
                                     <label class="form-check-label text-muted small" for="mostraPeso">Mostra il mio peso nella classifica di squadra (se disattivato nessuno potrà visualizzarlo)</label>
                                 </div>
                                 <div class="form-check mt-2">
+                                    <input class="form-check-input" type="checkbox" name="peso_manuale" id="pesoManuale" {% if profilo.peso_manuale %}checked{% endif %}>
+                                    <label class="form-check-label text-muted small" for="pesoManuale">Blocca questo valore (impedisci aggiornamento automatico da Strava)</label>
+                                </div>
+                                <div class="form-check mt-2">
                                     <input class="form-check-input" type="checkbox" name="dashboard_pubblica" id="dashboardPubblica" {% if profilo.dashboard_pubblica %}checked{% endif %}>
                                     <label class="form-check-label text-muted small" for="dashboardPubblica">Rendi la mia Dashboard visibile agli altri atleti della squadra</label>
                                 </div>

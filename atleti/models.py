@@ -10,6 +10,7 @@ class ProfiloAtleta(models.Model):
     # Dati biometrici fondamentali per Gemini
     peso = models.FloatField(help_text="In kg", null=True, blank=True)
     mostra_peso = models.BooleanField(default=True, verbose_name="Mostra peso in classifica")
+    peso_manuale = models.BooleanField(default=False, verbose_name="Peso impostato manualmente")
     dashboard_pubblica = models.BooleanField(default=False, verbose_name="Rendi dashboard pubblica")
     eta = models.IntegerField(default=30)
     fc_riposo = models.IntegerField(help_text="Battiti a riposo", null=True, blank=True)
