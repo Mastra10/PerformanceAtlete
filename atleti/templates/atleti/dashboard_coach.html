@@ -94,7 +94,13 @@
                         {% for item in fc_alerts %}
                         <tr>
                             <td class="fw-bold">
-                                <a href="{% url 'dashboard_atleta' item.atleta.user.username %}" class="text-decoration-none text-dark">
+                                <a href="#" class="text-decoration-none text-dark" 
+                                   data-bs-toggle="modal" data-bs-target="#alertDetailModal"
+                                   data-name="{{ item.atleta.user.first_name }} {{ item.atleta.user.last_name }}"
+                                   data-username="{{ item.atleta.user.username }}"
+                                   data-trend="{{ item.trends.fc_media }}"
+                                   data-recent="{{ item.trends.fc_media_recent }}"
+                                   data-historic="{{ item.trends.fc_media_historic }}">
                                     {{ item.atleta.user.first_name }} {{ item.atleta.user.last_name }}
                                 </a>
                             </td>
@@ -403,6 +409,48 @@
     </div>
 </div>
 
+<!-- Modal Dettaglio Alert FC -->
+<div class="modal fade" id="alertDetailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title fw-bold"><i class="bi bi-heart-pulse-fill me-2"></i>Dettaglio Allarme FC</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <h4 id="modalAthleteName" class="fw-bold mb-3"></h4>
+                
+                <div class="row g-3 mb-3">
+                    <div class="col-6">
+                        <div class="p-3 bg-light rounded border">
+                            <small class="text-muted d-block text-uppercase">Media Storica (15)</small>
+                            <span id="modalHistoricVal" class="h3 fw-bold text-secondary">--</span> <small>bpm</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="p-3 bg-light rounded border border-danger">
+                            <small class="text-muted d-block text-uppercase">Media Recente (5)</small>
+                            <span id="modalRecentVal" class="h3 fw-bold text-danger">--</span> <small>bpm</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="alert alert-warning d-flex align-items-center justify-content-center" role="alert">
+                    <i class="bi bi-graph-up-arrow h2 me-3 mb-0"></i>
+                    <div class="text-start">
+                        <strong>Aumento del <span id="modalTrendVal">--</span>%</strong>
+                        <div class="small">La FC media è salita significativamente nelle ultime 5 sessioni.</div>
+                    </div>
+                </div>
+                
+                <div class="d-grid">
+                    <a id="modalAthleteLink" href="#" class="btn btn-outline-dark btn-sm">Vai alla Dashboard Completa</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     document.addEventListener("DOMContentLoaded", function() {
         // 1. Inizializzazione Tooltip
@@ -480,6 +528,24 @@
                 plugins: { legend: { position: 'bottom' } }
             }
         });
+
+        // 5. Gestione Modal Alert FC
+        const alertModal = document.getElementById('alertDetailModal');
+        if (alertModal) {
+            alertModal.addEventListener('show.bs.modal', event => {
+                const button = event.relatedTarget;
+                
+                // Popola i dati
+                document.getElementById('modalAthleteName').textContent = button.getAttribute('data-name');
+                document.getElementById('modalTrendVal').textContent = button.getAttribute('data-trend');
+                document.getElementById('modalRecentVal').textContent = button.getAttribute('data-recent');
+                document.getElementById('modalHistoricVal').textContent = button.getAttribute('data-historic');
+                
+                // Link alla dashboard completa
+                const username = button.getAttribute('data-username');
+                document.getElementById('modalAthleteLink').href = `/atleta/${username}/`;
+            });
+        }
     });
 
     // Funzioni per Analisi AI

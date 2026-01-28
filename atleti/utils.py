@@ -299,7 +299,11 @@ def calcola_trend_atleta(profilo, cutoff_date=None):
     trends['distanza'] = calc_diff(get_avg(recenti, 'distanza'), get_avg(storico, 'distanza'))
 
     # 6. FC Media
-    trends['fc_media'] = calc_diff(get_avg(recenti, 'fc_media'), get_avg(storico, 'fc_media'))
+    fc_recent = get_avg(recenti, 'fc_media')
+    fc_historic = get_avg(storico, 'fc_media')
+    trends['fc_media'] = calc_diff(fc_recent, fc_historic)
+    trends['fc_media_recent'] = int(fc_recent)
+    trends['fc_media_historic'] = int(fc_historic)
     
     # 7. Passo (basato su velocità m/s per correttezza matematica)
     # Nota: Velocità maggiore = Trend positivo (verde).
