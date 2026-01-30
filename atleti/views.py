@@ -530,19 +530,51 @@ def grafici_atleta(request):
     
     labels = []
     data_vo2 = []
+    data_vo2_strada = []
     data_fc = []
+    data_dist = []
+    data_elev = []
+    data_power = []
+    data_vam = []
+    data_pace = []
     
     for act in attivita_list:
         # Formattiamo la data es: 24/01
         labels.append(act.data.strftime("%d/%m"))
-        # Gestiamo i None per evitare errori nel JS
+        
+        # VO2max Totale
         data_vo2.append(act.vo2max_stimato if act.vo2max_stimato else None)
+        
+        # VO2max Solo Strada (Solo se Run)
+        if act.tipo_attivita == 'Run' and act.vo2max_stimato:
+            data_vo2_strada.append(act.vo2max_stimato)
+        else:
+            data_vo2_strada.append(None)
+
+        # Altre metriche
         data_fc.append(act.fc_media if act.fc_media else None)
+        data_dist.append(round(act.distanza / 1000, 2))
+        data_elev.append(act.dislivello)
+        data_power.append(act.potenza_media if act.potenza_media else None)
+        data_vam.append(act.vam) # Usa la property del model
+        
+        # Passo (min/km decimali)
+        if act.distanza > 0:
+            pace_min = (act.durata / 60) / (act.distanza / 1000)
+            data_pace.append(round(pace_min, 2))
+        else:
+            data_pace.append(None)
         
     context = {
         'labels': json.dumps(labels),
         'data_vo2': json.dumps(data_vo2),
+        'data_vo2_strada': json.dumps(data_vo2_strada),
         'data_fc': json.dumps(data_fc),
+        'data_dist': json.dumps(data_dist),
+        'data_elev': json.dumps(data_elev),
+        'data_power': json.dumps(data_power),
+        'data_vam': json.dumps(data_vam),
+        'data_pace': json.dumps(data_pace),
     }
     return render(request, 'atleti/grafici.html', context)
 

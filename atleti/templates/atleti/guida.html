@@ -151,36 +151,82 @@
                     <p>La Dashboard Coach aggrega i dati di tutti gli atleti per fornire una visione d'insieme dello stato di forma della squadra.</p>
 
                     <div class="row g-4 mt-2">
+                        <!-- 1. ACWR -->
                         <div class="col-md-6">
                             <h6 class="fw-bold text-danger">1. ACWR (Acute:Chronic Workload Ratio)</h6>
-                            <p class="small text-muted">
-                                È l'indicatore principale per la prevenzione infortuni. Confronta il carico dell'ultima settimana (Acuto) con la media delle ultime 4 settimane (Cronico).
-                                <br><strong>Formula Carico:</strong> <code>Km + (Dislivello / 100)</code>.
+                            <p class="small text-muted mb-2">
+                                Indicatore per prevenzione infortuni. Confronta il carico acuto (7gg) con quello cronico (28gg).
+                                <br><strong>Formula:</strong> <code>Km + (Dislivello / 100)</code>.
                             </p>
                             <ul class="small list-unstyled">
-                                <li><span class="badge bg-success me-2">0.8 - 1.3</span> <strong>Sweet Spot:</strong> Carico ottimale.</li>
-                                <li><span class="badge bg-warning text-dark me-2">> 1.3</span> <strong>High Risk:</strong> Aumento troppo repentino (Rischio infortunio).</li>
-                                <li><span class="badge bg-secondary me-2">< 0.8</span> <strong>Detraining:</strong> Perdita di forma fisica.</li>
+                                <li><span class="badge bg-success me-2">0.8 - 1.3</span> <strong>Sweet Spot:</strong> Ottimale.</li>
+                                <li><span class="badge bg-warning text-dark me-2">> 1.3</span> <strong>High Risk:</strong> Rischio infortunio.</li>
+                                <li><span class="badge bg-secondary me-2">< 0.8</span> <strong>Detraining:</strong> Perdita forma.</li>
                             </ul>
                         </div>
 
+                        <!-- 2. Allarmi Fisiologici -->
                         <div class="col-md-6">
-                            <h6 class="fw-bold text-primary">2. Race Readiness (Prontezza Gara)</h6>
+                            <h6 class="fw-bold text-warning">2. Allarmi Fisiologici (FC in aumento)</h6>
                             <p class="small text-muted">
-                                Classifica automaticamente gli atleti in base al volume settimanale e al "Lungo" massimo degli ultimi 45 giorni.
+                                Il sistema monitora la Frequenza Cardiaca media a parità di passo.
+                                <br>Se un atleta mostra un <strong>aumento > 5%</strong> della FC media nelle ultime 5 attività rispetto al suo storico, viene segnalato un possibile stato di affaticamento o malattia.
                             </p>
+                        </div>
+
+                        <!-- 3. Volume & Inattivi -->
+                        <div class="col-md-6">
+                            <h6 class="fw-bold text-success">3. Volume & Partecipazione</h6>
                             <ul class="small list-unstyled">
-                                <li><strong>Ultra Marathon 🏔️:</strong> >60km/sett e Lungo >28km.</li>
-                                <li><strong>Marathon 🏃:</strong> >40km/sett e Lungo >20km.</li>
-                                <li><strong>Half Marathon 🏁:</strong> >25km/sett e Lungo >14km.</li>
+                                <li class="mb-1"><strong>Volume Settimanale:</strong> Somma dei km totali della squadra. La freccia indica il trend rispetto alla settimana precedente.</li>
+                                <li><strong>Atleti Inattivi (>7gg):</strong> Lista degli atleti che non hanno caricato attività su Strava negli ultimi 7 giorni. Utile per identificare chi ha mollato o è infortunato.</li>
                             </ul>
                         </div>
 
-                        <div class="col-12">
-                            <h6 class="fw-bold text-info">3. Analisi AI (Gemini)</h6>
+                        <!-- 4. Distribuzione & Tipologia -->
+                        <div class="col-md-6">
+                            <h6 class="fw-bold" style="color: #0d6efd;">4. Distribuzione Livelli & Tipologia</h6>
+                            <ul class="small list-unstyled">
+                                <li class="mb-1"><strong>Livello (Stima):</strong> Suddivisione squadra basata sul VO2max medio (Trail + Strada).</li>
+                                <li class="mb-1"><strong>Livello (Strada):</strong> Focus specifico sulle prestazioni su asfalto.</li>
+                                <li><strong>Tipologia (90gg):</strong> Percentuale di attività Trail vs Strada negli ultimi 3 mesi.</li>
+                            </ul>
+                        </div>
+
+                        <!-- 5. Trend Performance -->
+                        <div class="col-md-6">
+                            <h6 class="fw-bold" style="color: #6f42c1;">5. Trend Performance</h6>
+                            <ul class="small list-unstyled">
+                                <li class="mb-1"><strong>Top Improvers:</strong> Atleti con il maggior incremento percentuale di VO2max (Ultime 5 vs Storico).</li>
+                                <li><strong>Trend in Calo:</strong> Atleti che stanno peggiorando le prestazioni (VO2max in discesa).</li>
+                            </ul>
+                        </div>
+
+                        <!-- 6. Race Readiness -->
+                        <div class="col-md-6">
+                            <h6 class="fw-bold text-primary">6. Race Readiness (Prontezza Gara)</h6>
+                            <p class="small text-muted mb-1">
+                                Classificazione automatica basata su Volume Settimanale e Lungo Max (ultimi 45gg).
+                            </p>
+                            <div class="small text-muted">
+                                Es: <strong>Ultra Marathon</strong> (>60km/sett, Lungo >28km).
+                            </div>
+                        </div>
+
+                        <!-- 7. Classifiche Top -->
+                        <div class="col-md-6">
+                            <h6 class="fw-bold text-dark">7. Classifiche Top</h6>
+                            <ul class="small list-unstyled">
+                                <li><strong>Top ITRA/UTMB:</strong> I migliori punteggi ufficiali scaricati.</li>
+                                <li><strong>Top Potenza (W):</strong> I valori più alti di Potenza Media (Watt) sulle ultime 30 attività.</li>
+                            </ul>
+                        </div>
+
+                        <!-- 8. AI -->
+                        <div class="col-md-6">
+                            <h6 class="fw-bold text-info">8. Analisi AI (Gemini)</h6>
                             <p class="small text-muted mb-0">
-                                Cliccando su "Analisi Coach AI", il sistema invia i dati aggregati a Google Gemini. 
-                                L'AI agisce come un "Capo Allenatore" virtuale, suggerendo focus per la settimana successiva e evidenziando criticità nel gruppo (es. troppi atleti in "High Risk").
+                                Cliccando su "Analisi Coach AI", l'intelligenza artificiale analizza tutti questi dati aggregati per fornire un report narrativo sullo stato della squadra e suggerimenti per il microciclo successivo.
                             </p>
                         </div>
                     </div>
