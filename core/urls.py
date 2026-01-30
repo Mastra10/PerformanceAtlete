@@ -47,6 +47,10 @@ urlpatterns = [
     path('impersonate/<str:username>/', views.impersonate_user, name='impersonate_user'),
     path('guida/', views.guida_utente, name='guida_utente'),
 
+    # --- NUOVI URL DA AGGIUNGERE ---
+    path('analisi-ai/', views.analisi_gemini, name='analisi_gemini'),
+    path('guida/', views.guida_utente, name='guida_utente'),
+
 ]
 
 
