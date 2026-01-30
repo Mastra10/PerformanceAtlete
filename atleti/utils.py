@@ -500,6 +500,10 @@ def processa_attivita_strava(act, profilo, access_token):
     Logica centralizzata per salvare/aggiornare un'attività Strava nel DB.
     Restituisce (Attivita, created).
     """
+    # 0. Filtro Privacy: Ignoriamo attività private SE l'utente non ha abilitato l'import
+    if act.get('private') and not profilo.importa_attivita_private:
+        return None, False
+
     # 1. Tipo Attività
     strava_sport_type = act.get('sport_type') or act.get('type')
     if strava_sport_type in ['TrailRun', 'Hike']:

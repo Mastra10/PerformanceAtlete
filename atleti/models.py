@@ -12,6 +12,8 @@ class ProfiloAtleta(models.Model):
     mostra_peso = models.BooleanField(default=True, verbose_name="Mostra peso in classifica")
     peso_manuale = models.BooleanField(default=False, verbose_name="Peso impostato manualmente")
     dashboard_pubblica = models.BooleanField(default=False, verbose_name="Rendi dashboard pubblica")
+    importa_attivita_private = models.BooleanField(default=False, verbose_name="Importa attività private da Strava")
+    condividi_metriche = models.BooleanField(default=True, verbose_name="Condividi VO2max e Indici nel riepilogo")
     eta = models.IntegerField(default=30)
     fc_riposo = models.IntegerField(help_text="Battiti a riposo", null=True, blank=True)
     immagine_profilo = models.URLField(max_length=500, blank=True, null=True)

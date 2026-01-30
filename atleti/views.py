@@ -32,6 +32,27 @@ def _get_dashboard_context(user):
     metri = Attivita.objects.filter(atleta=profilo).aggregate(Sum('distanza'))['distanza__sum'] or 0
     totale_km = round(metri / 1000, 1)
         
+    # 1b. Calcolo Dislivello Totale
+    dislivello_totale = Attivita.objects.filter(atleta=profilo).aggregate(Sum('dislivello'))['dislivello__sum'] or 0
+    
+    # 1c. Calcolo Dislivello Settimanale (Lun-Dom)
+    today = timezone.now()
+    start_week = today - timedelta(days=today.weekday())
+    start_week = start_week.replace(hour=0, minute=0, second=0, microsecond=0)
+    dislivello_settimanale = Attivita.objects.filter(atleta=profilo, data__gte=start_week).aggregate(Sum('dislivello'))['dislivello__sum'] or 0
+
+    # 1d. Calcolo Volume Annuale (Anno Corrente)
+    start_year = today.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+    qs_anno = Attivita.objects.filter(atleta=profilo, data__gte=start_year)
+    annuale_metri = qs_anno.aggregate(Sum('distanza'))['distanza__sum'] or 0
+    annuale_km = round(annuale_metri / 1000, 1)
+    dislivello_annuale = qs_anno.aggregate(Sum('dislivello'))['dislivello__sum'] or 0
+    
+    # Calcolo medie settimanali anno corrente
+    current_week = today.isocalendar()[1]
+    avg_weekly_km = round(annuale_km / max(1, current_week), 1)
+    avg_weekly_elev = int(dislivello_annuale / max(1, current_week))
+
         # 2. Recupero le ultime 10 attività per la tabella
     attivita_list = Attivita.objects.filter(atleta=profilo).order_by('-data')[:10]
         
@@ -161,6 +182,12 @@ def _get_dashboard_context(user):
 
     return {
         'totale_km': totale_km,
+        'dislivello_totale': int(dislivello_totale),
+        'dislivello_settimanale': int(dislivello_settimanale),
+        'annuale_km': annuale_km,
+        'dislivello_annuale': int(dislivello_annuale),
+        'avg_weekly_km': avg_weekly_km,
+        'avg_weekly_elev': avg_weekly_elev,
         'vam_media': vam_media,
         'potenza_media': potenza_media,
         'fc_media_recent': fc_media_recent,
@@ -291,11 +318,15 @@ def impostazioni(request):
             dashboard_pubblica = request.POST.get('dashboard_pubblica') == 'on'
             indice_itra = int(request.POST.get('indice_itra') or 0)
             indice_utmb = int(request.POST.get('indice_utmb') or 0)
+            importa_attivita_private = request.POST.get('importa_attivita_private') == 'on'
+            condividi_metriche = request.POST.get('condividi_metriche') == 'on'
             
             profilo.peso = peso
             profilo.mostra_peso = mostra_peso
             profilo.peso_manuale = request.POST.get('peso_manuale') == 'on'
             profilo.dashboard_pubblica = dashboard_pubblica
+            profilo.importa_attivita_private = importa_attivita_private
+            profilo.condividi_metriche = condividi_metriche
             profilo.fc_riposo = fc_riposo
             profilo.fc_max = fc_max
             profilo.fc_massima_teorica = fc_max
@@ -647,6 +678,16 @@ def riepilogo_atleti(request):
     atleti = ProfiloAtleta.objects.select_related('user').exclude(user__username='mastra').annotate(
         ultima_corsa=Max('sessioni__data')
     ).order_by('-vo2max_stima_statistica')
+    
+    # Offuscamento dati sensibili per chi non vuole condividerli (tranne per Staff)
+    if not request.user.is_staff:
+        for atleta in atleti:
+            if not atleta.condividi_metriche:
+                # Sovrascriviamo i valori sull'oggetto in memoria (non nel DB)
+                atleta.vo2max_stima_statistica = None # Apparirà come "None" o vuoto nel template
+                atleta.vo2max_strada = None
+                atleta.indice_itra = 0
+                atleta.indice_utmb = 0
     
     return render(request, 'atleti/riepilogo_atleti.html', {'atleti': atleti})
 

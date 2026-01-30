@@ -247,13 +247,25 @@
         <div class="col-lg-8">
             <div class="row g-3 mb-4 text-center">
                 <!-- Riga 1: Metriche di Volume e Potenza -->
-                <div class="col-4">
+                <div class="col-6">
                     <div class="card p-3 stats-box h-100">
                         <i class="bi bi-geo-alt stats-icon h3 text-muted"></i>
-                        <small class="text-muted d-block">Distanza</small>
+                        <small class="text-muted d-block">Volume Totale</small>
                         <span class="h4 fw-bold">{{ totale_km }} KM</span>
+                        
+                        <div class="d-flex justify-content-center gap-2 mt-1">
+                            <div class="small bg-light rounded px-2 py-1">
+                                <span class="fw-bold text-dark">{{ dislivello_totale }}m</span> 
+                                <span class="text-muted" style="font-size: 0.65rem;">D+ Tot</span>
+                            </div>
+                            <div class="small bg-light rounded px-2 py-1">
+                                <span class="fw-bold text-success">+{{ dislivello_settimanale }}m</span> 
+                                <span class="text-muted" style="font-size: 0.65rem;">D+ Week</span>
+                            </div>
+                        </div>
+
                         {% if trends.distanza is not None %}
-                            <div class="small fw-bold mt-1 {% if trends.distanza > 0 %}text-success{% else %}text-muted{% endif %}">
+                            <div class="small fw-bold mt-2 pt-2 border-top {% if trends.distanza > 0 %}text-success{% else %}text-muted{% endif %}">
                                 {% if trends.distanza > 0 %}<i class="bi bi-arrow-up-right"></i>{% elif trends.distanza < 0 %}<i class="bi bi-arrow-down-right"></i>{% endif %}
                                 {{ trends.distanza }}%
                                 <i class="bi bi-info-circle text-muted ms-1" style="font-size: 0.7rem;" data-bs-toggle="tooltip" title="Variazione media ultime 5 attività vs precedenti 15"></i>
@@ -262,7 +274,27 @@
                         {% endif %}
                     </div>
                 </div>
-                <div class="col-4">
+                <div class="col-6">
+                    <div class="card p-3 stats-box h-100">
+                        <i class="bi bi-calendar-check stats-icon h3 text-muted"></i>
+                        <small class="text-muted d-block">Volume Anno {% now "Y" %}</small>
+                        <span class="h4 fw-bold">{{ annuale_km }} KM</span>
+                        
+                        <div class="d-flex justify-content-center gap-2 mt-1">
+                            <div class="small bg-light rounded px-2 py-1">
+                                <span class="fw-bold text-dark">{{ dislivello_annuale }}m</span> 
+                                <span class="text-muted" style="font-size: 0.65rem;">D+ Anno</span>
+                            </div>
+                        </div>
+                        <div class="mt-2 pt-2 border-top">
+                             <small class="text-muted d-block" style="font-size: 0.7rem;">Media Settimanale</small>
+                             <div class="fw-bold text-dark" style="font-size: 0.9rem;">
+                                {{ avg_weekly_km }} km <span class="text-muted fw-normal">/</span> {{ avg_weekly_elev }} m
+                             </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-6">
                     <div class="card p-3 stats-box h-100" style="border-color: #ffc107;">
                         <i class="bi bi-graph-up-arrow h3 text-warning"></i>
                         <small class="text-muted d-block">
@@ -280,7 +312,7 @@
                         {% if vam_media > 0 %}<div class="small fw-bold text-uppercase mt-1" style="color: #ffc107; font-size: 0.8rem; letter-spacing: 1px;">{{ livello_vam }}</div>{% endif %}
                     </div>
                 </div>
-                <div class="col-4">
+                <div class="col-6">
                     <div class="card p-3 stats-box h-100" style="border-color: #6610f2;">
                         <i class="bi bi-lightning h3" style="color: #6610f2;"></i>
                         <small class="text-muted d-block">Potenza (W)</small>
@@ -740,6 +772,7 @@
                 // Formattazione Markdown base
                 let formatted = data.analisi.replace(/\*\*(.*?)\*\*/g, '<strong class="text-primary">$1</strong>'); // Bold
                 formatted = formatted.replace(/## (.*)/g, '<h5 class="fw-bold mt-4 mb-2 border-bottom pb-1">$1</h5>'); // Headers
+                formatted = formatted.replace(/\n/g, '<br>');
                 textDiv.innerHTML = formatted;
             })
             .catch(error => {
@@ -756,7 +789,8 @@
             filename: 'Report_Performance_{{ profilo.user.username }}.pdf',
             image: { type: 'jpeg', quality: 0.98 },
             html2canvas: { scale: 2 },
-            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+            pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
         };
         html2pdf().set(opt).from(element).save();
     }
