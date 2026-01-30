@@ -224,13 +224,27 @@ def dashboard_atleta(request, username):
 
 
 def analisi_gemini(request):
-    profilo = request.user.profiloatleta
-    commento_ai = analizza_performance_atleta(profilo)
+    # Supporto per chiamata AJAX da Modal
+    is_api = request.GET.get('api') == 'true'
     
-    # Salviamo il commento nel profilo per non perderlo
+    # Supporto per admin che analizza un altro atleta
+    target_username = request.GET.get('username')
+    if target_username and (request.user.is_staff or request.user.username == target_username):
+        target_user = get_object_or_404(User, username=target_username)
+        profilo = target_user.profiloatleta
+    else:
+        profilo = request.user.profiloatleta
+
+    if is_api:
+        LogSistema.objects.create(livello='INFO', azione='Analisi AI', utente=request.user, messaggio=f"Richiesta analisi personale per {profilo.user.username}")
+
+    commento_ai = analizza_performance_atleta(profilo)
     profilo.ultima_analisi_ai = commento_ai
     profilo.save()
     
+    if is_api:
+        return JsonResponse({'analisi': commento_ai})
+        
     return render(request, 'atleti/home.html', {'analisi': commento_ai})
 
 

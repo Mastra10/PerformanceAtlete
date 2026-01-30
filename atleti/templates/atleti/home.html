@@ -199,6 +199,9 @@
                 <a href="{% url 'guida_utente' %}" class="btn btn-outline-info btn-sm w-100 mt-2">
                     <i class="bi bi-book-half me-1"></i>Guida & Metriche
                 </a>
+                <button onclick="generaAnalisiPersonale()" class="btn btn-primary btn-sm w-100 mt-2 shadow-sm">
+                    <i class="bi bi-stars me-1"></i>Analisi AI Personalizzata
+                </button>
                 
                 <div class="mt-3 small text-muted text-center border-top pt-2">
                     <div class="mb-1">
@@ -472,6 +475,37 @@
     </div>
     {% endif %}
 
+<!-- Modal Analisi AI Personale -->
+<div class="modal fade" id="aiPersonalModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="bi bi-robot me-2"></i>Analisi Performance AI</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="aiPersonalLoading" class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-3 text-muted">Gemini sta analizzando le tue ultime 3 settimane...</p>
+                </div>
+                
+                <!-- Contenitore per il PDF -->
+                <div id="aiPersonalContent" class="d-none p-4 border rounded bg-white">
+                    <div class="d-flex justify-content-between align-items-center border-bottom pb-3 mb-3">
+                        <h3 class="fw-bold m-0 text-primary">Report Performance</h3>
+                        <small class="text-muted">Barilla Monitor System</small>
+                    </div>
+                    <div id="aiPersonalText" style="white-space: pre-wrap; font-family: sans-serif; line-height: 1.6; color: #333;"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Chiudi</button>
+                <button type="button" class="btn btn-danger" onclick="scaricaPDFPersonale()"><i class="bi bi-file-earmark-pdf me-2"></i>Scarica PDF</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Modal Loading Sync -->
 <div class="modal fade" id="syncModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -490,6 +524,7 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script>
     // Inizializzazione Tooltip Bootstrap
     const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]')
@@ -650,5 +685,51 @@
             e.returnValue = '';
         }
     });
+
+    // Funzioni Analisi AI Personale
+    function generaAnalisiPersonale() {
+        const modal = new bootstrap.Modal(document.getElementById('aiPersonalModal'));
+        modal.show();
+        
+        document.getElementById('aiPersonalLoading').classList.remove('d-none');
+        document.getElementById('aiPersonalContent').classList.add('d-none');
+        
+        // Recupera username se siamo admin che guarda un altro profilo
+        // (Deduciamo dall'URL o dal contesto pagina, qui usiamo parametro opzionale se presente)
+        const urlParams = new URLSearchParams(window.location.search);
+        // Se l'URL contiene /atleta/username/, potremmo estrarlo, ma per ora usiamo l'utente corrente
+        // o passiamo username se definito in una variabile globale (non presente qui, quindi default user corrente)
+
+        fetch("{% url 'analisi_gemini' %}?api=true")
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('aiPersonalLoading').classList.add('d-none');
+                const contentDiv = document.getElementById('aiPersonalContent');
+                const textDiv = document.getElementById('aiPersonalText');
+                contentDiv.classList.remove('d-none');
+                
+                // Formattazione Markdown base
+                let formatted = data.analisi.replace(/\*\*(.*?)\*\*/g, '<strong class="text-primary">$1</strong>'); // Bold
+                formatted = formatted.replace(/## (.*)/g, '<h5 class="fw-bold mt-4 mb-2 border-bottom pb-1">$1</h5>'); // Headers
+                textDiv.innerHTML = formatted;
+            })
+            .catch(error => {
+                document.getElementById('aiPersonalLoading').classList.add('d-none');
+                document.getElementById('aiPersonalContent').classList.remove('d-none');
+                document.getElementById('aiPersonalText').innerHTML = `<div class="alert alert-danger">Errore durante l'analisi: ${error}</div>`;
+            });
+    }
+
+    function scaricaPDFPersonale() {
+        const element = document.getElementById('aiPersonalContent');
+        const opt = {
+            margin: 10,
+            filename: 'Report_Performance_BarillaMonitor.pdf',
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2 },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+        html2pdf().set(opt).from(element).save();
+    }
 </script>
 {% endblock %}

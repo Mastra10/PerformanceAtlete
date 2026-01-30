@@ -427,27 +427,60 @@ def analizza_performance_atleta(profilo):
     # Inizializzazione pulita del client 2026
     client = genai.Client(api_key=api_key)
     
-    # Preparazione dati per l'analisi (VO2max 65-69 e No Alcohol)
-    attivita = Attivita.objects.filter(atleta=profilo).order_by('-data')[:10]
+    # 1. Analisi Trend Settimanale (Ultime 3 settimane)
+    today = timezone.now()
+    # Calcoliamo l'inizio della settimana corrente (Lunedì)
+    current_week_start = today - timedelta(days=today.weekday())
+    current_week_start = current_week_start.replace(hour=0, minute=0, second=0, microsecond=0)
     
+    weeks_summary = []
+    for i in range(3):
+        # 0 = Corrente, 1 = Scorsa, 2 = Due fa
+        start_date = current_week_start - timedelta(weeks=i)
+        end_date = start_date + timedelta(days=7)
+        
+        qs = Attivita.objects.filter(atleta=profilo, data__gte=start_date, data__lt=end_date)
+        
+        if qs.exists():
+            dist = qs.aggregate(Sum('distanza'))['distanza__sum'] / 1000
+            elev = qs.aggregate(Sum('dislivello'))['dislivello__sum']
+            # Media VO2max (escludendo None)
+            vo2_vals = [a.vo2max_stimato for a in qs if a.vo2max_stimato]
+            avg_vo2 = sum(vo2_vals)/len(vo2_vals) if vo2_vals else 0
+            
+            label = "Questa Settimana" if i == 0 else f"Settimana -{i}"
+            weeks_summary.append(f"- {label} ({start_date.strftime('%d/%m')}): {dist:.1f}km, {elev:.0f}m D+, VO2max Avg: {avg_vo2:.1f}")
+        else:
+            weeks_summary.append(f"- Settimana -{i}: Nessuna attività.")
+
+    # 2. Dettaglio Ultime 5 Sessioni
+    attivita = Attivita.objects.filter(atleta=profilo).order_by('-data')[:5]
     storico_testo = ""
     for act in attivita:
-        # Specifichiamo se è Strada o Trail e aggiungiamo il D+
         tipo = "Trail 🏔️" if act.tipo_attivita == "TrailRun" else "Strada 🛣️"
-        storico_testo += f"- {act.data} [{tipo}]: {act.distanza}m, Passo: {act.passo_medio}, FC Media: {act.fc_media}bpm, D+: {act.dislivello}m\n"
+        storico_testo += f"- {act.data.strftime('%d/%m')} [{tipo}]: {act.distanza/1000:.1f}km, {act.dislivello}m D+, Passo: {act.passo_medio}, FC: {act.fc_media}bpm, VO2: {act.vo2max_stimato}\n"
 
     prompt = f"""
-    Sei un coach esperto. Analizza la performance di un atleta d'élite.
-    DATI FISIOLOGICI:
-    - Peso: {profilo.peso}kg, FC Max: {profilo.fc_massima_teorica}bpm, FC Riposo: {profilo.battito_riposo}bpm.
-    - Storico VO2max: 65-69 ml/kg/min.
+    Sei un coach esperto di atletica e trail running. Analizza la performance dell'atleta {profilo.user.first_name}.
+    
+    PROFILO ATLETA:
+    - Peso: {profilo.peso}kg, FC Max: {profilo.fc_massima_teorica} bpm, FC Riposo: {profilo.fc_riposo} bpm.
+    - VO2max Attuale (Stima): {profilo.vo2max_stima_statistica} ml/kg/min.
+    - Indici: ITRA {profilo.indice_itra}, UTMB {profilo.indice_utmb}.
 
-    SESSIONI RECENTI:
+    TREND ULTIME 3 SETTIMANE:
+    {chr(10).join(weeks_summary)}
+
+    ULTIME 5 SESSIONI:
     {storico_testo}
 
-    ISTRUZIONI:
-    1. Calcola il carico di lavoro differenziando tra corse su strada e Trail. 
-    2. Tieni conto del dislivello (D+) per valutare l'efficienza aerobica nei trail: un passo lento con alto D+ non indica scarsa forma.
+    RICHIESTA:
+    Fornisci un'analisi dettagliata ma concisa (max 20 righe) su:
+    1. **Stato di Forma Attuale**: Come sta andando rispetto alle settimane scorse? È in crescita, stallo o calo?
+    2. **Analisi Fisiologica**: Valuta la relazione tra passo, FC e dislivello nelle ultime sessioni.
+    3. **Consigli per la Prossima Settimana**: Su cosa concentrarsi (Volume, Intensità o Recupero)?
+
+    Usa formattazione Markdown con titoli in grassetto (es. **Titolo**) o elenchi puntati. Sii motivante ma tecnico.
     """
     
     try:
