@@ -45,6 +45,8 @@ urlpatterns = [
     path('scheduler-logs-update/', views.scheduler_logs_update, name='scheduler_logs_update'),
     path('reset-task/<str:task_id>/', views.reset_task_trigger, name='reset_task_trigger'),
     path('impersonate/<str:username>/', views.impersonate_user, name='impersonate_user'),
+    path('guida/', views.guida_utente, name='guida_utente'),
+
 ]
 
 

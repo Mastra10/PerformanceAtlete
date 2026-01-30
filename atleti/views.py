@@ -613,6 +613,10 @@ def gare_atleta(request):
     
     return render(request, 'atleti/gare.html', {'gare': gare})
 
+def guida_utente(request):
+    """Pagina di documentazione per gli utenti"""
+    return render(request, 'atleti/guida.html')
+
 def _get_coach_dashboard_context(week_offset):
     """Helper per calcolare i dati della dashboard coach per una specifica settimana"""
     today = timezone.now()
