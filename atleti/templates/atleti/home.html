@@ -490,12 +490,39 @@
                 </div>
                 
                 <!-- Contenitore per il PDF -->
-                <div id="aiPersonalContent" class="d-none p-4 border rounded bg-white">
-                    <div class="d-flex justify-content-between align-items-center border-bottom pb-3 mb-3">
-                        <h3 class="fw-bold m-0 text-primary">Report Performance</h3>
-                        <small class="text-muted">Barilla Monitor System</small>
+                <div id="aiPersonalContent" class="d-none bg-white p-5">
+                    <div class="text-center mb-5 border-bottom pb-4">
+                        <h1 class="fw-bold text-primary mb-2"><i class="bi bi-graph-up-arrow me-2"></i>Performance Report</h1>
+                        <p class="text-muted h5">Analisi Avanzata & Suggerimenti Coach AI</p>
                     </div>
-                    <div id="aiPersonalText" style="white-space: pre-wrap; font-family: sans-serif; line-height: 1.6; color: #333;"></div>
+                    
+                    <div class="row mb-5">
+                        <div class="col-6">
+                            <h5 class="fw-bold text-uppercase text-secondary mb-3">Profilo Atleta</h5>
+                            <ul class="list-unstyled">
+                                <li class="mb-2"><strong>Nome:</strong> {{ profilo.user.first_name }} {{ profilo.user.last_name }}</li>
+                                <li class="mb-2"><strong>Categoria:</strong> {{ livello_vo2max|default:"N/A" }}</li>
+                                <li><strong>Data Report:</strong> <span id="reportDate"></span></li>
+                            </ul>
+                        </div>
+                        <div class="col-6 text-end">
+                            <div class="p-3 bg-light rounded d-inline-block text-start" style="min-width: 200px;">
+                                <small class="d-block text-muted text-uppercase">VO2max Attuale</small>
+                                <div class="display-6 fw-bold text-primary">{{ profilo.vo2max_stima_statistica|default:"--" }}</div>
+                                <small class="text-success"><i class="bi bi-activity"></i> ml/kg/min</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="p-4 rounded-3" style="background-color: #f8f9fa; border-left: 5px solid #0d6efd;">
+                        <h4 class="fw-bold mb-4"><i class="bi bi-robot me-2"></i>Analisi Tecnica</h4>
+                        <div id="aiPersonalText" style="font-family: 'Segoe UI', sans-serif; line-height: 1.8; font-size: 1.05rem; color: #333;"></div>
+                    </div>
+
+                    <div class="mt-5 pt-4 border-top text-center text-muted small">
+                        <p class="mb-1">Barilla Monitor System • Powered by Strava & Gemini AI</p>
+                        <p>Generato il <span id="reportDateFooter"></span></p>
+                    </div>
                 </div>
             </div>
             <div class="modal-footer">
@@ -694,13 +721,15 @@
         document.getElementById('aiPersonalLoading').classList.remove('d-none');
         document.getElementById('aiPersonalContent').classList.add('d-none');
         
-        // Recupera username se siamo admin che guarda un altro profilo
-        // (Deduciamo dall'URL o dal contesto pagina, qui usiamo parametro opzionale se presente)
-        const urlParams = new URLSearchParams(window.location.search);
-        // Se l'URL contiene /atleta/username/, potremmo estrarlo, ma per ora usiamo l'utente corrente
-        // o passiamo username se definito in una variabile globale (non presente qui, quindi default user corrente)
+        // Imposta la data odierna nel report
+        const today = new Date().toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' });
+        const reportDateEl = document.getElementById('reportDate');
+        if(reportDateEl) reportDateEl.textContent = today;
+        const reportDateFooterEl = document.getElementById('reportDateFooter');
+        if(reportDateFooterEl) reportDateFooterEl.textContent = today;
 
-        fetch("{% url 'analisi_gemini' %}?api=true")
+        // Passiamo username per supportare la vista admin su altri atleti
+        fetch("{% url 'analisi_gemini' %}?api=true&username={{ profilo.user.username }}")
             .then(response => response.json())
             .then(data => {
                 document.getElementById('aiPersonalLoading').classList.add('d-none');
@@ -723,8 +752,8 @@
     function scaricaPDFPersonale() {
         const element = document.getElementById('aiPersonalContent');
         const opt = {
-            margin: 10,
-            filename: 'Report_Performance_BarillaMonitor.pdf',
+            margin: [10, 10],
+            filename: 'Report_Performance_{{ profilo.user.username }}.pdf',
             image: { type: 'jpeg', quality: 0.98 },
             html2canvas: { scale: 2 },
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
