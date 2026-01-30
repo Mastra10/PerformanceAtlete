@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import ProfiloAtleta, Attivita, TaskSettings
+from .models import ProfiloAtleta, Attivita, TaskSettings, LogSistema
 
 @admin.register(ProfiloAtleta)
 class ProfiloAtletaAdmin(admin.ModelAdmin):
@@ -17,3 +17,9 @@ class TaskSettingsAdmin(admin.ModelAdmin):
     list_display = ('get_task_id_display', 'active', 'manual_trigger', 'hour', 'minute', 'day_of_week')
     list_editable = ('active', 'manual_trigger', 'hour', 'minute', 'day_of_week')
     help_text = "NOTA: Dopo aver modificato questi valori, è necessario riavviare il container 'scheduler' per applicare le modifiche."
+
+@admin.register(LogSistema)
+class LogSistemaAdmin(admin.ModelAdmin):
+    list_display = ('data', 'livello', 'azione', 'utente', 'messaggio')
+    list_filter = ('livello', 'azione', 'data')
+    search_fields = ('messaggio', 'utente__username', 'azione')

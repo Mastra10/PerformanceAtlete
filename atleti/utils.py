@@ -1,7 +1,7 @@
 from google import genai
 import requests
 import os
-from .models import Attivita, ProfiloAtleta
+from .models import Attivita, ProfiloAtleta, LogSistema
 from django.utils import timezone
 from datetime import timedelta
 from django.db.models import Sum, Max
@@ -26,7 +26,7 @@ def refresh_strava_token(token_obj):
     if token_obj.expires_at and token_obj.expires_at > timezone.now() + timedelta(minutes=10):
         return token_obj.token
 
-    print(f"DEBUG: Token scaduto per {token_obj.account.user.username}. Tento rinnovo...", flush=True)
+    LogSistema.objects.create(livello='INFO', azione='Token Refresh', utente=token_obj.account.user, messaggio="Token scaduto. Tento rinnovo...")
     
     try:
         # Recuperiamo le credenziali dell'app
@@ -47,13 +47,13 @@ def refresh_strava_token(token_obj):
             token_obj.token_secret = new_data['refresh_token']
             token_obj.expires_at = timezone.now() + timedelta(seconds=new_data['expires_in'])
             token_obj.save()
-            print(f"DEBUG: Token Strava rinnovato con successo.", flush=True)
+            LogSistema.objects.create(livello='INFO', azione='Token Refresh', utente=token_obj.account.user, messaggio="Token Strava rinnovato con successo.")
             return token_obj.token
         else:
-            print(f"ERRORE Refresh Token: {response.text}", flush=True)
+            LogSistema.objects.create(livello='ERROR', azione='Token Refresh', utente=token_obj.account.user, messaggio=f"ERRORE Refresh: {response.text}")
             return None
     except Exception as e:
-        print(f"Eccezione Refresh Token: {e}", flush=True)
+        LogSistema.objects.create(livello='ERROR', azione='Token Refresh', utente=token_obj.account.user, messaggio=f"Eccezione: {e}")
         return None
 
 def calcola_vam_selettiva(activity_id, access_token):
@@ -72,11 +72,11 @@ def calcola_vam_selettiva(activity_id, access_token):
         response = requests.get(url, headers=headers, params=params, timeout=15)
         
         if response.status_code == 429:
-            print("Rate Limit Strava raggiunto durante calcolo VAM.")
+            LogSistema.objects.create(livello='WARNING', azione='Calcolo VAM', messaggio=f"Rate Limit Strava raggiunto (ID: {activity_id})")
             return None
             
         if response.status_code != 200:
-            print(f"Errore streams Strava ({response.status_code}) per attività {activity_id}")
+            LogSistema.objects.create(livello='ERROR', azione='Calcolo VAM', messaggio=f"Errore streams ({response.status_code}) per ID {activity_id}")
             return None
             
         data = response.json()
@@ -107,13 +107,12 @@ def calcola_vam_selettiva(activity_id, access_token):
         if total_time > 0:
             # VAM = (Metri / Secondi) * 3600 -> Metri/Ora
             vam = (total_gain / total_time) * 3600
-            print(f"DEBUG: VAM Selettiva calcolata: {int(vam)} m/h (su {total_gain}m d+)", flush=True)
             return round(vam, 1)
             
         return 0
         
     except Exception as e:
-        print(f"Errore calcolo VAM Selettiva: {e}", flush=True)
+        LogSistema.objects.create(livello='ERROR', azione='Calcolo VAM', messaggio=f"Eccezione ID {activity_id}: {e}")
         return None
 
 def calcola_metrica_vo2max(attivita, profilo):
@@ -514,6 +513,12 @@ def processa_attivita_strava(act, profilo, access_token):
             vam_sel = calcola_vam_selettiva(act['id'], access_token)
             if vam_sel and vam_sel > 0:
                 nuova_attivita.vam_selettiva = vam_sel
+
+    if created:
+        LogSistema.objects.create(livello='INFO', azione='Import Attività', utente=profilo.user, messaggio=f"Nuova attività: {nuova_attivita.nome} ({nuova_attivita.tipo_attivita})")
+    else:
+        # Logghiamo solo se aggiorniamo qualcosa di importante o per debug, qui evito per non intasare se non richiesto
+        pass
 
     nuova_attivita.save()
     return nuova_attivita, created

@@ -4,7 +4,7 @@ from django.http import HttpResponse, JsonResponse
 from django.contrib.auth.decorators import login_required
 from allauth.socialaccount.models import SocialToken ,SocialAccount
 from django.core.cache import cache
-from .models import Attivita, ProfiloAtleta
+from .models import Attivita, ProfiloAtleta, LogSistema
 import math
 from .utils import analizza_performance_atleta, calcola_metrica_vo2max, stima_vo2max_atleta, stima_potenza_watt, calcola_trend_atleta, formatta_passo, stima_potenziale_gara, analizza_squadra_coach, calcola_vam_selettiva, refresh_strava_token, processa_attivita_strava
 import time
@@ -197,12 +197,16 @@ def home(request):
         return JsonResponse(status)
 
     if request.user.is_authenticated:
+        LogSistema.objects.create(livello='INFO', azione='Page View', utente=request.user, messaggio="Visita Dashboard")
         context = _get_dashboard_context(request.user)
         return render(request, 'atleti/home.html', context)
     return render(request, 'atleti/home.html')
 
 def dashboard_atleta(request, username):
     """Visualizza la dashboard di un altro atleta se permesso"""
+    if request.user.is_authenticated:
+        LogSistema.objects.create(livello='INFO', azione='Page View', utente=request.user, messaggio=f"Visita Dashboard di {username}")
+
     target_user = get_object_or_404(User, username=username)
     profilo = get_object_or_404(ProfiloAtleta, user=target_user)
     
@@ -232,34 +236,35 @@ def analisi_gemini(request):
 
 def calcola_vo2max(request):
     if request.method == 'POST':
-        print("DEBUG: Avvio richiesta calcolo VO2max...", flush=True)
+        LogSistema.objects.create(livello='INFO', azione='Analisi AI', utente=request.user, messaggio="Richiesta analisi performance avviata.")
         profilo = request.user.profiloatleta
         hr_rest = request.POST.get('hr_rest')
         
         if hr_rest:
             profilo.fc_riposo = int(hr_rest) # Corretto nome campo
             profilo.save()
-            print(f"DEBUG: Battito a riposo salvato: {hr_rest}", flush=True)
 
             # Chiamata a Gemini
             try:
-                print("DEBUG: Chiamata a Gemini in corso...", flush=True)
                 analisi_testo = analizza_performance_atleta(profilo)
                 
                 if analisi_testo:
                     profilo.ultima_analisi_ai = analisi_testo
                     profilo.save()
-                    print("DEBUG: ANALISI SALVATA CORRETTAMENTE NEL DB!", flush=True)
+                    LogSistema.objects.create(livello='INFO', azione='Analisi AI', utente=request.user, messaggio="Analisi completata e salvata.")
                 else:
-                    print("DEBUG: ATTENZIONE - Gemini ha restituito una risposta vuota", flush=True)
+                    LogSistema.objects.create(livello='WARNING', azione='Analisi AI', utente=request.user, messaggio="Gemini ha restituito risposta vuota.")
             except Exception as e:
-                print(f"DEBUG ERRORE DURANTE L'ANALISI: {e}", flush=True)
+                LogSistema.objects.create(livello='ERROR', azione='Analisi AI', utente=request.user, messaggio=f"Errore: {e}")
         else:
-            print("DEBUG: Errore - HR Rest non ricevuto dal form", flush=True)
+            LogSistema.objects.create(livello='WARNING', azione='Analisi AI', utente=request.user, messaggio="HR Rest mancante nel form.")
             
     return redirect('home')
 
 def impostazioni(request):
+    if request.method == 'GET' and request.user.is_authenticated:
+        LogSistema.objects.create(livello='INFO', azione='Page View', utente=request.user, messaggio="Visita Impostazioni")
+
     profilo, _ = ProfiloAtleta.objects.get_or_create(user=request.user)
     if request.method == 'POST':
         try:
@@ -322,28 +327,27 @@ def aggiorna_dati_profilo(request):
 
 @login_required
 def sincronizza_strava(request):
-    print("DEBUG: Avvio sincronizzazione...", flush=True)
+    LogSistema.objects.create(livello='INFO', azione='Sync Manuale', utente=request.user, messaggio="Avvio sincronizzazione...")
     cache_key = f"sync_progress_{request.user.id}"
     cache.set(cache_key, {'status': 'Connessione a Strava...', 'progress': 5}, timeout=300)
     
     social_acc = SocialAccount.objects.filter(user=request.user, provider='strava').first()
     if not social_acc:
-        print("DEBUG: ESCI - SocialAccount non trovato", flush=True)
+        LogSistema.objects.create(livello='WARNING', azione='Sync Manuale', utente=request.user, messaggio="SocialAccount non trovato.")
         messages.error(request, "Nessun account Strava collegato. Vai nelle impostazioni.")
         return redirect('home')
 
     token_obj = SocialToken.objects.filter(account=social_acc).first()
     if not token_obj:
-        print("DEBUG: ESCI - SocialToken non trovato", flush=True)
+        LogSistema.objects.create(livello='WARNING', azione='Sync Manuale', utente=request.user, messaggio="SocialToken non trovato.")
         messages.error(request, "Token Strava mancante o scaduto. Prova a scollegare e ricollegare l'account.")
         return redirect('home')
 
-    print(f"DEBUG: Token trovato! Procedo con Strava per {request.user.username}", flush=True)
     
     # 1. Refresh Token (Nuova logica centralizzata)
     access_token = refresh_strava_token(token_obj)
     if not access_token:
-        print("DEBUG: Token scaduto e refresh fallito. Reindirizzo al login.", flush=True)
+        LogSistema.objects.create(livello='ERROR', azione='Sync Manuale', utente=request.user, messaggio="Refresh token fallito.")
         return redirect('/accounts/strava/login/')
         
     headers = {'Authorization': f'Bearer {access_token}'}
@@ -353,7 +357,7 @@ def sincronizza_strava(request):
     athlete_res = requests.get("https://www.strava.com/api/v3/athlete", headers=headers)
     
     if athlete_res.status_code == 401:
-        print("DEBUG: Token scaduto (Profilo). Reindirizzo al login Strava per refresh.", flush=True)
+        LogSistema.objects.create(livello='WARNING', azione='Sync Manuale', utente=request.user, messaggio="Token scaduto durante fetch profilo.")
         return redirect('/accounts/strava/login/')
 
     # Aggiorniamo il profilo atleta
@@ -364,9 +368,8 @@ def sincronizza_strava(request):
         weight_extra = social_acc.extra_data.get('weight')
         if not profilo.peso_manuale:
             profilo.peso = weight_extra
-            print(f"DEBUG: Peso recuperato da SocialAccount: {weight_extra}", flush=True)
         else:
-            print(f"DEBUG: Peso Strava {weight_extra} ignorato (manuale).", flush=True)
+            pass
         
         # Recuperiamo immagine da SocialAccount come fallback/init
         img_extra = social_acc.extra_data.get('profile')
@@ -392,7 +395,7 @@ def sincronizza_strava(request):
 
     # --- CHECK BLOCCANTE: Se mancano Peso o FC Riposo, STOP ---
     if not profilo.peso or not profilo.fc_riposo:
-        print("DEBUG: Dati profilo mancanti. Reindirizzo a impostazioni.", flush=True)
+        LogSistema.objects.create(livello='WARNING', azione='Sync Manuale', utente=request.user, messaggio="Dati profilo (Peso/FC) mancanti.")
         return redirect('impostazioni')
 
     # --- 4. SCARICAMENTO ATTIVITÀ (FULL SYNC + CHECKPOINT) ---
@@ -403,9 +406,8 @@ def sincronizza_strava(request):
     if last_activity:
         # Aggiungiamo 1 secondo per non riscaricare l'ultima attività
         timestamp_checkpoint = int(last_activity.data.timestamp()) + 1
-        print(f"DEBUG: Checkpoint trovato: {last_activity.data} (Epoch: {timestamp_checkpoint})", flush=True)
     else:
-        print("DEBUG: Nessuna attività precedente (Primo Download Completo).", flush=True)
+        LogSistema.objects.create(livello='INFO', azione='Sync Manuale', utente=request.user, messaggio="Primo download completo.")
 
     url_activities = "https://www.strava.com/api/v3/athlete/activities"
     
@@ -420,26 +422,23 @@ def sincronizza_strava(request):
             
         response = requests.get(url_activities, headers=headers, params=params)
         
-        print(f"DEBUG: Richiesta Strava (Pagina {page}) - Status: {response.status_code}", flush=True)
 
         if response.status_code == 401:
-            print("DEBUG: Token scaduto (Attività). Reindirizzo al login Strava per refresh.", flush=True)
+            LogSistema.objects.create(livello='WARNING', azione='Sync Manuale', utente=request.user, messaggio="Token scaduto durante fetch attività.")
             return redirect('/accounts/strava/login/')
 
         if response.status_code == 429:
-            print("DEBUG: ⚠️ LIMITE API STRAVA RAGGIUNTO. Sincronizzazione parziale interrotta.", flush=True)
+            LogSistema.objects.create(livello='WARNING', azione='Sync Manuale', utente=request.user, messaggio="Rate Limit Strava raggiunto.")
             break
 
         if response.status_code != 200:
-            print(f"DEBUG: Errore API: {response.text}", flush=True)
+            LogSistema.objects.create(livello='ERROR', azione='Sync Manuale', utente=request.user, messaggio=f"Errore API: {response.text}")
             break
             
         activities = response.json()
         if not activities:
-            print("DEBUG: Nessuna altra attività trovata. Sync completato.", flush=True)
             break
             
-        print(f"DEBUG: Attività trovate pagina {page}: {len(activities)}", flush=True)
 
         for act in activities:
             # Aggiunto supporto per Hike (Trekking) trattato come Trail
@@ -477,15 +476,15 @@ def sincronizza_strava(request):
             profilo.fc_max = max_fc_reale
             profilo.data_fc_max = data_obj
             profilo.save()
-            print(f"DEBUG: FC Max rilevata (ultimi 5 mesi): {max_fc_reale} bpm il {data_record}", flush=True)
         else:
-            print(f"DEBUG: FC Max rilevata {max_fc_reale} (il {data_record}) ma IGNORATA perché impostata manualmente.", flush=True)
+            pass
 
     # --- 9. CALCOLO VO2MAX CONSOLIDATO (MEDIA MOBILE) ---
     profilo.data_ultima_sincronizzazione = timezone.now()
     stima_vo2max_atleta(profilo)
 
     cache.set(cache_key, {'status': 'Completato!', 'progress': 100}, timeout=300)
+    LogSistema.objects.create(livello='INFO', azione='Sync Manuale', utente=request.user, messaggio="Sincronizzazione completata con successo.")
     return redirect('home')
 
 @login_required
@@ -513,6 +512,7 @@ def ricalcola_statistiche(request):
     stima_vo2max_atleta(profilo)
     profilo.save()
     
+    LogSistema.objects.create(livello='INFO', azione='Ricalcolo Stats', utente=request.user, messaggio=f"Ricalcolate {count} attività.")
     messages.success(request, f"Statistiche aggiornate: {count} ricalcolate (di cui {cleaned_count} rimosse per passo lento).")
     return redirect('home')
 
@@ -520,6 +520,7 @@ def grafici_atleta(request):
     if not request.user.is_authenticated:
         return redirect('home')
         
+    LogSistema.objects.create(livello='INFO', azione='Page View', utente=request.user, messaggio="Visita Grafici")
     profilo, _ = ProfiloAtleta.objects.get_or_create(user=request.user)
     
     # Recuperiamo le ultime 50 attività
@@ -549,7 +550,7 @@ def elimina_attivita_anomale(request):
     """Cancella dal DB le attività con distanza > 200km (es. errori GPS o import errati)"""
     if request.user.is_authenticated:
         count, _ = Attivita.objects.filter(atleta__user=request.user, distanza__gt=200000).delete()
-        print(f"DEBUG: Cancellate {count} attività anomale.", flush=True)
+        LogSistema.objects.create(livello='INFO', azione='Pulizia DB', utente=request.user, messaggio=f"Cancellate {count} attività anomale (>200km).")
     return redirect('home')
 
 def export_csv(request):
@@ -595,6 +596,7 @@ def riepilogo_atleti(request):
     if not request.user.is_staff:
         return redirect('home')
     
+    LogSistema.objects.create(livello='INFO', azione='Page View', utente=request.user, messaggio="Visita Riepilogo Atleti")
     # Aggiungiamo l'annotazione per l'ultima attività
     atleti = ProfiloAtleta.objects.select_related('user').exclude(user__username='mastra').annotate(
         ultima_corsa=Max('sessioni__data')
@@ -607,6 +609,7 @@ def gare_atleta(request):
     if not request.user.is_authenticated:
         return redirect('home')
     
+    LogSistema.objects.create(livello='INFO', azione='Page View', utente=request.user, messaggio="Visita Gare")
     profilo = request.user.profiloatleta
     # Strava workout_type: 1 = Race (Gara)
     gare = Attivita.objects.filter(atleta=profilo, workout_type=1).order_by('-data')
@@ -615,6 +618,8 @@ def gare_atleta(request):
 
 def guida_utente(request):
     """Pagina di documentazione per gli utenti"""
+    if request.user.is_authenticated:
+        LogSistema.objects.create(livello='INFO', azione='Page View', utente=request.user, messaggio="Visita Guida Utente")
     return render(request, 'atleti/guida.html')
 
 def _get_coach_dashboard_context(week_offset):
@@ -820,6 +825,7 @@ def dashboard_coach(request):
     
     if week_offset > 0: week_offset = 0
 
+    LogSistema.objects.create(livello='INFO', azione='Page View', utente=request.user, messaggio="Visita Dashboard Coach")
     context = _get_coach_dashboard_context(week_offset)
     return render(request, 'atleti/dashboard_coach.html', context)
 
@@ -843,6 +849,7 @@ def scheduler_logs(request):
     if not request.user.is_staff:
         return redirect('home')
     
+    LogSistema.objects.create(livello='INFO', azione='Page View', utente=request.user, messaggio="Visita Log Scheduler")
     logs = DjangoJobExecution.objects.exclude(job__id='system_heartbeat').order_by('-run_time')[:50]
     jobs = DjangoJob.objects.exclude(id='system_heartbeat').order_by('next_run_time')
     

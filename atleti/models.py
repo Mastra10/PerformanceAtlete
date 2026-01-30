@@ -148,3 +148,24 @@ class TaskSettings(models.Model):
 
     def __str__(self):
         return self.get_task_id_display()
+
+class LogSistema(models.Model):
+    """Log applicativi salvati su DB per debug e verifica"""
+    LIVELLI = [
+        ('INFO', 'Info'),
+        ('WARNING', 'Warning'),
+        ('ERROR', 'Errore'),
+    ]
+    data = models.DateTimeField(auto_now_add=True)
+    livello = models.CharField(max_length=10, choices=LIVELLI, default='INFO')
+    azione = models.CharField(max_length=50) # Es. "Sync Strava", "Calcolo VAM"
+    messaggio = models.TextField()
+    utente = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Log Sistema"
+        verbose_name_plural = "Log Sistema"
+        ordering = ['-data']
+
+    def __str__(self):
+        return f"{self.data.strftime('%d/%m %H:%M')} - {self.azione}"
