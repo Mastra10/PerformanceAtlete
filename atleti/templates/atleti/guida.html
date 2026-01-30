@@ -1,0 +1,136 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold"><i class="bi bi-book-half me-2"></i>Guida Utente & Metriche</h2>
+        <a href="{% url 'home' %}" class="btn btn-outline-secondary">Torna alla Dashboard</a>
+    </div>
+
+    <div class="row g-4">
+        <!-- Colonna Sinistra: Navigazione Rapida -->
+        <div class="col-md-4">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-primary text-white fw-bold">
+                    <i class="bi bi-lightning-charge me-2"></i>Come Iniziare
+                </div>
+                <div class="card-body">
+                    <ol class="list-group list-group-numbered list-group-flush">
+                        <li class="list-group-item">Collega il tuo account <strong>Strava</strong>.</li>
+                        <li class="list-group-item">Vai su <strong>Impostazioni</strong> e inserisci il tuo <strong>Peso</strong> e la <strong>FC a Riposo</strong>. <span class="text-danger small">(Fondamentali per i calcoli!)</span></li>
+                        <li class="list-group-item">Esegui la <strong>Sincronizzazione</strong> per scaricare le attività.</li>
+                        <li class="list-group-item">Controlla la Dashboard per vedere i tuoi progressi.</li>
+                    </ol>
+                </div>
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-header bg-warning text-dark fw-bold">
+                    <i class="bi bi-info-circle me-2"></i>FAQ Rapide
+                </div>
+                <div class="card-body small">
+                    <p class="fw-bold mb-1">Perché i dati non coincidono con Strava?</p>
+                    <p class="text-muted mb-3">Usiamo algoritmi diversi. Strava spesso sovrastima le calorie e usa formule generiche per il fitness. Noi usiamo formule specifiche per l'atletica leggera e il trail running.</p>
+                    
+                    <p class="fw-bold mb-1">Ogni quanto si aggiornano i dati?</p>
+                    <p class="text-muted mb-3">La sincronizzazione automatica avviene ogni notte. Puoi forzarla manualmente dal pulsante "Sincronizza Strava" nella dashboard.</p>
+
+                    <p class="fw-bold mb-1">Cos'è il "Peso Manuale"?</p>
+                    <p class="text-muted mb-0">Se attivato nelle impostazioni, il sistema ignorerà il peso fornito da Strava e userà quello inserito da te per calcolare Watt e VO2max.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Colonna Destra: Spiegazione Metriche -->
+        <div class="col-md-8">
+            <!-- VO2max -->
+            <div class="card shadow-sm mb-4 border-start border-4 border-danger">
+                <div class="card-body">
+                    <h4 class="fw-bold text-danger"><i class="bi bi-lungs me-2"></i>VO2max Stimato</h4>
+                    <p>Il massimo volume di ossigeno che il tuo corpo può consumare. È l'indicatore principale della tua "cilindrata" aerobica.</p>
+                    
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <h6 class="fw-bold">📊 Stima Statistica (Il dato principale)</h6>
+                            <p class="small text-muted">È una media mobile delle ultime 60 attività. Include sia <strong>Strada</strong> che <strong>Trail</strong>. Per il Trail, il sistema converte il dislivello in distanza piana (100m D+ ≈ 500m piani) per valutare lo sforzo reale.</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="fw-bold">🛣️ Solo Strada</h6>
+                            <p class="small text-muted">Considera solo le corse su asfalto (tipo "Run"). Usa la formula scientifica ACSM pura. È il dato più affidabile per confrontare la tua velocità pura.</p>
+                        </div>
+                    </div>
+                    <div class="alert alert-light border mt-2 small">
+                        <strong>Formula utilizzata:</strong> Mix ponderato tra la <em>Prestazione Reale</em> (Metodo Karvonen basato sulla riserva cardiaca) e il <em>Potenziale Fisiologico</em> (Rapporto FC Max / FC Riposo).
+                    </div>
+                </div>
+            </div>
+
+            <!-- VAM -->
+            <div class="card shadow-sm mb-4 border-start border-4 border-warning">
+                <div class="card-body">
+                    <h4 class="fw-bold text-warning"><i class="bi bi-graph-up-arrow me-2"></i>VAM Selettiva (m/h)</h4>
+                    <p>La Velocità Ascensionale Media indica quanti metri di dislivello riesci a salire in un'ora.</p>
+                    
+                    <div class="d-flex align-items-start mt-3">
+                        <i class="bi bi-exclamation-triangle-fill text-warning me-3 fs-4"></i>
+                        <div>
+                            <h6 class="fw-bold">Perché "Selettiva"?</h6>
+                            <p class="small text-muted mb-0">
+                                A differenza dei calcoli standard (Dislivello Totale / Tempo Totale), il nostro algoritmo analizza la traccia GPS secondo per secondo e calcola la velocità <strong>SOLO nei tratti con pendenza > 7%</strong>.
+                                <br>Questo esclude i falsi piani, le discese e le pause, fornendo la tua vera capacità di scalatore.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Potenza -->
+            <div class="card shadow-sm mb-4 border-start border-4 border-primary" style="border-color: #6610f2 !important;">
+                <div class="card-body">
+                    <h4 class="fw-bold" style="color: #6610f2;"><i class="bi bi-lightning-fill me-2"></i>Potenza (Watt)</h4>
+                    <p>Una stima dell'energia meccanica prodotta durante la corsa. Utile per gestire lo sforzo indipendentemente dal terreno.</p>
+                    <p class="small text-muted">
+                        Calcolata usando l'equazione di <strong>Minetti</strong> che considera:
+                        <br><code>Peso Atleta × Velocità × Costo Energetico della Pendenza</code>.
+                        <br>Il valore è normalizzato per essere simile a quello dei sensori Stryd (Efficienza ~25%).
+                    </p>
+                </div>
+            </div>
+
+            <!-- Soglie -->
+            <div class="card shadow-sm mb-4 border-start border-4 border-success">
+                <div class="card-body">
+                    <h4 class="fw-bold text-success"><i class="bi bi-heart-pulse me-2"></i>Soglie Cardiache</h4>
+                    <p>Stimate automaticamente in base alla tua FC Max e FC Riposo (Formula Karvonen).</p>
+                    <ul class="list-unstyled small text-muted mt-2">
+                        <li class="mb-2">
+                            <span class="badge bg-success me-2">Soglia Aerobica (Z2)</span>
+                            <strong>~72% della Riserva Cardiaca.</strong> Il limite superiore del "Fondo Lento". Puoi parlare mentre corri. Ottimo per bruciare grassi e costruire resistenza base.
+                        </li>
+                        <li>
+                            <span class="badge bg-danger me-2">Soglia Anaerobica (Z4)</span>
+                            <strong>~90% della Riserva Cardiaca.</strong> Il ritmo gara sui 10km/Mezza Maratona. Oltre questo limite si accumula acido lattico rapidamente.
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Trend -->
+            <div class="card shadow-sm border-start border-4 border-secondary">
+                <div class="card-body">
+                    <h4 class="fw-bold text-secondary"><i class="bi bi-trends me-2"></i>Trend e Frecce</h4>
+                    <p>Nella dashboard vedrai delle percentuali colorate (es. <span class="text-success fw-bold">+2.5%</span>).</p>
+                    <p class="small text-muted mb-0">
+                        Indicano come sta cambiando la tua forma fisica. Il sistema confronta la media delle tue <strong>ultime 5 attività</strong> con la media delle <strong>precedenti 15</strong>.
+                        <br>
+                        <span class="text-success">Verde</span>: Stai migliorando (o riposando, nel caso della FC).
+                        <br>
+                        <span class="text-danger">Rosso</span>: Prestazione in calo o fatica accumulata (FC più alta a parità di passo).
+                    </p>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}
