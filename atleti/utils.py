@@ -35,7 +35,7 @@ def refresh_strava_token(token_obj, buffer_minutes=10):
     
     try:
         # Recuperiamo le credenziali dell'app
-        app = SocialApp.objects.get(provider='strava')
+        app = token_obj.app
         
         data = {
             'client_id': app.client_id,
