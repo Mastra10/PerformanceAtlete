@@ -1,4 +1,5 @@
 from django.core.management import call_command
+from django.db import close_old_connections
 import logging
 import undetected_chromedriver as uc
 import time
@@ -42,6 +43,9 @@ def task_scrape_itra_utmb():
 
 def task_heartbeat():
     """Task di sistema per tenere sveglio lo scheduler (polling DB)"""
+    # Chiudiamo le connessioni vecchie per evitare che il task si blocchi su connessioni stale
+    close_old_connections()
+    
     from .models import TaskSettings
     from django_apscheduler.models import DjangoJobExecution, DjangoJob
     
@@ -96,6 +100,9 @@ def task_sync_strava():
     Task periodico per sincronizzare le attività da Strava per tutti gli utenti.
     Gestisce automaticamente il refresh del token.
     """
+    # Chiudiamo le connessioni vecchie prima di iniziare operazioni lunghe col DB
+    close_old_connections()
+    
     logger.info("SCHEDULER: Avvio sincronizzazione Strava automatica...")
     
     tokens = SocialToken.objects.filter(account__provider='strava')
