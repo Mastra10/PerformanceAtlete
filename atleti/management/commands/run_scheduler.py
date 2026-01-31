@@ -51,6 +51,7 @@ class Command(BaseCommand):
         # root_logger = logging.getLogger('')
         # for h in root_logger.handlers:
         #     h.addFilter(f)
+        root_logger = logging.getLogger('')
         root_logger.addHandler(file_handler)
         
         scheduler = BlockingScheduler(timezone=settings.TIME_ZONE)
