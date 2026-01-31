@@ -180,6 +180,12 @@ def _get_dashboard_context(user):
     if not profilo.peso or profilo.peso <= 0:
         warning_peso = "Peso non configurato per l'atleta! Fondamentale impostarlo nei settings. Stiamo assumendo un valore di default (70kg) per i calcoli."
 
+    # Warning Token Strava Scaduto
+    warning_token = None
+    token_obj = SocialToken.objects.filter(account__user=user, account__provider='strava').first()
+    if token_obj and token_obj.expires_at and token_obj.expires_at < timezone.now():
+        warning_token = "⚠️ Il tuo token Strava è scaduto. Prova a sincronizzare. Se fallisce, scollega e ricollega l'account nelle Impostazioni."
+
     return {
         'totale_km': totale_km,
         'dislivello_totale': int(dislivello_totale),
@@ -211,6 +217,7 @@ def _get_dashboard_context(user):
         'chart_elev': json.dumps(elev_data),
         'vam_tooltip': "VAM Selettiva (Pro): Calcolata isolando solo i tratti di salita con pendenza > 7% (dati reali secondo per secondo). Esclude pause, discese e tratti in piano per riflettere la tua vera velocità ascensionale.",
         'warning_peso': warning_peso,
+        'warning_token': warning_token,
     }
 
 # 1. Questa mostra la pagina (NON cancellarla!)
@@ -226,6 +233,8 @@ def home(request):
     if request.user.is_authenticated:
         LogSistema.objects.create(livello='INFO', azione='Page View', utente=request.user, messaggio="Visita Dashboard")
         context = _get_dashboard_context(request.user)
+        if context.get('warning_token'):
+            messages.warning(request, context['warning_token'])
         return render(request, 'atleti/home.html', context)
     return render(request, 'atleti/home.html')
 
@@ -393,7 +402,8 @@ def sincronizza_strava(request):
     access_token = refresh_strava_token(token_obj)
     if not access_token:
         LogSistema.objects.create(livello='ERROR', azione='Sync Manuale', utente=request.user, messaggio="Refresh token fallito.")
-        return redirect('/accounts/strava/login/')
+        messages.error(request, "Il token Strava è scaduto e non può essere rinnovato. Per favore scollega e ricollega l'account nelle Impostazioni.")
+        return redirect('impostazioni')
         
     headers = {'Authorization': f'Bearer {access_token}'}
 
