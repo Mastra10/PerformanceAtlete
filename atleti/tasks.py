@@ -49,12 +49,15 @@ def task_heartbeat():
     from .models import TaskSettings
     from django_apscheduler.models import DjangoJobExecution, DjangoJob
     
-    # Mappa task_id -> comando management
+    # Mappa task_id -> (tipo, target)
+    # 'cmd': Management Command Django
+    # 'func': Funzione Python definita in questo file
     task_map = {
-        'ricalcolo_vam_notturno': 'recalculate_vam',
-        'ricalcolo_stats_notturno': 'recalculate_stats',
-        'scrape_itra_utmb_settimanale': 'scrape_indices',
-        'pulizia_log_settimanale': 'clean_scheduler_logs',
+        'ricalcolo_vam_notturno': ('cmd', 'recalculate_vam'),
+        'ricalcolo_stats_notturno': ('cmd', 'recalculate_stats'),
+        'scrape_itra_utmb_settimanale': ('cmd', 'scrape_indices'),
+        'pulizia_log_settimanale': ('cmd', 'clean_scheduler_logs'),
+        'sync_strava_periodico': ('func', 'task_sync_strava'), # Aggiunto supporto Strava
     }
 
     # Cerca task con trigger manuale attivo
@@ -62,21 +65,41 @@ def task_heartbeat():
     
     for cfg in configs:
         logger.info(f"SCHEDULER: Rilevato trigger manuale per {cfg.task_id}")
-        cmd = task_map.get(cfg.task_id)
-        if cmd:
+        
+        task_info = task_map.get(cfg.task_id)
+        if task_info:
+            type_, target_name = task_info
             start_time = timezone.now()
             status = "Executed"
             exception = ""
+            
             try:
-                call_command(cmd)
+                if type_ == 'cmd':
+                    logger.info(f"SCHEDULER: Esecuzione comando '{target_name}'...")
+                    call_command(target_name)
+                elif type_ == 'func':
+                    # Recupera la funzione dinamicamente dal modulo corrente
+                    func = globals().get(target_name)
+                    if func:
+                        logger.info(f"SCHEDULER: Esecuzione funzione '{target_name}'...")
+                        func()
+                    else:
+                        raise ValueError(f"Funzione {target_name} non trovata.")
+
                 logger.info(f"SCHEDULER: Esecuzione manuale di {cfg.task_id} completata.")
             except Exception as e:
                 logger.error(f"SCHEDULER: Errore esecuzione manuale {cfg.task_id}: {e}")
                 status = "Error"
                 exception = str(e)
-            
-            # Registra l'esecuzione manuale nello storico (DjangoJobExecution)
-            try:
+            finally:
+                # CRUCIALE: Resettiamo il flag SEMPRE, anche in caso di errore
+                # Questo sblocca il bottone nell'interfaccia web
+                cfg.manual_trigger = False
+                cfg.save()
+                logger.info(f"SCHEDULER: Reset flag manuale per {cfg.task_id}")
+
+            # Registra l'esecuzione manuale nello storico
+            try: 
                 duration = (timezone.now() - start_time).total_seconds()
                 job = DjangoJob.objects.filter(id=cfg.task_id).first()
                 if job:
@@ -90,10 +113,6 @@ def task_heartbeat():
                     )
             except Exception as e_db:
                 logger.error(f"SCHEDULER: Errore salvataggio log DB: {e_db}")
-        
-        # Resetta il flag
-        cfg.manual_trigger = False
-        cfg.save()
 
 def task_sync_strava():
     """
