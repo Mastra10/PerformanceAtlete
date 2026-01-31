@@ -3,6 +3,8 @@ services:
     image: postgres:15
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
     environment:
       - POSTGRES_DB=atleti_db
       - POSTGRES_USER=admin
@@ -15,6 +17,8 @@ services:
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
       - .:/code
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
     ports:
       - "127.0.0.1:8001:8000"
     shm_size: '2gb'
@@ -30,6 +34,8 @@ services:
     command: python manage.py run_scheduler
     volumes:
       - .:/code
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
     shm_size: '2gb'
     depends_on:
       - db
