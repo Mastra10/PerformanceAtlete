@@ -35,22 +35,22 @@ class Command(BaseCommand):
         file_handler.setFormatter(logging.Formatter('%(asctime)s [%(levelname)s] %(message)s', '%Y-%m-%d %H:%M:%S'))
         
         # --- FILTRO ANTI-SPAM ---
-        class HeartbeatFilter(logging.Filter):
-            def filter(self, record):
-                msg = record.getMessage()
-                if "task_heartbeat" in msg:
-                    # Nascondiamo solo i log di routine (INFO), ma mostriamo gli ERRORI
-                    if "Running job" in msg or "executed successfully" in msg:
-                        return False
-                return True
+        # class HeartbeatFilter(logging.Filter):
+        #     def filter(self, record):
+        #         msg = record.getMessage()
+        #         if "task_heartbeat" in msg:
+        #             # Nascondiamo solo i log di routine (INFO), ma mostriamo gli ERRORI
+        #             if "Running job" in msg or "executed successfully" in msg:
+        #                 return False
+        #         return True
 
-        f = HeartbeatFilter()
-        file_handler.addFilter(f)
+        # f = HeartbeatFilter()
+        # file_handler.addFilter(f)
 
-        # Applichiamo il filtro a TUTTI i handler del root logger (inclusa la console di Docker)
-        root_logger = logging.getLogger('')
-        for h in root_logger.handlers:
-            h.addFilter(f)
+        # # Applichiamo il filtro a TUTTI i handler del root logger (inclusa la console di Docker)
+        # root_logger = logging.getLogger('')
+        # for h in root_logger.handlers:
+        #     h.addFilter(f)
         root_logger.addHandler(file_handler)
         
         scheduler = BlockingScheduler(timezone=settings.TIME_ZONE)
@@ -156,7 +156,7 @@ class Command(BaseCommand):
         scheduler.add_job(
             task_heartbeat,
             trigger=CronTrigger(second='*/10'), # Ogni 10 secondi
-            id="system_heartbeat",
+            id="system_heartbeat", # ID univoco diverso dal nome funzione per evitare filtri
             max_instances=1,
             replace_existing=True,
             misfire_grace_time=None,

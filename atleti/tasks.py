@@ -76,10 +76,10 @@ def task_heartbeat():
         configs = [t for t in all_settings if t.manual_trigger]
         
         # Logghiamo lo stato del DB ad ogni heartbeat (ogni 10s) per debug
-        logger.info(f"SCHEDULER HEARTBEAT: Scan DB. Totale Settings: {len(all_settings)}. Trigger attivi: {len(configs)}")
+        print(f"SCHEDULER HEARTBEAT: Scan DB. Totale Settings: {len(all_settings)}. Trigger attivi: {len(configs)}", flush=True)
         
         if configs:
-            logger.info(f"SCHEDULER: Trovati task da eseguire: {[c.task_id for c in configs]}")
+            print(f"SCHEDULER: Trovati task da eseguire: {[c.task_id for c in configs]}", flush=True)
             
     except Exception as e:
         logger.error(f"SCHEDULER: Errore critico lettura TaskSettings: {e}")
