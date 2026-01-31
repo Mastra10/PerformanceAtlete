@@ -6,6 +6,7 @@ services:
       - /etc/localtime:/etc/localtime:ro
       - /etc/timezone:/etc/timezone:ro
     environment:
+      - TZ=Europe/Rome
       - POSTGRES_DB=atleti_db
       - POSTGRES_USER=admin
       - POSTGRES_PASSWORD=cr00586
@@ -23,6 +24,7 @@ services:
       - "127.0.0.1:8001:8000"
     shm_size: '2gb'
     environment:
+      - TZ=Europe/Rome
       - DATABASE_URL=postgres://admin:atleti_pass@db:5432/atleti_db
     depends_on:
       - db
@@ -37,6 +39,8 @@ services:
       - /etc/localtime:/etc/localtime:ro
       - /etc/timezone:/etc/timezone:ro
     shm_size: '2gb'
+    environment:
+      - TZ=Europe/Rome
     depends_on:
       - db
 
