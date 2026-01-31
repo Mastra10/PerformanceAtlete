@@ -108,6 +108,7 @@ def task_sync_strava():
     tokens = SocialToken.objects.filter(account__provider='strava')
     
     for token_obj in tokens:
+        close_old_connections() # Rinnova connessione DB per ogni utente (fondamentale per task lunghi)
         user = token_obj.account.user
         logger.info(f"--- Sync Strava per: {user.username} ---")
         

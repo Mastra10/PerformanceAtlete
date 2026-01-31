@@ -9,12 +9,6 @@ from django_apscheduler import util
 from atleti.tasks import task_ricalcolo_vam, task_ricalcolo_statistiche, task_scrape_itra_utmb, task_heartbeat, task_sync_strava
 from atleti.models import TaskSettings
 
-# Configurazione Logging con Data e Ora per Docker
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
 logger = logging.getLogger(__name__)
 
 @util.close_old_connections
@@ -26,6 +20,15 @@ class Command(BaseCommand):
     help = "Avvia lo schedulatore di task (APScheduler)"
 
     def handle(self, *args, **options):
+        # Configurazione Logging FORZATA (Sovrascrive i default di Django)
+        # Fondamentale per vedere i log INFO in produzione (DEBUG=False)
+        logging.basicConfig(
+            level=logging.INFO,
+            format='%(asctime)s [%(levelname)s] %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S',
+            force=True 
+        )
+
         # Configurazione File Log per la Dashboard
         log_file = '/code/scheduler.log'
         file_handler = logging.FileHandler(log_file)
