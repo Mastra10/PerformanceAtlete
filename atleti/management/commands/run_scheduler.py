@@ -70,6 +70,14 @@ class Command(BaseCommand):
                     }
                 )
                 
+                # --- AUTO-FIX PER STRAVA ---
+                # Se esiste già una config vecchia (es. ore 02:30) per il sync Strava, la aggiorniamo forzatamente
+                if not created and task_id == 'sync_strava_periodico' and cfg.hour == '2':
+                    logger.info(f"Aggiorno configurazione obsoleta per {task_id} -> Passo a ogni 3 ore")
+                    cfg.hour = '*/3'
+                    cfg.minute = '0'
+                    cfg.save()
+
                 if cfg.active:
                     scheduler.add_job(
                         task_func,
