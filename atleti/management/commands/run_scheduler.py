@@ -126,11 +126,11 @@ class Command(BaseCommand):
             default_hour=0, default_minute=0, default_day='mon'
         )
         
-        # 5. Sync Strava Automatico (Ogni notte alle 02:30)
+        # 5. Sync Strava Automatico (Ogni 3 ore per mantenere i token vivi)
         schedule_task(
             task_sync_strava,
             "sync_strava_periodico",
-            default_hour=2, default_minute=30
+            default_hour='*/3', default_minute=0
         )
         
         # 5. SYSTEM HEARTBEAT (Ogni 10 secondi)

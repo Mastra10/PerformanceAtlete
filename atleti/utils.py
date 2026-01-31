@@ -17,14 +17,19 @@ def formatta_passo(velocita_ms):
         return f"{minuti}:{secondi:02d}"
     return "0:00"
 
-def refresh_strava_token(token_obj):
+def refresh_strava_token(token_obj, buffer_minutes=10):
     """
     Controlla se il token è scaduto e lo rinnova usando il refresh_token.
     Restituisce il token valido (stringa) o None se fallisce.
+    buffer_minutes: Minuti di anticipo con cui rinnovare il token (default 10).
     """
-    # Se il token scade tra meno di 10 minuti (o è già scaduto), lo rinnoviamo
-    if token_obj.expires_at and token_obj.expires_at > timezone.now() + timedelta(minutes=10):
+    # Se il token scade tra meno di buffer_minutes (o è già scaduto), lo rinnoviamo
+    if token_obj.expires_at and token_obj.expires_at > timezone.now() + timedelta(minutes=buffer_minutes):
         return token_obj.token
+
+    if not token_obj.token_secret:
+        LogSistema.objects.create(livello='ERROR', azione='Token Refresh', utente=token_obj.account.user, messaggio="Refresh Token mancante. Necessario nuovo login.")
+        return None
 
     LogSistema.objects.create(livello='INFO', azione='Token Refresh', utente=token_obj.account.user, messaggio="Token scaduto. Tento rinnovo...")
     
@@ -120,6 +125,11 @@ def calcola_metrica_vo2max(attivita, profilo):
     Calcola il VO2max matematico basato sui dati reali di Strava.
     """
     try:
+        # 0. Esclusione Manuale (Workout)
+        # Se l'utente ha taggato l'attività come "Allenamento" (Workout) su Strava (type 3), la scartiamo a priori.
+        # if attivita.workout_type == 3:
+        #    return None
+
         # 1. Preparazione Dati
         distanza_metri = attivita.distanza
         durata_secondi = attivita.durata
@@ -203,6 +213,23 @@ def calcola_metrica_vo2max(attivita, profilo):
         # Formula Kcal Attive: ((vo2_attivita - 3.5) * peso * minuti * 5 kcal/L) / 1000
         kcal_totali = ((vo2_attivita - 3.5) * peso_atleta * (durata_secondi / 60) * 5) / 1000
         print(f"DEBUG EXTRA: VO2 Abs: {vo2_assoluto_l_min:.2f} L/min, Kcal: {kcal_totali:.0f}", flush=True)
+        
+        # --- AUTO-DETECT RIPETUTE (Heuristic Check) ---
+        # Se l'utente dimentica il tag, proviamo a capire se è un interval training.
+        # FIRMA RIPETUTE: Alta FC Max (picco) + Alta Variabilità (FC Max - FC Med) + Risultato VO2 basso (causa pause).
+        if profilo.vo2max_stima_statistica and attivita.fc_max_sessione:
+            # 1. Variabilità: Differenza tra picco e media > 25 bpm (indica pause o variazioni violente)
+            hr_variability = attivita.fc_max_sessione - fc_media
+            
+            # 2. Intensità: Ha spinto? (FC Max > 85% del teorico)
+            fc_peak_threshold = profilo.fc_massima_teorica * 0.85
+            
+            # 3. Performance: Il risultato è crollato? (< 88% della sua media storica)
+            vo2_drop_threshold = profilo.vo2max_stima_statistica * 0.88
+            
+            if (vo2max_stima_trail_strada < vo2_drop_threshold) and (hr_variability > 25) and (attivita.fc_max_sessione > fc_peak_threshold):
+                print(f"Auto-Detect Ripetute: ATTIVITÀ SCARTATA. (VO2: {vo2max_stima_trail_strada:.1f} vs Avg {profilo.vo2max_stima_statistica}, Var FC: {hr_variability}bpm)", flush=True)
+                return None
         
         print(f"VO2 Attività: {vo2_attivita:.2f} -> VO2max Stimato: {vo2max_stima_trail_strada:.2f}", flush=True)
         

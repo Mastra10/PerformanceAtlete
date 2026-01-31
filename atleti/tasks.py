@@ -105,7 +105,8 @@ def task_sync_strava():
         logger.info(f"--- Sync Strava per: {user.username} ---")
         
         # 1. Refresh Token (se necessario)
-        access_token = refresh_strava_token(token_obj)
+        # Usiamo un buffer ampio (4 ore) per mantenere il token vivo tra un'esecuzione e l'altra
+        access_token = refresh_strava_token(token_obj, buffer_minutes=240)
         if not access_token:
             logger.error(f"Impossibile rinnovare token per {user.username}. Salto.")
             continue
