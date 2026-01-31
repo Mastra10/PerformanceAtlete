@@ -41,6 +41,14 @@ def task_scrape_itra_utmb():
     call_command('scrape_indices')
     logger.info("SCHEDULER: Scraping ITRA/UTMB completato.")
 
+def task_repair_strava():
+    """
+    Task pianificato per riparare configurazione Strava e token orfani.
+    """
+    logger.info("SCHEDULER: Avvio riparazione Strava (Self-Healing)...")
+    call_command('repair_strava')
+    logger.info("SCHEDULER: Riparazione completata.")
+
 def task_heartbeat():
     """Task di sistema per tenere sveglio lo scheduler (polling DB)"""
     # Chiudiamo le connessioni vecchie per evitare che il task si blocchi su connessioni stale
@@ -58,6 +66,7 @@ def task_heartbeat():
         'scrape_itra_utmb_settimanale': ('cmd', 'scrape_indices'),
         'pulizia_log_settimanale': ('cmd', 'clean_scheduler_logs'),
         'sync_strava_periodico': ('func', 'task_sync_strava'), # Aggiunto supporto Strava
+        'repair_strava_settimanale': ('cmd', 'repair_strava'),
     }
 
     # Cerca task con trigger manuale attivo

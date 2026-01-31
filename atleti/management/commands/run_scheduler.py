@@ -6,7 +6,7 @@ from django.core.management.base import BaseCommand
 from django_apscheduler.jobstores import DjangoJobStore, register_events
 from django_apscheduler.models import DjangoJobExecution
 from django_apscheduler import util
-from atleti.tasks import task_ricalcolo_vam, task_ricalcolo_statistiche, task_scrape_itra_utmb, task_heartbeat, task_sync_strava
+from atleti.tasks import task_ricalcolo_vam, task_ricalcolo_statistiche, task_scrape_itra_utmb, task_heartbeat, task_sync_strava, task_repair_strava
 from atleti.models import TaskSettings
 
 logger = logging.getLogger(__name__)
@@ -142,6 +142,13 @@ class Command(BaseCommand):
             task_sync_strava,
             "sync_strava_periodico",
             default_hour='*/3', default_minute=0
+        )
+        
+        # 6. Riparazione Strava (Ogni Lunedì alle 01:00)
+        schedule_task(
+            task_repair_strava,
+            "repair_strava_settimanale",
+            default_hour=1, default_minute=0, default_day='mon'
         )
         
         # 5. SYSTEM HEARTBEAT (Ogni 10 secondi)
