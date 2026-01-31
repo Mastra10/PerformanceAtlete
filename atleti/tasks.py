@@ -61,10 +61,17 @@ def task_heartbeat():
     }
 
     # Cerca task con trigger manuale attivo
-    configs = TaskSettings.objects.filter(manual_trigger=True)
+    try:
+        # Usiamo list() per valutare subito la query e gestire eventuali errori DB
+        configs = list(TaskSettings.objects.filter(manual_trigger=True))
+        if configs:
+            logger.info(f"SCHEDULER: Heartbeat - Trovati {len(configs)} task manuali in attesa.")
+    except Exception as e:
+        logger.error(f"SCHEDULER: Errore critico lettura TaskSettings: {e}")
+        return
     
     for cfg in configs:
-        logger.info(f"SCHEDULER: Rilevato trigger manuale per {cfg.task_id}")
+        logger.info(f"SCHEDULER: Elaborazione trigger per {cfg.task_id}")
         
         task_info = task_map.get(cfg.task_id)
         if task_info:
@@ -113,6 +120,10 @@ def task_heartbeat():
                     )
             except Exception as e_db:
                 logger.error(f"SCHEDULER: Errore salvataggio log DB: {e_db}")
+        else:
+            logger.error(f"SCHEDULER: ERRORE - Task ID '{cfg.task_id}' non riconosciuto nella mappa. Resetto flag.")
+            cfg.manual_trigger = False
+            cfg.save()
 
 def task_sync_strava():
     """
