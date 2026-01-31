@@ -71,10 +71,16 @@ def task_heartbeat():
 
     # Cerca task con trigger manuale attivo
     try:
-        # Usiamo list() per valutare subito la query e gestire eventuali errori DB
-        configs = list(TaskSettings.objects.filter(manual_trigger=True))
+        # DEBUG: Leggiamo tutti i settings per capire cosa vede lo scheduler
+        all_settings = list(TaskSettings.objects.all())
+        configs = [t for t in all_settings if t.manual_trigger]
+        
+        # Logghiamo lo stato del DB ad ogni heartbeat (ogni 10s) per debug
+        logger.info(f"SCHEDULER HEARTBEAT: Scan DB. Totale Settings: {len(all_settings)}. Trigger attivi: {len(configs)}")
+        
         if configs:
-            logger.info(f"SCHEDULER: Heartbeat - Trovati {len(configs)} task manuali in attesa.")
+            logger.info(f"SCHEDULER: Trovati task da eseguire: {[c.task_id for c in configs]}")
+            
     except Exception as e:
         logger.error(f"SCHEDULER: Errore critico lettura TaskSettings: {e}")
         return

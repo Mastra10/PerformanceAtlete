@@ -982,6 +982,10 @@ def run_task_manually(request, task_id):
     setting.manual_trigger = True
     setting.save()
     
+    # DEBUG: Conferma salvataggio su log applicativo
+    print(f"WEB: Richiesta manuale per '{task_id}' salvata. Flag manual_trigger=True.", flush=True)
+    LogSistema.objects.create(livello='INFO', azione='Task Manuale', utente=request.user, messaggio=f"Richiesto avvio manuale di {task_id}")
+    
     messages.success(request, f"Richiesta inviata per '{task_id}'. Lo scheduler lo eseguirà entro 10 secondi.")
     return redirect('scheduler_logs')
 
