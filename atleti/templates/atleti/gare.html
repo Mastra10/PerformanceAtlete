@@ -49,9 +49,21 @@
 
     <!-- Grafico Piazzamenti -->
     {% if has_races %}
-    <div class="card shadow-sm mb-4 p-3">
-        <h5 class="card-title text-center text-muted small text-uppercase">Andamento Piazzamenti (Verso il Podio)</h5>
-        <canvas id="chartPositions" height="300"></canvas>
+    <div class="row g-4 mb-4">
+        <div class="col-lg-8">
+            <div class="card shadow-sm p-3 h-100">
+                <h5 class="card-title text-center text-muted small text-uppercase">Andamento Piazzamenti (Verso il Podio)</h5>
+                <canvas id="chartPositions" height="300"></canvas>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card shadow-sm p-3 h-100">
+                <h5 class="card-title text-center text-muted small text-uppercase">Distribuzione Piazzamenti</h5>
+                <div style="position: relative; height: 300px;">
+                    <canvas id="chartPiePositions"></canvas>
+                </div>
+            </div>
+        </div>
     </div>
     {% endif %}
 
@@ -180,6 +192,27 @@
                         }
                     }
                 }
+            }
+        }
+    });
+
+    // Grafico a Torta Distribuzione
+    const ctxPie = document.getElementById('chartPiePositions').getContext('2d');
+    new Chart(ctxPie, {
+        type: 'doughnut',
+        data: {
+            labels: {{ pie_labels|safe }},
+            datasets: [{
+                data: {{ pie_data|safe }},
+                backgroundColor: ['#ffc107', '#0d6efd', '#198754', '#6c757d'],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom' }
             }
         }
     });
