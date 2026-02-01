@@ -243,6 +243,13 @@ def home(request):
                 messages.warning(request, context['warning_token'])
             # Link temporaneo per rendere visibile la nuova pagina
             messages.info(request, mark_safe('📊 <strong>Novità:</strong> Prova il nuovo strumento di <a href="/confronto/" class="alert-link">Confronto Atleti</a>!'))
+            
+            # Avviso in evidenza per aggiornamento permessi scarpe
+            messages.warning(request, mark_safe(
+                '<h5>👟 Nuove Funzionalità Disponibili!</h5>'
+                '<p class="mb-2">Per scaricare le tue <strong>Scarpe</strong> e l\'attrezzatura, è necessario aggiornare i permessi di collegamento.</p>'
+                '<a href="/impostazioni/" class="btn btn-sm btn-outline-dark">Vai a Impostazioni > Scollega e Ricollega Strava</a>'
+            ))
             return render(request, 'atleti/home.html', context)
         return render(request, 'atleti/home.html')
     except MultipleObjectsReturned:
