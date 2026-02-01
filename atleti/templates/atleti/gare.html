@@ -1,8 +1,21 @@
 {% extends 'base.html' %}
 
+{% block extra_css %}
+    /* Evita interruzioni di pagina indesiderate nel PDF */
+    #gare-content .card, #gare-content tr { page-break-inside: avoid; }
+{% endblock %}
+
 {% block content %}
 <div class="container mt-4">
-    <h2 class="mb-4 text-center"><i class="bi bi-trophy"></i> Le tue Gare</h2>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="m-0"><i class="bi bi-trophy"></i> Le tue Gare</h2>
+        <div class="d-flex gap-2">
+            <button onclick="generaAnalisiGare()" class="btn btn-primary shadow-sm"><i class="bi bi-stars me-2"></i>Analisi AI</button>
+            <button onclick="downloadPDF()" class="btn btn-outline-danger shadow-sm"><i class="bi bi-file-pdf me-2"></i>Scarica PDF</button>
+        </div>
+    </div>
+
+    <div id="gare-content">
 
     <!-- Cards Statistiche -->
     <div class="row g-3 mb-4 text-center">
@@ -66,6 +79,7 @@
                             <td>{{ gara.dislivello|floatformat:0 }} m</td>
                             <td>{{ gara.durata_formattata }}</td>
                             <td>
+                                <span class="pdf-rank d-none fw-bold">{{ gara.piazzamento|default:"-" }}°</span>
                                 <form method="POST" action="{% url 'gare_atleta' %}" class="d-flex align-items-center">
                                     {% csrf_token %}
                                     <input type="hidden" name="activity_id" value="{{ gara.id }}">
@@ -87,8 +101,32 @@
             </div>
         </div>
     </div>
+    </div> <!-- Fine gare-content -->
 </div>
 
+<!-- Modal Analisi AI Gare -->
+<div class="modal fade" id="aiGareModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="bi bi-robot me-2"></i>Analisi Gare AI</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="aiGareLoading" class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-3 text-muted">Gemini sta analizzando il tuo storico gare...</p>
+                </div>
+                <div id="aiGareContent" class="d-none p-3" style="font-family: 'Segoe UI', sans-serif; line-height: 1.6;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Chiudi</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script>
     {% if has_races %}
     const ctx = document.getElementById('chartPositions').getContext('2d');
@@ -146,5 +184,55 @@
         }
     });
     {% endif %}
+
+    // Funzione Download PDF
+    function downloadPDF() {
+        const element = document.getElementById('gare-content');
+        const opt = {
+            margin: [0.3, 0.3],
+            filename: 'Report_Gare_{{ request.user.username }}.pdf',
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true },
+            jsPDF: { unit: 'in', format: 'a4', orientation: 'landscape' },
+            pagebreak: { mode: ['css', 'legacy'] }
+        };
+        
+        // Preparazione UI per PDF: Nascondi form, mostra testo statico
+        const forms = element.querySelectorAll('form');
+        const pdfRanks = element.querySelectorAll('.pdf-rank');
+        
+        forms.forEach(el => el.classList.add('d-none'));
+        pdfRanks.forEach(el => el.classList.remove('d-none'));
+
+        html2pdf().set(opt).from(element).save().then(() => {
+            // Ripristino UI
+            forms.forEach(el => el.classList.remove('d-none'));
+            pdfRanks.forEach(el => el.classList.add('d-none'));
+        });
+    }
+
+    // Funzione Analisi AI
+    function generaAnalisiGare() {
+        const modal = new bootstrap.Modal(document.getElementById('aiGareModal'));
+        modal.show();
+        
+        fetch("{% url 'analisi_gare_ai' %}")
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('aiGareLoading').classList.add('d-none');
+                const contentDiv = document.getElementById('aiGareContent');
+                contentDiv.classList.remove('d-none');
+                // Formattazione Markdown base
+                let formatted = data.analisi.replace(/\*\*(.*?)\*\*/g, '<strong class="text-primary">$1</strong>');
+                formatted = formatted.replace(/## (.*)/g, '<h5 class="fw-bold mt-4 mb-2 border-bottom pb-1">$1</h5>');
+                formatted = formatted.replace(/\n/g, '<br>');
+                contentDiv.innerHTML = formatted;
+            })
+            .catch(error => {
+                document.getElementById('aiGareLoading').classList.add('d-none');
+                document.getElementById('aiGareContent').classList.remove('d-none');
+                document.getElementById('aiGareContent').innerHTML = `<div class="alert alert-danger">Errore: ${error}</div>`;
+            });
+    }
 </script>
 {% endblock %}

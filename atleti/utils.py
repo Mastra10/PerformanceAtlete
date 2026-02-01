@@ -640,6 +640,30 @@ def fix_strava_duplicates():
     except Exception as e:
         print(f"Errore fix_strava_duplicates: {e}", flush=True)
 
+BRAND_LOGOS = {
+    'Nike': 'https://upload.wikimedia.org/wikipedia/commons/a/a6/Logo_NIKE.svg',
+    'Hoka': 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/51/Hoka_One_One_Logo.svg/1200px-Hoka_One_One_Logo.svg.png',
+    'Adidas': 'https://upload.wikimedia.org/wikipedia/commons/2/20/Adidas_Logo.svg',
+    'Saucony': 'https://upload.wikimedia.org/wikipedia/commons/dd/Saucony_Logo.svg',
+    'Brooks': 'https://upload.wikimedia.org/wikipedia/commons/b/b5/Brooks_Sports_logo.svg',
+    'Asics': 'https://upload.wikimedia.org/wikipedia/commons/b/b1/Asics_Logo.svg',
+    'New Balance': 'https://upload.wikimedia.org/wikipedia/commons/e/ea/New_Balance_logo.svg',
+    'La Sportiva': 'https://upload.wikimedia.org/wikipedia/commons/3/3a/La_Sportiva_logo.svg',
+    'Salomon': 'https://upload.wikimedia.org/wikipedia/commons/6/6b/Salomon_Sports_Logo.svg',
+    'Altra': 'https://upload.wikimedia.org/wikipedia/commons/6/68/Altra_Running_Logo.svg',
+    'Scarpa': 'https://upload.wikimedia.org/wikipedia/commons/0/02/SCARPA_logo.svg',
+    'The North Face': 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d5/The_North_Face_logo.svg/1200px-The_North_Face_logo.svg.png',
+    'Nnormal': 'https://nnormal.com/cdn/shop/files/logo_nnormal_black.svg?v=1663578888&width=150',
+    'Mizuno': 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/cb/Mizuno_Logo.svg/1200px-Mizuno_Logo.svg.png',
+    'Puma': 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ae/Puma-logo.svg/1200px-Puma-logo.svg.png',
+    'Craft': 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0d/Craft_Sportswear_Logo.svg/1200px-Craft_Sportswear_Logo.svg.png',
+    'Inov-8': 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6b/Inov-8_logo.svg/1200px-Inov-8_logo.svg.png',
+    'Vibram': 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7e/Vibram_logo.svg/1200px-Vibram_logo.svg.png',
+    'Scott': 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1b/Scott_Sports_logo.svg/1200px-Scott_Sports_logo.svg.png',
+    'Topo': 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a8/Topo_Athletic_logo.png/800px-Topo_Athletic_logo.png',
+    'Kiprun': 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/Kiprun_logo.svg/1200px-Kiprun_logo.svg.png',
+}
+
 def normalizza_scarpa(nome):
     """
     Tenta di estrarre Brand e Modello dal nome della scarpa su Strava.
@@ -703,3 +727,43 @@ def normalizza_scarpa(nome):
         detected_model = nome # Fallback se abbiamo cancellato tutto
         
     return detected_brand, detected_model
+
+def analizza_gare_atleta(profilo):
+    """Genera un'analisi AI specifica per le gare dell'atleta."""
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        return "Errore: Chiave API non trovata."
+    
+    client = genai.Client(api_key=api_key)
+    
+    # Recuperiamo le gare in ordine cronologico
+    gare = Attivita.objects.filter(atleta=profilo, workout_type=1).order_by('data')
+    
+    if not gare.exists():
+        return "Non hai ancora registrato gare. Tagga le tue attività come 'Gara' su Strava per ricevere un'analisi."
+
+    gare_summary = []
+    for g in gare:
+        pos = f"{g.piazzamento}° assoluto" if g.piazzamento else "Piazzamento non inserito"
+        gare_summary.append(f"- {g.data.strftime('%d/%m/%Y')} | {g.nome} | {g.distanza_km}km | {g.dislivello}m D+ | Tempo: {g.durata_formattata} | {pos}")
+    
+    prompt = f"""
+    Sei un analista sportivo e coach di endurance. Analizza la carriera agonistica di {profilo.user.first_name}.
+    
+    STORICO GARE (Ordine Cronologico):
+    {chr(10).join(gare_summary)}
+    
+    RICHIESTA:
+    1. **Analisi Trend**: L'atleta sta migliorando? Come gestisce distanze e dislivelli diversi?
+    2. **Valutazione Piazzamenti**: Se presenti, analizza la costanza nei risultati.
+    3. **Punti di Forza/Debolezza**: Cosa emerge dai dati (es. va meglio su gare corte/veloci o lunghe/dure)?
+    4. **Consiglio Strategico**: Su cosa lavorare per la prossima stagione.
+    
+    Sii sintetico, motivante e professionale. Usa formattazione Markdown.
+    """
+    
+    try:
+        response = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
+        return response.text
+    except Exception as e:
+        return f"Errore analisi AI: {e}"

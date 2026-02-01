@@ -6,7 +6,7 @@ from allauth.socialaccount.models import SocialToken ,SocialAccount
 from django.core.cache import cache
 from .models import Attivita, ProfiloAtleta, LogSistema, Scarpa
 import math
-from .utils import analizza_performance_atleta, calcola_metrica_vo2max, stima_vo2max_atleta, stima_potenza_watt, calcola_trend_atleta, formatta_passo, stima_potenziale_gara, analizza_squadra_coach, calcola_vam_selettiva, refresh_strava_token, processa_attivita_strava, fix_strava_duplicates, normalizza_scarpa
+from .utils import analizza_performance_atleta, calcola_metrica_vo2max, stima_vo2max_atleta, stima_potenza_watt, calcola_trend_atleta, formatta_passo, stima_potenziale_gara, analizza_squadra_coach, calcola_vam_selettiva, refresh_strava_token, processa_attivita_strava, fix_strava_duplicates, normalizza_scarpa, BRAND_LOGOS, analizza_gare_atleta
 import time
 from django.db.models import Sum, Max, Q, OuterRef, Subquery, Avg
 from django.utils import timezone
@@ -847,6 +847,15 @@ def gare_atleta(request):
         'has_races': gare.exists(), # Flag esplicito per mostrare i grafici
     })
 
+def analisi_gare_ai(request):
+    """API per generare l'analisi AI delle gare"""
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Non autorizzato'}, status=403)
+        
+    profilo = request.user.profiloatleta
+    analisi_testo = analizza_gare_atleta(profilo)
+    return JsonResponse({'analisi': analisi_testo})
+
 def guida_utente(request):
     """Pagina di documentazione per gli utenti"""
     if request.user.is_authenticated:
@@ -1282,29 +1291,7 @@ def attrezzatura_scarpe(request):
     qs_scarpe = Scarpa.objects.filter(distanza__gt=50000)
     
     # Loghi Brands (URL statici per evitare scraping complesso)
-    logos = {
-        'Nike': 'https://upload.wikimedia.org/wikipedia/commons/a/a6/Logo_NIKE.svg',
-        'Hoka': 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/51/Hoka_One_One_Logo.svg/1200px-Hoka_One_One_Logo.svg.png',
-        'Adidas': 'https://upload.wikimedia.org/wikipedia/commons/2/20/Adidas_Logo.svg',
-        'Saucony': 'https://upload.wikimedia.org/wikipedia/commons/dd/Saucony_Logo.svg',
-        'Brooks': 'https://upload.wikimedia.org/wikipedia/commons/b/b5/Brooks_Sports_logo.svg',
-        'Asics': 'https://upload.wikimedia.org/wikipedia/commons/b/b1/Asics_Logo.svg',
-        'New Balance': 'https://upload.wikimedia.org/wikipedia/commons/e/ea/New_Balance_logo.svg',
-        'La Sportiva': 'https://upload.wikimedia.org/wikipedia/commons/3/3a/La_Sportiva_logo.svg',
-        'Salomon': 'https://upload.wikimedia.org/wikipedia/commons/6/6b/Salomon_Sports_Logo.svg',
-        'Altra': 'https://upload.wikimedia.org/wikipedia/commons/6/68/Altra_Running_Logo.svg',
-        'Scarpa': 'https://upload.wikimedia.org/wikipedia/commons/0/02/SCARPA_logo.svg',
-        'The North Face': 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d5/The_North_Face_logo.svg/1200px-The_North_Face_logo.svg.png',
-        'Nnormal': 'https://nnormal.com/cdn/shop/files/logo_nnormal_black.svg?v=1663578888&width=150',
-        'Mizuno': 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/cb/Mizuno_Logo.svg/1200px-Mizuno_Logo.svg.png',
-        'Puma': 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ae/Puma-logo.svg/1200px-Puma-logo.svg.png',
-        'Craft': 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0d/Craft_Sportswear_Logo.svg/1200px-Craft_Sportswear_Logo.svg.png',
-        'Inov-8': 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6b/Inov-8_logo.svg/1200px-Inov-8_logo.svg.png',
-        'Vibram': 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7e/Vibram_logo.svg/1200px-Vibram_logo.svg.png',
-        'Scott': 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1b/Scott_Sports_logo.svg/1200px-Scott_Sports_logo.svg.png',
-        'Topo': 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a8/Topo_Athletic_logo.png/800px-Topo_Athletic_logo.png',
-        'Kiprun': 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/Kiprun_logo.svg/1200px-Kiprun_logo.svg.png',
-    }
+    logos = BRAND_LOGOS
     
     # Statistiche Brand (Top 10)
     brands_stats_qs = qs_scarpe.values('brand').annotate(
