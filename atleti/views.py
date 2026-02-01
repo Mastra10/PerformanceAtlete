@@ -8,7 +8,7 @@ from .models import Attivita, ProfiloAtleta, LogSistema, Scarpa
 import math
 from .utils import analizza_performance_atleta, calcola_metrica_vo2max, stima_vo2max_atleta, stima_potenza_watt, calcola_trend_atleta, formatta_passo, stima_potenziale_gara, analizza_squadra_coach, calcola_vam_selettiva, refresh_strava_token, processa_attivita_strava, fix_strava_duplicates, normalizza_scarpa
 import time
-from django.db.models import Sum, Max, Q, OuterRef, Subquery
+from django.db.models import Sum, Max, Q, OuterRef, Subquery, Avg
 from django.utils import timezone
 from datetime import timedelta
 import json
@@ -786,10 +786,66 @@ def gare_atleta(request):
     
     LogSistema.objects.create(livello='INFO', azione='Page View', utente=request.user, messaggio="Visita Gare")
     profilo = request.user.profiloatleta
+    
+    # Gestione salvataggio piazzamento
+    if request.method == 'POST':
+        try:
+            act_id = request.POST.get('activity_id')
+            pos_str = request.POST.get('piazzamento')
+            
+            activity = get_object_or_404(Attivita, id=act_id, atleta=profilo)
+            
+            if pos_str and pos_str.strip():
+                activity.piazzamento = int(pos_str)
+                print(f"DEBUG: Salvataggio piazzamento {activity.piazzamento} per gara {activity.id}", flush=True)
+            else:
+                activity.piazzamento = None
+                print(f"DEBUG: Rimozione piazzamento per gara {activity.id}", flush=True)
+            activity.save()
+            messages.success(request, f"Piazzamento aggiornato per {activity.nome}")
+        except ValueError:
+            messages.error(request, "Valore piazzamento non valido")
+        return redirect('gare_atleta')
+
     # Strava workout_type: 1 = Race (Gara)
     gare = Attivita.objects.filter(atleta=profilo, workout_type=1).order_by('-data')
     
-    return render(request, 'atleti/gare.html', {'gare': gare})
+    # Calcolo Statistiche
+    stats = {
+        'count': gare.count(),
+        'avg_km': 0,
+        'avg_dplus': 0,
+        'avg_pos': None,
+        'total_km': 0,
+    }
+    
+    if stats['count'] > 0:
+        avg_dist = gare.aggregate(Avg('distanza'))['distanza__avg']
+        stats['avg_km'] = round(avg_dist / 1000, 2) if avg_dist else 0
+        
+        total_dist = gare.aggregate(Sum('distanza'))['distanza__sum']
+        stats['total_km'] = round(total_dist / 1000, 1) if total_dist else 0
+        
+        avg_elev = gare.aggregate(Avg('dislivello'))['dislivello__avg']
+        stats['avg_dplus'] = int(avg_elev) if avg_elev else 0
+        
+        gare_con_pos = gare.filter(piazzamento__isnull=False)
+        if gare_con_pos.exists():
+            avg_pos = gare_con_pos.aggregate(Avg('piazzamento'))['piazzamento__avg']
+            stats['avg_pos'] = round(avg_pos, 1)
+
+    # Dati Grafico (Cronologico)
+    gare_chrono = list(reversed(gare))
+    chart_labels = [g.data.strftime('%d/%m/%y') for g in gare_chrono]
+    chart_pos = [g.piazzamento if g.piazzamento else None for g in gare_chrono]
+    
+    return render(request, 'atleti/gare.html', {
+        'gare': gare,
+        'stats': stats,
+        'chart_labels': json.dumps(chart_labels),
+        'chart_pos': json.dumps(chart_pos),
+        'has_races': gare.exists(), # Flag esplicito per mostrare i grafici
+    })
 
 def guida_utente(request):
     """Pagina di documentazione per gli utenti"""

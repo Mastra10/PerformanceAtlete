@@ -76,6 +76,7 @@ class Attivita(models.Model):
     vo2max_stimato = models.FloatField(null=True, blank=True)
     analisi_tecnica_ai = models.TextField(blank=True, null=True)
     battito_riposo = models.IntegerField(null=True, blank=True)
+    piazzamento = models.IntegerField(null=True, blank=True, verbose_name="Posizione in classifica")
     
 
     class Meta:
@@ -134,6 +135,14 @@ class Attivita(models.Model):
         if self.distanza:
             return round(self.distanza / 1000, 2)
         return 0
+        
+    @property
+    def durata_formattata(self):
+        hours, remainder = divmod(self.durata, 3600)
+        minutes, _ = divmod(remainder, 60)
+        if hours > 0:
+            return f'{int(hours)}h {int(minutes):02d}m'
+        return f'{int(minutes)}m'
 
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):

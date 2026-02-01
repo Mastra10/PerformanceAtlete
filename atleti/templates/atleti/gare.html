@@ -1,68 +1,142 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2 class="fw-bold m-0"><i class="bi bi-trophy-fill text-warning me-2"></i>Le mie Gare</h2>
-    <span class="badge bg-warning text-dark rounded-pill">{{ gare.count }} Gare Disputate</span>
-</div>
+<div class="container mt-4">
+    <h2 class="mb-4 text-center"><i class="bi bi-trophy"></i> Le tue Gare</h2>
 
-<div class="card shadow-sm">
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th>Data</th>
-                        <th>Nome Evento</th>
-                        <th>Distanza</th>
-                        <th>Passo</th>
-                        <th>Dislivello</th>
-                        <th>FC Media</th>
-                        <th>VO2max</th>
-                        <th>Link</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for gara in gare %}
-                    <tr>
-                        <td class="fw-bold">{{ gara.data|date:"d/m/Y" }}</td>
-                        <td>
-                            <span class="fw-bold text-dark">{{ gara.nome|default:gara.tipo_attivita }}</span>
-                            {% if gara.tipo_attivita == 'TrailRun' %}
-                                <span class="badge bg-success ms-1" style="font-size: 0.6em;">TRAIL</span>
-                            {% endif %}
-                        </td>
-                        <td>{{ gara.distanza_km }} km</td>
-                        <td>{{ gara.passo_medio }}</td>
-                        <td>+{{ gara.dislivello|floatformat:0 }}m</td>
-                        <td><span class="badge bg-light text-dark">{{ gara.fc_media }} bpm</span></td>
-                        <td>
-                            {% if gara.tipo_attivita == 'TrailRun' %}
-                                <span class="text-muted" title="Dato non significativo per Trail">--</span>
-                            {% else %}
-                                <span class="fw-bold text-primary">{{ gara.vo2max_stimato|default:"--" }}</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <a href="https://www.strava.com/activities/{{ gara.strava_activity_id }}" target="_blank" class="btn btn-sm btn-outline-secondary">
-                                <i class="bi bi-strava"></i>
-                            </a>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="8" class="text-center py-5">
-                            <div class="text-muted">
-                                <i class="bi bi-trophy display-4 d-block mb-3 opacity-50"></i>
-                                <h5>Nessuna gara trovata</h5>
-                                <small>Assicurati di impostare il tipo "Gara" nelle tue attività su Strava e risincronizza.</small>
-                            </div>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+    <!-- Cards Statistiche -->
+    <div class="row g-3 mb-4 text-center">
+        <div class="col-md-3">
+            <div class="card p-3 shadow-sm h-100 border-info">
+                <h6 class="text-muted text-uppercase small">Totale KM Gare</h6>
+                <h3 class="fw-bold text-info">{{ stats.total_km }} km</h3>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card p-3 shadow-sm h-100 border-primary">
+                <h6 class="text-muted text-uppercase small">Media Distanza</h6>
+                <h3 class="fw-bold text-primary">{{ stats.avg_km }} km</h3>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card p-3 shadow-sm h-100 border-success">
+                <h6 class="text-muted text-uppercase small">Media Dislivello</h6>
+                <h3 class="fw-bold text-success">{{ stats.avg_dplus }} m</h3>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card p-3 shadow-sm h-100 border-warning">
+                <h6 class="text-muted text-uppercase small">Media Piazzamento</h6>
+                <h3 class="fw-bold text-warning">
+                    {% if stats.avg_pos %}{{ stats.avg_pos }}°{% else %}<span class="text-muted">--</span>{% endif %}
+                </h3>
+            </div>
+        </div>
+    </div>
+
+    <!-- Grafico Piazzamenti -->
+    {% if has_races %}
+    <div class="card shadow-sm mb-4 p-3">
+        <h5 class="card-title text-center text-muted small text-uppercase">Andamento Piazzamenti (Verso il Podio)</h5>
+        <canvas id="chartPositions" height="200"></canvas>
+    </div>
+    {% endif %}
+
+    <!-- Tabella Gare -->
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Data</th>
+                            <th>Gara</th>
+                            <th>Distanza</th>
+                            <th>Dislivello</th>
+                            <th>Tempo</th>
+                            <th>Piazzamento</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for gara in gare %}
+                        <tr>
+                            <td>{{ gara.data|date:"d/m/Y" }}</td>
+                            <td class="fw-bold">{{ gara.nome }}</td>
+                            <td>{{ gara.distanza_km }} km</td>
+                            <td>{{ gara.dislivello|floatformat:0 }} m</td>
+                            <td>{{ gara.durata_formattata }}</td>
+                            <td>
+                                <form method="POST" action="{% url 'gare_atleta' %}" class="d-flex align-items-center">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="activity_id" value="{{ gara.id }}">
+                                    <input type="number" name="piazzamento" class="form-control form-control-sm me-2" style="width: 70px;" value="{{ gara.piazzamento|default:'' }}" placeholder="Pos." min="1">
+                                    <button type="submit" class="btn btn-sm btn-outline-primary" title="Salva"><i class="bi bi-save"></i></button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-4">
+                                Nessuna gara trovata.<br>
+                                <small>Tagga le tue attività come "Gara" su Strava per vederle qui.</small>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
+
+<script>
+    {% if has_races %}
+    const ctx = document.getElementById('chartPositions').getContext('2d');
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: {{ chart_labels|safe }},
+            datasets: [{
+                label: 'Posizione',
+                data: {{ chart_pos|safe }},
+                borderColor: '#ffc107',
+                backgroundColor: 'rgba(255, 193, 7, 0.2)',
+                borderWidth: 2,
+                pointRadius: 5,
+                pointHoverRadius: 7,
+                fill: true,
+                tension: 0.1,
+                spanGaps: true // Collega i punti anche se ci sono buchi (None)
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    reverse: true, // Inverte l'asse Y (1 in alto)
+                    beginAtZero: false,
+                    title: { display: true, text: 'Posizione' },
+                    ticks: { stepSize: 1, precision: 0 },
+                    suggestedMin: 1, // Assicura che l'asse parta da numeri bassi
+                    suggestedMax: 10 // Default se vuoto
+                },
+                x: { grid: { display: false } }
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            if (context.parsed.y !== null) {
+                                return context.parsed.y + '° Classificato';
+                            }
+                            return '';
+                        }
+                    }
+                }
+            }
+        }
+    });
+    {% endif %}
+</script>
 {% endblock %}
