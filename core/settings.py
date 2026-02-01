@@ -128,7 +128,6 @@ USE_I18N = True
 
 USE_TZ = True
 
-
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
@@ -147,11 +146,6 @@ LOGOUT_REDIRECT_URL = '/'
 # Impostazioni specifiche per Strava
 SOCIALACCOUNT_PROVIDERS = {
     'strava': {
-        'APP': {
-            'client_id': os.environ.get('STRAVA_CLIENT_ID'),
-            'secret': os.environ.get('STRAVA_CLIENT_SECRET'),
-            'key': ''
-        },
         'SCOPE': ['activity:read_all'], # Torniamo allo scope standard che funziona sempre
         'AUTH_PARAMS': {'approval_prompt': 'auto'},
         'VERIFIED_EMAIL': False,
@@ -171,7 +165,7 @@ APSCHEDULER_RUN_NOW_TIMEOUT = 25  # Secondi
 # certificato
 CSRF_TRUSTED_ORIGINS = os.getenv('CSRF_TRUSTED_ORIGINS', 'http://localhost:8000').split(',')
 
-SECURE_SSL_REDIRECT = False
+SECURE_SSL_REDIRECT = True
 
 if not DEBUG:
     # Impostazioni per la PRODUZIONE (HTTPS)
