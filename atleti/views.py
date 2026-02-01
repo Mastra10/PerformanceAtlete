@@ -750,6 +750,47 @@ def export_csv(request):
 
     return response
 
+def export_profile_csv(request):
+    """Esporta i dati aggregati del profilo in CSV (Dashboard Stats)"""
+    if not request.user.is_authenticated:
+        return redirect('home')
+
+    context = _get_dashboard_context(request.user)
+    profilo = context['profilo']
+    trends = context['trends']
+
+    response = HttpResponse(
+        content_type='text/csv',
+        headers={'Content-Disposition': f'attachment; filename="profilo_{request.user.username}.csv"'},
+    )
+
+    writer = csv.writer(response)
+    writer.writerow(['Metrica', 'Valore', 'Note/Trend'])
+
+    writer.writerow(['Peso', f"{profilo.peso} kg", ''])
+    writer.writerow(['FC Max', f"{profilo.fc_massima_teorica} bpm", f"Data: {profilo.data_fc_max or 'N/A'}"])
+    writer.writerow(['ITRA Index', profilo.indice_itra, context['livello_itra']])
+    writer.writerow(['UTMB Index', profilo.indice_utmb, context['livello_utmb']])
+    writer.writerow(['Soglia Aerobica', f"{context['soglia_aerobica']} bpm", 'Stima Fondo (Z2)'])
+    writer.writerow(['Soglia Anaerobica', f"{context['soglia_anaerobica']} bpm", 'Stima Soglia (Z4)'])
+    writer.writerow(['Passo Medio Recente', context['passo_media_recent'], f"Trend: {trends.get('passo', 0)}%"])
+    writer.writerow(['FC Media Recente', f"{context['fc_media_recent']} bpm", f"Trend: {trends.get('fc_media', 0)}%"])
+    
+    writer.writerow(['Volume Totale', f"{context['totale_km']} km", f"{context['dislivello_totale']}m D+"])
+    writer.writerow(['Dislivello Settimanale', f"{context['dislivello_settimanale']}m D+", ''])
+    writer.writerow(['Trend Volume', f"{trends.get('distanza', 0)}%", 'Vol. Recente'])
+    
+    writer.writerow(['Volume Anno', f"{context['annuale_km']} km", f"{context['dislivello_annuale']}m D+"])
+    writer.writerow(['Media Settimanale', f"{context['avg_weekly_km']} km / {context['avg_weekly_elev']} m", ''])
+    
+    writer.writerow(['VAM Media', f"{context['vam_media']} m/h", f"{context['livello_vam']} (Trend: {trends.get('vam', 0)}%)"])
+    writer.writerow(['Potenza Media', f"{context['potenza_media']} W", f"{context['livello_potenza']} (Trend: {trends.get('potenza', 0)}%)"])
+    
+    writer.writerow(['VO2max Stima Statistica', profilo.vo2max_stima_statistica, f"{context['livello_vo2max']} (Trend: {trends.get('vo2max', 0)}%)"])
+    writer.writerow(['VO2max Solo Strada', profilo.vo2max_strada, f"{context['livello_vo2max_strada']} (Trend: {trends.get('vo2max_strada', 0)}%)"])
+
+    return response
+
 def riepilogo_atleti(request):
     """Vista per la tabella comparativa di tutti gli atleti"""
     if not request.user.is_authenticated:

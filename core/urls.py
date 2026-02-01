@@ -36,6 +36,7 @@ urlpatterns = [
     path('aggiorna-profilo/', views.aggiorna_dati_profilo, name='aggiorna_profilo'),
     path('pulisci-db/', views.elimina_attivita_anomale, name='pulisci_db'),
     path('export-csv/', views.export_csv, name='export_csv'),
+    path('export-profile-csv/', views.export_profile_csv, name='export_profile_csv'),
     path('atleti/', views.riepilogo_atleti, name='riepilogo_atleti'),
     path('gare/', views.gare_atleta, name='gare_atleta'),
     path('gare/analisi/', views.analisi_gare_ai, name='analisi_gare_ai'),
