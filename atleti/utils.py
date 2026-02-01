@@ -592,15 +592,19 @@ def fix_strava_duplicates():
     Rileva e rimuove configurazioni Strava duplicate che causano errori 500.
     """
     try:
-        apps = SocialApp.objects.filter(provider='strava')
+        # Usa iexact per case-insensitive matching (es. 'Strava' vs 'strava')
+        apps = SocialApp.objects.filter(provider__iexact='strava')
         if apps.count() > 1:
+            print(f"FIX: Trovate {apps.count()} app Strava. Pulizia in corso...", flush=True)
             first_app = apps.order_by('id').first()
             from allauth.socialaccount.models import SocialToken
             for app in apps.exclude(id=first_app.id):
+                print(f"FIX: Rimozione app duplicata ID {app.id}", flush=True)
                 for token in SocialToken.objects.filter(app=app):
                     if not SocialToken.objects.filter(app=first_app, account=token.account).exists():
                         token.app = first_app
                         token.save()
                 app.delete()
+            print("FIX: Pulizia completata.", flush=True)
     except Exception as e:
-        print(f"Errore fix_strava_duplicates: {e}")
+        print(f"Errore fix_strava_duplicates: {e}", flush=True)

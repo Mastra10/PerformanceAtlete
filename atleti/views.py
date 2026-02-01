@@ -22,6 +22,7 @@ from datetime import timedelta
 from django.template.loader import render_to_string
 from django.contrib.auth import login
 import os
+from django.core.exceptions import MultipleObjectsReturned
 
 def _get_dashboard_context(user):
     """Helper per generare il contesto della dashboard per un dato utente"""
@@ -233,13 +234,19 @@ def home(request):
         status = cache.get(f"sync_progress_{request.user.id}", {'status': 'In attesa...', 'progress': 0})
         return JsonResponse(status)
 
-    if request.user.is_authenticated:
-        LogSistema.objects.create(livello='INFO', azione='Page View', utente=request.user, messaggio="Visita Dashboard")
-        context = _get_dashboard_context(request.user)
-        if context.get('warning_token'):
-            messages.warning(request, context['warning_token'])
-        return render(request, 'atleti/home.html', context)
-    return render(request, 'atleti/home.html')
+    try:
+        if request.user.is_authenticated:
+            LogSistema.objects.create(livello='INFO', azione='Page View', utente=request.user, messaggio="Visita Dashboard")
+            context = _get_dashboard_context(request.user)
+            if context.get('warning_token'):
+                messages.warning(request, context['warning_token'])
+            return render(request, 'atleti/home.html', context)
+        return render(request, 'atleti/home.html')
+    except MultipleObjectsReturned:
+        # Se il fix preventivo non ha funzionato (es. race condition), riproviamo e ricarichiamo
+        print("CRITICAL: MultipleObjectsReturned intercettato in home. Tento fix di emergenza.", flush=True)
+        fix_strava_duplicates()
+        return redirect('home')
 
 def dashboard_atleta(request, username):
     """Visualizza la dashboard di un altro atleta se permesso"""
