@@ -8,9 +8,9 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from django.utils import timezone
-from .models import ProfiloAtleta, Attivita
+from .models import ProfiloAtleta, Attivita, Scarpa
 from allauth.socialaccount.models import SocialToken
-from .utils import refresh_strava_token, processa_attivita_strava, stima_vo2max_atleta
+from .utils import refresh_strava_token, processa_attivita_strava, stima_vo2max_atleta, normalizza_scarpa
 import requests
 
 # Configura il logger per tracciare l'esecuzione
@@ -184,8 +184,38 @@ def task_sync_strava():
             logger.error(f"Impossibile rinnovare token per {user.username}. Salto.")
             continue
             
-        # 2. Scarica Attività (Solo ultime 10 per risparmiare API nel task automatico)
         headers = {'Authorization': f'Bearer {access_token}'}
+
+        # --- 1.5 SYNC SCARPE & PROFILO (Nuovo) ---
+        try:
+            # Chiamata leggera per prendere scarpe e peso
+            resp_athlete = requests.get("https://www.strava.com/api/v3/athlete", headers=headers, timeout=10)
+            if resp_athlete.status_code == 200:
+                athlete_data = resp_athlete.json()
+                profilo, _ = ProfiloAtleta.objects.get_or_create(user=user)
+                
+                shoes = athlete_data.get('shoes', [])
+                strava_shoe_ids = []
+                for s in shoes:
+                    strava_shoe_ids.append(s['id'])
+                    brand, model = normalizza_scarpa(s['name'])
+                    Scarpa.objects.update_or_create(
+                        strava_id=s['id'],
+                        defaults={
+                            'atleta': profilo,
+                            'nome': s['name'],
+                            'distanza': s['distance'],
+                            'primary': s['primary'],
+                            'brand': brand,
+                            'modello_normalizzato': model,
+                            'retired': False
+                        }
+                    )
+                Scarpa.objects.filter(atleta=profilo).exclude(strava_id__in=strava_shoe_ids).update(retired=True)
+        except Exception as e:
+            logger.error(f"Errore sync scarpe per {user.username}: {e}")
+
+        # 2. Scarica Attività (Solo ultime 10 per risparmiare API nel task automatico)
         params = {'page': 1, 'per_page': 10} 
         
         try:
