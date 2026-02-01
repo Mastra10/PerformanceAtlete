@@ -46,6 +46,26 @@ def task_repair_strava():
     Task pianificato per riparare configurazione Strava e token orfani.
     """
     logger.info("SCHEDULER: Avvio riparazione Strava (Self-Healing)...")
+
+    # Fix per MultipleObjectsReturned: Rimuove app Strava duplicate
+    try:
+        from allauth.socialaccount.models import SocialApp
+        apps = SocialApp.objects.filter(provider='strava')
+        if apps.count() > 1:
+            logger.warning(f"SCHEDULER: Trovate {apps.count()} app Strava. Pulizia duplicati...")
+            # Manteniamo la prima (quella con ID più basso solitamente è la originale)
+            first_app = apps.order_by('id').first()
+            for app in apps.exclude(id=first_app.id):
+                # Gestione token orfani/duplicati
+                for token in SocialToken.objects.filter(app=app):
+                    if not SocialToken.objects.filter(app=first_app, account=token.account).exists():
+                        token.app = first_app
+                        token.save()
+                logger.warning(f"SCHEDULER: Eliminazione SocialApp duplicata ID {app.id}")
+                app.delete()
+    except Exception as e:
+        logger.error(f"SCHEDULER: Errore pulizia SocialApp: {e}")
+
     call_command('repair_strava')
     logger.info("SCHEDULER: Riparazione completata.")
 
@@ -66,7 +86,7 @@ def task_heartbeat():
         'scrape_itra_utmb_settimanale': ('cmd', 'scrape_indices'),
         'pulizia_log_settimanale': ('cmd', 'clean_scheduler_logs'),
         'sync_strava_periodico': ('func', 'task_sync_strava'), # Aggiunto supporto Strava
-        'repair_strava_settimanale': ('cmd', 'repair_strava'),
+        'repair_strava_settimanale': ('func', 'task_repair_strava'),
     }
 
     # Cerca task con trigger manuale attivo
