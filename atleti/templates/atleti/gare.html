@@ -120,8 +120,8 @@
                     ticks: { 
                         callback: function(value, index, values) {
                             // Filtra le etichette per mostrare solo numeri "puliti" (1, 2, 5, 10, 20...)
-                            // ed evitare affollamento, garantendo però la visibilità della Top 5
-                            if (String(value).match(/^[125]0*$/) || value <= 5) return value;
+                            // ed evitare affollamento, garantendo però la visibilità della Top 10
+                            if (String(value).match(/^[125]0*$/) || value <= 10) return value;
                             return null;
                         }
                     },
