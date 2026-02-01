@@ -879,6 +879,7 @@ def gare_atleta(request):
     gare_chrono = list(reversed(gare))
     chart_labels = [g.data.strftime('%d/%m/%y') for g in gare_chrono]
     chart_pos = [g.piazzamento if g.piazzamento else None for g in gare_chrono]
+    chart_types = [g.tipo_attivita for g in gare_chrono]
     
     # Dati Grafico a Torta (Distribuzione Piazzamenti)
     pos_buckets = {
@@ -901,6 +902,7 @@ def gare_atleta(request):
         'stats': stats,
         'chart_labels': json.dumps(chart_labels),
         'chart_pos': json.dumps(chart_pos),
+        'chart_types': json.dumps(chart_types),
         'pie_labels': json.dumps(list(pos_buckets.keys())),
         'pie_data': json.dumps(list(pos_buckets.values())),
         'has_races': gare.exists(), # Flag esplicito per mostrare i grafici

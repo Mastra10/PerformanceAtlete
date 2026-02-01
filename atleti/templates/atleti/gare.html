@@ -52,7 +52,14 @@
     <div class="row g-4 mb-4">
         <div class="col-lg-8">
             <div class="card shadow-sm p-3 h-100">
-                <h5 class="card-title text-center text-muted small text-uppercase">Andamento Piazzamenti (Verso il Podio)</h5>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="card-title text-muted small text-uppercase m-0">Andamento Piazzamenti</h5>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button type="button" class="btn btn-outline-secondary active" onclick="filterChart('all', this)">Tutte</button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="filterChart('TrailRun', this)">Trail</button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="filterChart('Run', this)">Strada</button>
+                    </div>
+                </div>
                 <canvas id="chartPositions" height="300"></canvas>
             </div>
         </div>
@@ -142,14 +149,19 @@
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
 <script>
     {% if has_races %}
+    // Dati completi per il filtro
+    const allLabels = {{ chart_labels|safe }};
+    const allData = {{ chart_pos|safe }};
+    const allTypes = {{ chart_types|safe }};
+
     const ctx = document.getElementById('chartPositions').getContext('2d');
-    new Chart(ctx, {
+    let chartInstance = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: {{ chart_labels|safe }},
+            labels: allLabels,
             datasets: [{
                 label: 'Posizione',
-                data: {{ chart_pos|safe }},
+                data: allData,
                 borderColor: '#ffc107',
                 backgroundColor: 'rgba(255, 193, 7, 0.2)',
                 borderWidth: 2,
@@ -196,6 +208,41 @@
             }
         }
     });
+
+    function filterChart(type, btn) {
+        // Aggiorna stato bottoni
+        if(btn) {
+            document.querySelectorAll('.btn-group .btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        }
+
+        let newLabels = [];
+        let newData = [];
+
+        for (let i = 0; i < allData.length; i++) {
+            if (type === 'all' || allTypes[i] === type) {
+                newLabels.push(allLabels[i]);
+                newData.push(allData[i]);
+            }
+        }
+
+        chartInstance.data.labels = newLabels;
+        chartInstance.data.datasets[0].data = newData;
+        
+        // Cambio colore in base al tipo per feedback visivo
+        if (type === 'TrailRun') {
+             chartInstance.data.datasets[0].borderColor = '#198754'; // Verde
+             chartInstance.data.datasets[0].backgroundColor = 'rgba(25, 135, 84, 0.2)';
+        } else if (type === 'Run') {
+             chartInstance.data.datasets[0].borderColor = '#0d6efd'; // Blu
+             chartInstance.data.datasets[0].backgroundColor = 'rgba(13, 110, 253, 0.2)';
+        } else {
+             chartInstance.data.datasets[0].borderColor = '#ffc107'; // Giallo (Default)
+             chartInstance.data.datasets[0].backgroundColor = 'rgba(255, 193, 7, 0.2)';
+        }
+
+        chartInstance.update();
+    }
 
     // Grafico a Torta Distribuzione
     const ctxPie = document.getElementById('chartPiePositions').getContext('2d');
