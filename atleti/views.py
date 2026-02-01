@@ -23,6 +23,7 @@ from django.template.loader import render_to_string
 from django.contrib.auth import login
 import os
 from django.core.exceptions import MultipleObjectsReturned
+from django.utils.safestring import mark_safe
 
 def _get_dashboard_context(user):
     """Helper per generare il contesto della dashboard per un dato utente"""
@@ -240,6 +241,8 @@ def home(request):
             context = _get_dashboard_context(request.user)
             if context.get('warning_token'):
                 messages.warning(request, context['warning_token'])
+            # Link temporaneo per rendere visibile la nuova pagina
+            messages.info(request, mark_safe('📊 <strong>Novità:</strong> Prova il nuovo strumento di <a href="/confronto/" class="alert-link">Confronto Atleti</a>!'))
             return render(request, 'atleti/home.html', context)
         return render(request, 'atleti/home.html')
     except MultipleObjectsReturned:
@@ -1076,3 +1079,64 @@ def impersonate_user(request, username):
     
     messages.warning(request, f"⚠️ ATTENZIONE: Ora stai agendo come {target_user.username}. Effettua il Logout per uscire.")
     return redirect('home')
+
+def confronto_attivita(request):
+    """
+    Vista per confrontare due attività di due utenti diversi (o dello stesso).
+    Gestisce sia la pagina principale che le chiamate AJAX per popolare le select.
+    """
+    # 1. Gestione AJAX: Restituisce le attività di un utente specifico
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest' and request.GET.get('ajax_user_id'):
+        user_id = request.GET.get('ajax_user_id')
+        try:
+            profilo = ProfiloAtleta.objects.get(user_id=user_id)
+            # Prendiamo le ultime 50 attività
+            attivita = Attivita.objects.filter(atleta=profilo).order_by('-data')[:50]
+            data = []
+            for a in attivita:
+                label = f"{a.data.strftime('%d/%m/%Y')} - {a.nome or 'Attività'} ({round(a.distanza/1000, 1)}km, {a.dislivello}m D+)"
+                data.append({'id': a.id, 'label': label})
+            return JsonResponse({'activities': data})
+        except ProfiloAtleta.DoesNotExist:
+            return JsonResponse({'activities': []})
+
+    # 2. Gestione Confronto (Se sono stati selezionati due ID)
+    act1_id = request.GET.get('act1')
+    act2_id = request.GET.get('act2')
+    
+    context = {}
+    
+    # Carichiamo tutti gli atleti per le select iniziali
+    context['atleti'] = ProfiloAtleta.objects.select_related('user').all().order_by('user__first_name')
+
+    if act1_id and act2_id:
+        act1 = get_object_or_404(Attivita, id=act1_id)
+        act2 = get_object_or_404(Attivita, id=act2_id)
+        
+        # Calcolo Delta (Act1 - Act2)
+        delta = {
+            'distanza': round((act1.distanza - act2.distanza) / 1000, 2),
+            'dislivello': act1.dislivello - act2.dislivello,
+            'fc_media': (act1.fc_media or 0) - (act2.fc_media or 0),
+            'potenza': (act1.potenza_media or 0) - (act2.potenza_media or 0),
+            'vo2': round((act1.vo2max_stimato or 0) - (act2.vo2max_stimato or 0), 1),
+            'vam': act1.vam - act2.vam,
+        }
+        
+        # Formattazione passo per confronto (differenza in secondi)
+        def get_sec_km(act):
+            return (act.durata / (act.distanza/1000)) if act.distanza > 0 else 0
+            
+        diff_passo_sec = get_sec_km(act1) - get_sec_km(act2)
+        sign = "+" if diff_passo_sec > 0 else "-"
+        m, s = divmod(abs(int(diff_passo_sec)), 60)
+        delta['passo'] = f"{sign}{m}:{s:02d}"
+
+        context.update({
+            'act1': act1,
+            'act2': act2,
+            'delta': delta,
+            'show_comparison': True
+        })
+
+    return render(request, 'atleti/confronto.html', context)

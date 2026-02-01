@@ -37,6 +37,17 @@ def refresh_strava_token(token_obj, buffer_minutes=10):
         # Recuperiamo le credenziali dell'app
         app = token_obj.app
         
+        # FIX: Se il token è orfano (app=None), cerchiamo l'app Strava nel DB e riassociamo
+        if not app:
+            app = SocialApp.objects.filter(provider='strava').first()
+            if app:
+                token_obj.app = app
+                token_obj.save()
+        
+        if not app:
+            LogSistema.objects.create(livello='ERROR', azione='Token Refresh', utente=token_obj.account.user, messaggio="App Strava non trovata. Impossibile rinnovare il token.")
+            return None
+        
         data = {
             'client_id': app.client_id,
             'client_secret': app.secret,
@@ -594,6 +605,8 @@ def fix_strava_duplicates():
     try:
         # Usa iexact per case-insensitive matching (es. 'Strava' vs 'strava')
         apps = SocialApp.objects.filter(provider__iexact='strava')
+        
+        # 1. Gestione Duplicati
         if apps.count() > 1:
             print(f"FIX: Trovate {apps.count()} app Strava. Pulizia in corso...", flush=True)
             first_app = apps.order_by('id').first()
@@ -606,5 +619,23 @@ def fix_strava_duplicates():
                         token.save()
                 app.delete()
             print("FIX: Pulizia completata.", flush=True)
+            
+        # 2. Gestione Mancanza (DoesNotExist) - Creazione Automatica
+        elif apps.count() == 0:
+            client_id = os.environ.get('STRAVA_CLIENT_ID')
+            secret = os.environ.get('STRAVA_CLIENT_SECRET')
+            
+            if client_id and secret:
+                print("FIX: App Strava mancante. Tentativo di creazione automatica...", flush=True)
+                from django.contrib.sites.models import Site
+                # Assicuriamoci che esista un sito (ID=1 è il default di Django)
+                site, _ = Site.objects.get_or_create(id=1, defaults={'domain': 'localhost', 'name': 'localhost'})
+                
+                app = SocialApp.objects.create(provider='strava', name='Strava', client_id=client_id, secret=secret)
+                app.sites.add(site)
+                print(f"FIX: App Strava creata e associata al sito {site.name} (ID: {site.id})", flush=True)
+            else:
+                print("FIX: App Strava mancante ma credenziali ENV non trovate.", flush=True)
+
     except Exception as e:
         print(f"Errore fix_strava_duplicates: {e}", flush=True)

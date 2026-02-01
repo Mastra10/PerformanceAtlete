@@ -1,0 +1,190 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4 text-center"><i class="bi bi-arrow-left-right"></i> Confronto Prestazioni</h2>
+
+    <!-- Form di Selezione -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form method="GET" action="{% url 'confronto_attivita' %}">
+                <div class="row">
+                    <!-- Colonna Atleta A -->
+                    <div class="col-md-5">
+                        <h5 class="text-primary">Atleta A (Sinistra)</h5>
+                        <div class="mb-3">
+                            <label>Seleziona Atleta:</label>
+                            <select class="form-select user-select" data-target="#act1" name="user1">
+                                <option value="">-- Scegli --</option>
+                                {% for a in atleti %}
+                                <option value="{{ a.user.id }}" {% if act1 and act1.atleta.user.id == a.user.id %}selected{% endif %}>
+                                    {{ a.user.first_name }} {{ a.user.last_name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label>Seleziona Attività:</label>
+                            <select class="form-select" id="act1" name="act1" required>
+                                {% if act1 %}
+                                <option value="{{ act1.id }}" selected>{{ act1.data|date:"d/m/Y" }} - {{ act1.nome }}</option>
+                                {% else %}
+                                <option value="">-- Prima seleziona un atleta --</option>
+                                {% endif %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- VS Centrale -->
+                    <div class="col-md-2 d-flex align-items-center justify-content-center">
+                        <h1 class="text-muted">VS</h1>
+                    </div>
+
+                    <!-- Colonna Atleta B -->
+                    <div class="col-md-5">
+                        <h5 class="text-danger">Atleta B (Destra)</h5>
+                        <div class="mb-3">
+                            <label>Seleziona Atleta:</label>
+                            <select class="form-select user-select" data-target="#act2" name="user2">
+                                <option value="">-- Scegli --</option>
+                                {% for a in atleti %}
+                                <option value="{{ a.user.id }}" {% if act2 and act2.atleta.user.id == a.user.id %}selected{% endif %}>
+                                    {{ a.user.first_name }} {{ a.user.last_name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label>Seleziona Attività:</label>
+                            <select class="form-select" id="act2" name="act2" required>
+                                {% if act2 %}
+                                <option value="{{ act2.id }}" selected>{{ act2.data|date:"d/m/Y" }} - {{ act2.nome }}</option>
+                                {% else %}
+                                <option value="">-- Prima seleziona un atleta --</option>
+                                {% endif %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-center mt-3">
+                    <button type="submit" class="btn btn-primary btn-lg px-5">Confronta Ora</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if show_comparison %}
+    <!-- Risultati Confronto -->
+    <div class="table-responsive shadow-sm rounded">
+        <table class="table table-bordered text-center align-middle bg-white">
+            <thead class="table-dark">
+                <tr>
+                    <th style="width: 35%;">{{ act1.atleta.user.first_name }}<br><small class="text-muted">{{ act1.data|date:"d/m/Y" }}</small></th>
+                    <th style="width: 30%;">Metrica</th>
+                    <th style="width: 35%;">{{ act2.atleta.user.first_name }}<br><small class="text-muted">{{ act2.data|date:"d/m/Y" }}</small></th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Distanza -->
+                <tr>
+                    <td class="fs-5">{{ act1.distanza_km }} km</td>
+                    <td class="bg-light fw-bold">Distanza <br>
+                        <span class="badge {% if delta.distanza > 0 %}bg-success{% else %}bg-secondary{% endif %}">
+                            {{ delta.distanza|stringformat:"+f" }} km
+                        </span>
+                    </td>
+                    <td class="fs-5">{{ act2.distanza_km }} km</td>
+                </tr>
+                <!-- Dislivello -->
+                <tr>
+                    <td class="fs-5">{{ act1.dislivello }} m</td>
+                    <td class="bg-light fw-bold">Dislivello <br>
+                        <span class="badge {% if delta.dislivello > 0 %}bg-success{% else %}bg-secondary{% endif %}">
+                            {{ delta.dislivello|stringformat:"+d" }} m
+                        </span>
+                    </td>
+                    <td class="fs-5">{{ act2.dislivello }} m</td>
+                </tr>
+                <!-- Passo -->
+                <tr>
+                    <td class="fs-5">{{ act1.passo_medio }} /km</td>
+                    <td class="bg-light fw-bold">Passo Medio <br>
+                        <span class="badge {% if '-' in delta.passo %}bg-success{% else %}bg-danger{% endif %}">
+                            {{ delta.passo }} /km
+                        </span>
+                    </td>
+                    <td class="fs-5">{{ act2.passo_medio }} /km</td>
+                </tr>
+                <!-- FC Media -->
+                <tr>
+                    <td class="fs-5">{{ act1.fc_media|default:"-" }} bpm</td>
+                    <td class="bg-light fw-bold">FC Media <br>
+                        <span class="badge {% if delta.fc_media < 0 %}bg-success{% else %}bg-danger{% endif %}">
+                            {{ delta.fc_media|stringformat:"+d" }} bpm
+                        </span>
+                    </td>
+                    <td class="fs-5">{{ act2.fc_media|default:"-" }} bpm</td>
+                </tr>
+                <!-- Potenza -->
+                <tr>
+                    <td class="fs-5">{{ act1.potenza_media|default:"-" }} W</td>
+                    <td class="bg-light fw-bold">Potenza <br>
+                        <span class="badge {% if delta.potenza > 0 %}bg-success{% else %}bg-secondary{% endif %}">
+                            {{ delta.potenza|floatformat:0|stringformat:"+s" }} W
+                        </span>
+                    </td>
+                    <td class="fs-5">{{ act2.potenza_media|default:"-" }} W</td>
+                </tr>
+                <!-- VO2max -->
+                <tr>
+                    <td class="fs-5 fw-bold text-primary">{{ act1.vo2max_stimato|default:"-" }}</td>
+                    <td class="bg-light fw-bold">VO2max Stimato <br>
+                        <span class="badge {% if delta.vo2 > 0 %}bg-success{% else %}bg-danger{% endif %}">
+                            {{ delta.vo2|stringformat:"+f" }}
+                        </span>
+                    </td>
+                    <td class="fs-5 fw-bold text-primary">{{ act2.vo2max_stimato|default:"-" }}</td>
+                </tr>
+                 <!-- VAM -->
+                 <tr>
+                    <td class="fs-5">{{ act1.vam }} m/h</td>
+                    <td class="bg-light fw-bold">VAM (Salita) <br>
+                        <span class="badge {% if delta.vam > 0 %}bg-success{% else %}bg-secondary{% endif %}">
+                            {{ delta.vam|stringformat:"+d" }} m/h
+                        </span>
+                    </td>
+                    <td class="fs-5">{{ act2.vam }} m/h</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const selects = document.querySelectorAll('.user-select');
+    
+    selects.forEach(select => {
+        select.addEventListener('change', function() {
+            const userId = this.value;
+            const targetId = this.getAttribute('data-target');
+            const targetSelect = document.querySelector(targetId);
+            
+            targetSelect.innerHTML = '<option>Caricamento...</option>';
+            
+            fetch(`{% url 'confronto_attivita' %}?ajax_user_id=${userId}`, {
+                headers: {'X-Requested-With': 'XMLHttpRequest'}
+            })
+            .then(response => response.json())
+            .then(data => {
+                targetSelect.innerHTML = '<option value="">-- Seleziona Attività --</option>';
+                data.activities.forEach(act => {
+                    targetSelect.innerHTML += `<option value="${act.id}">${act.label}</option>`;
+                });
+            });
+        });
+    });
+});
+</script>
+{% endblock %}
