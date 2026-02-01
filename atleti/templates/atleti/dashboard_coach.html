@@ -3,6 +3,7 @@
 {% block content %}
 <!-- Libreria per PDF -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2 class="fw-bold m-0">Dashboard Coach <span class="text-muted h4">| Panoramica Squadra</span></h2>
@@ -175,7 +176,7 @@
     <div class="col-md-4">
         <div class="card p-4 shadow-sm h-100">
             <h5 class="fw-bold mb-3" style="color: #2c3e50;">
-                Distribuzione Livello (Stima)
+                Distribuzione Livello Vo2max (Stima)
                 <i class="bi bi-info-circle text-muted ms-1 h6" data-bs-toggle="tooltip" title="Suddivisione della squadra in base al VO2max stimato (Media Mobile Trail + Strada)."></i>
             </h5>
             <div style="height: 250px; position: relative;">
@@ -188,7 +189,7 @@
     <div class="col-md-4">
         <div class="card p-4 shadow-sm h-100">
             <h5 class="fw-bold mb-3" style="color: #0d6efd;">
-                Distribuzione Livello (Strada)
+                Distribuzione Livello Vo2max (Strada)
                 <i class="bi bi-info-circle text-muted ms-1 h6" data-bs-toggle="tooltip" title="Suddivisione della squadra in base al VO2max Solo Strada (Media Mobile)."></i>
             </h5>
             <div style="height: 250px; position: relative;">
@@ -531,10 +532,22 @@
                     borderWidth: 1
                 }]
             },
+            plugins: [ChartDataLabels],
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: { legend: { position: 'bottom' } }
+                plugins: { 
+                    legend: { position: 'bottom' },
+                    datalabels: {
+                        color: (ctx) => ctx.dataIndex === 2 ? '#000' : '#fff', // Nero su giallo, bianco sugli altri
+                        font: { weight: 'bold' },
+                        formatter: (value, ctx) => {
+                            let sum = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                            let percentage = (value * 100 / sum).toFixed(0) + "%";
+                            return value > 0 ? percentage : "";
+                        }
+                    }
+                }
             }
         });
 
@@ -550,10 +563,22 @@
                     borderWidth: 1
                 }]
             },
+            plugins: [ChartDataLabels],
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: { legend: { position: 'bottom' } }
+                plugins: { 
+                    legend: { position: 'bottom' },
+                    datalabels: {
+                        color: (ctx) => ctx.dataIndex === 2 ? '#000' : '#fff',
+                        font: { weight: 'bold' },
+                        formatter: (value, ctx) => {
+                            let sum = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                            let percentage = (value * 100 / sum).toFixed(0) + "%";
+                            return value > 0 ? percentage : "";
+                        }
+                    }
+                }
             }
         });
 
@@ -569,10 +594,22 @@
                     borderWidth: 1
                 }]
             },
+            plugins: [ChartDataLabels],
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: { legend: { position: 'bottom' } }
+                plugins: { 
+                    legend: { position: 'bottom' },
+                    datalabels: {
+                        color: '#fff',
+                        font: { weight: 'bold' },
+                        formatter: (value, ctx) => {
+                            let sum = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                            let percentage = (value * 100 / sum).toFixed(0) + "%";
+                            return value > 0 ? percentage : "";
+                        }
+                    }
+                }
             }
         });
 
