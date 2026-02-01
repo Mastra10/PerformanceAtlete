@@ -82,6 +82,11 @@
         <i class="bi bi-arrow-left-right"></i> Confronto
     </a>
 </li>
+<li class="nav-item">
+    <a class="nav-link" href="{% url 'attrezzatura_scarpe' %}">
+        <i class="bi bi-shop"></i> Attrezzatura
+    </a>
+</li>
                     <li class="nav-item"><a class="nav-link {% if request.resolver_match.url_name == 'impostazioni' %}active{% endif %}" href="{% url 'impostazioni' %}"><i class="bi bi-gear"></i> Impostazioni</a></li>
                 </ul>
 

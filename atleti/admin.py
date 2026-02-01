@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import ProfiloAtleta, Attivita, TaskSettings, LogSistema
+from .models import ProfiloAtleta, Attivita, TaskSettings, LogSistema, Scarpa
 
 @admin.register(ProfiloAtleta)
 class ProfiloAtletaAdmin(admin.ModelAdmin):
@@ -66,3 +66,9 @@ class LogSistemaAdmin(admin.ModelAdmin):
     list_display = ('data', 'livello', 'azione', 'utente', 'messaggio')
     list_filter = ('livello', 'azione', 'data')
     search_fields = ('messaggio', 'utente__username', 'azione')
+
+@admin.register(Scarpa)
+class ScarpaAdmin(admin.ModelAdmin):
+    list_display = ('nome', 'atleta', 'brand', 'modello_normalizzato', 'distanza', 'primary', 'retired')
+    list_filter = ('brand', 'primary', 'retired')
+    search_fields = ('nome', 'atleta__user__username')

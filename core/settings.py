@@ -24,7 +24,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-5i9fyk&@_^8+2)@05u6l85b(00%&buy-^e+$@#h=5+_!ds)&=s')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DEBUG', 'False') == 'True'
+DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',')
 
@@ -146,7 +146,7 @@ LOGOUT_REDIRECT_URL = '/'
 # Impostazioni specifiche per Strava
 SOCIALACCOUNT_PROVIDERS = {
     'strava': {
-        'SCOPE': ['activity:read_all'], # Torniamo allo scope standard che funziona sempre
+        'SCOPE': ['activity:read_all,profile:read_all'], # Unica stringa con virgola per evitare errori di formato Strava
         'AUTH_PARAMS': {'approval_prompt': 'auto'},
         'VERIFIED_EMAIL': False,
     }
@@ -190,8 +190,9 @@ if not DEBUG:
     SECURE_HSTS_PRELOAD = True
 else:
     # Impostazioni per il LOCALE (HTTP)
-    DEBUG = True
+    #DEBUG = True
     SECURE_SSL_REDIRECT = False
     SESSION_COOKIE_SECURE = False
-    CSRF_COOKIE_SECURE = False
+    SECURE_HSTS_SECONDS = 0
+    #CSRF_COOKIE_SECURE = False
     SECURE_PROXY_SSL_HEADER = None

@@ -4,9 +4,9 @@ from django.http import HttpResponse, JsonResponse
 from django.contrib.auth.decorators import login_required
 from allauth.socialaccount.models import SocialToken ,SocialAccount
 from django.core.cache import cache
-from .models import Attivita, ProfiloAtleta, LogSistema
+from .models import Attivita, ProfiloAtleta, LogSistema, Scarpa
 import math
-from .utils import analizza_performance_atleta, calcola_metrica_vo2max, stima_vo2max_atleta, stima_potenza_watt, calcola_trend_atleta, formatta_passo, stima_potenziale_gara, analizza_squadra_coach, calcola_vam_selettiva, refresh_strava_token, processa_attivita_strava, fix_strava_duplicates
+from .utils import analizza_performance_atleta, calcola_metrica_vo2max, stima_vo2max_atleta, stima_potenza_watt, calcola_trend_atleta, formatta_passo, stima_potenziale_gara, analizza_squadra_coach, calcola_vam_selettiva, refresh_strava_token, processa_attivita_strava, fix_strava_duplicates, normalizza_scarpa
 import time
 from django.db.models import Sum, Max, Q, OuterRef, Subquery
 from django.utils import timezone
@@ -446,6 +446,9 @@ def sincronizza_strava(request):
 
     if athlete_res.status_code == 200:
         athlete_data = athlete_res.json()
+        # DEBUG: Verifichiamo se Strava ci manda le scarpe
+        print(f"DEBUG STRAVA: Trovate {len(athlete_data.get('shoes', []))} scarpe nel profilo.", flush=True)
+
         # Aggiorniamo il peso SOLO se Strava ce lo fornisce (evita sovrascrittura con 70kg)
         strava_weight = athlete_data.get('weight')
         if strava_weight and not profilo.peso_manuale:
@@ -459,6 +462,28 @@ def sincronizza_strava(request):
         request.user.first_name = athlete_data.get('firstname', '')
         request.user.last_name = athlete_data.get('lastname', '')
         request.user.save()
+        
+        # --- SYNC SCARPE ---
+        shoes = athlete_data.get('shoes', [])
+        strava_shoe_ids = []
+        for s in shoes:
+            strava_shoe_ids.append(s['id'])
+            brand, model = normalizza_scarpa(s['name'])
+            Scarpa.objects.update_or_create(
+                strava_id=s['id'],
+                defaults={
+                    'atleta': profilo,
+                    'nome': s['name'],
+                    'distanza': s['distance'],
+                    'primary': s['primary'],
+                    'brand': brand,
+                    'modello_normalizzato': model,
+                    'retired': False # Se è nella lista, è attiva
+                }
+            )
+        
+        # Le scarpe che abbiamo nel DB ma non sono più nella lista di Strava sono considerate "Dismesse"
+        Scarpa.objects.filter(atleta=profilo).exclude(strava_id__in=strava_shoe_ids).update(retired=True)
     profilo.save()
 
     # --- CHECK BLOCCANTE: Se mancano Peso o FC Riposo, STOP ---
@@ -1140,3 +1165,92 @@ def confronto_attivita(request):
         })
 
     return render(request, 'atleti/confronto.html', context)
+
+def attrezzatura_scarpe(request):
+    """Pagina statistiche scarpe e attrezzatura"""
+    if not request.user.is_authenticated:
+        return redirect('home')
+        
+    LogSistema.objects.create(livello='INFO', azione='Page View', utente=request.user, messaggio="Visita Attrezzatura")
+    
+    from django.db.models import Count, Avg
+    
+    # Filtriamo scarpe con almeno 50km per evitare rumore statistico
+    qs_scarpe = Scarpa.objects.filter(distanza__gt=50000)
+    
+    # Loghi Brands (URL statici per evitare scraping complesso)
+    logos = {
+        'Nike': 'https://upload.wikimedia.org/wikipedia/commons/a/a6/Logo_NIKE.svg',
+        'Hoka': 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/51/Hoka_One_One_Logo.svg/1200px-Hoka_One_One_Logo.svg.png',
+        'Adidas': 'https://upload.wikimedia.org/wikipedia/commons/2/20/Adidas_Logo.svg',
+        'Saucony': 'https://upload.wikimedia.org/wikipedia/commons/dd/Saucony_Logo.svg',
+        'Brooks': 'https://upload.wikimedia.org/wikipedia/commons/b/b5/Brooks_Sports_logo.svg',
+        'Asics': 'https://upload.wikimedia.org/wikipedia/commons/b/b1/Asics_Logo.svg',
+        'New Balance': 'https://upload.wikimedia.org/wikipedia/commons/e/ea/New_Balance_logo.svg',
+        'La Sportiva': 'https://upload.wikimedia.org/wikipedia/commons/3/3a/La_Sportiva_logo.svg',
+        'Salomon': 'https://upload.wikimedia.org/wikipedia/commons/6/6b/Salomon_Sports_Logo.svg',
+        'Altra': 'https://upload.wikimedia.org/wikipedia/commons/6/68/Altra_Running_Logo.svg',
+        'Scarpa': 'https://upload.wikimedia.org/wikipedia/commons/0/02/SCARPA_logo.svg',
+        'The North Face': 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d5/The_North_Face_logo.svg/1200px-The_North_Face_logo.svg.png',
+        'Nnormal': 'https://nnormal.com/cdn/shop/files/logo_nnormal_black.svg?v=1663578888&width=150',
+        'Mizuno': 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/cb/Mizuno_Logo.svg/1200px-Mizuno_Logo.svg.png',
+        'Puma': 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ae/Puma-logo.svg/1200px-Puma-logo.svg.png',
+        'Craft': 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0d/Craft_Sportswear_Logo.svg/1200px-Craft_Sportswear_Logo.svg.png',
+        'Inov-8': 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6b/Inov-8_logo.svg/1200px-Inov-8_logo.svg.png',
+        'Vibram': 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7e/Vibram_logo.svg/1200px-Vibram_logo.svg.png',
+        'Scott': 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1b/Scott_Sports_logo.svg/1200px-Scott_Sports_logo.svg.png',
+        'Topo': 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a8/Topo_Athletic_logo.png/800px-Topo_Athletic_logo.png',
+        'Kiprun': 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/Kiprun_logo.svg/1200px-Kiprun_logo.svg.png',
+    }
+    
+    # Statistiche Brand (Top 10)
+    brands_stats_qs = qs_scarpe.values('brand').annotate(
+        count=Count('id'),
+        avg_dist=Avg('distanza')
+    ).order_by('-count')[:10]
+    
+    brands_stats = []
+    for b in brands_stats_qs:
+        brands_stats.append({
+            'brand': b['brand'],
+            'count': b['count'],
+            'avg_km': int(b['avg_dist'] / 1000) if b['avg_dist'] else 0,
+            'logo': logos.get(b['brand'])
+        })
+    
+    # Statistiche Modelli (Top 20)
+    models_stats_qs = qs_scarpe.values('brand', 'modello_normalizzato').annotate(
+        count=Count('id'),
+        avg_dist=Avg('distanza'),
+        max_dist=Max('distanza')
+    ).order_by('-count')[:20]
+    
+    models_stats = []
+    for m in models_stats_qs:
+        models_stats.append({
+            'brand': m['brand'],
+            'modello_normalizzato': m['modello_normalizzato'],
+            'count': m['count'],
+            'max_km': int(m['max_dist'] / 1000) if m['max_dist'] else 0
+        })
+    
+    # Scarpe dell'utente corrente
+    user_shoes_qs = Scarpa.objects.filter(atleta__user=request.user, retired=False).order_by('-primary', '-distanza')
+    user_shoes = []
+    for s in user_shoes_qs:
+        s.logo_url = logos.get(s.brand)
+        user_shoes.append(s)
+        
+    # Scarpe dismesse
+    retired_shoes_qs = Scarpa.objects.filter(atleta__user=request.user, retired=True).order_by('-distanza')
+    retired_shoes = []
+    for s in retired_shoes_qs:
+        s.logo_url = logos.get(s.brand)
+        retired_shoes.append(s)
+    
+    return render(request, 'atleti/attrezzatura.html', {
+        'brands_stats': brands_stats,
+        'models_stats': models_stats,
+        'user_shoes': user_shoes,
+        'retired_shoes': retired_shoes
+    })

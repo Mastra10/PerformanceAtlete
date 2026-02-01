@@ -117,17 +117,16 @@ class Attivita(models.Model):
              
         return int(((vo2_attivita - 3.5) * peso * (durata_secondi / 60) * 5) / 1000)
 
+    @property
+    def distanza_km(self):
+        if self.distanza:
+            return round(self.distanza / 1000, 2)
+        return 0
+
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):
     if created:
         ProfiloAtleta.objects.get_or_create(user=instance)
-
-
-@property
-def distanza_km(self):
-    if self.distanza:
-        return round(self.distanza / 1000, 2)
-    return 0        
 
 class TaskSettings(models.Model):
     TASK_CHOICES = [
@@ -172,3 +171,24 @@ class LogSistema(models.Model):
 
     def __str__(self):
         return f"{self.data.strftime('%d/%m %H:%M')} - {self.azione}"
+
+class Scarpa(models.Model):
+    atleta = models.ForeignKey(ProfiloAtleta, on_delete=models.CASCADE, related_name='scarpe')
+    strava_id = models.CharField(max_length=50, unique=True)
+    nome = models.CharField(max_length=200)
+    distanza = models.FloatField(default=0.0) # in metri
+    primary = models.BooleanField(default=False)
+    brand = models.CharField(max_length=100, null=True, blank=True)
+    modello_normalizzato = models.CharField(max_length=200, null=True, blank=True)
+    retired = models.BooleanField(default=False, verbose_name="Dismessa")
+
+    class Meta:
+        verbose_name_plural = "Scarpe"
+        ordering = ['-distanza']
+
+    def __str__(self):
+        return f"{self.nome} ({self.atleta.user.username})"
+        
+    @property
+    def distanza_km(self):
+        return round(self.distanza / 1000, 1)

@@ -48,6 +48,7 @@ urlpatterns = [
     path('analisi-ai/', views.analisi_gemini, name='analisi_gemini'),
     path('guida/', views.guida_utente, name='guida_utente'),
     path('confronto/', views.confronto_attivita, name='confronto_attivita'),
+    path('attrezzatura/', views.attrezzatura_scarpe, name='attrezzatura_scarpe'),
 ]
 
 

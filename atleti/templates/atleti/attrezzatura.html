@@ -1,0 +1,146 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4 text-center"><i class="bi bi-shop"></i> Attrezzatura & Scarpe</h2>
+
+    <!-- Le mie Scarpe -->
+    <div class="card shadow-sm mb-5">
+        <div class="card-header bg-primary text-white">
+            <h5 class="m-0"><i class="bi bi-person-bounding-box"></i> La tua Scarpiera</h5>
+        </div>
+        <div class="card-body">
+            {% if user_shoes %}
+            <div class="row row-cols-1 row-cols-md-3 g-4">
+                {% for s in user_shoes %}
+                <div class="col">
+                    <div class="card h-100 {% if s.primary %}border-primary{% endif %}">
+                        <div class="card-body text-center">
+                            {% if s.logo_url %}
+                                <img src="{{ s.logo_url }}" alt="{{ s.brand }}" style="height: 40px; object-fit: contain;" class="mb-3" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                                <h5 class="text-muted" style="display:none;">{{ s.brand }}</h5>
+                            {% else %}
+                                <h5 class="text-muted">{{ s.brand }}</h5>
+                            {% endif %}
+                            <h6 class="card-title">{{ s.nome }}</h6>
+                            <p class="card-text display-6 {% if s.distanza_km > 800 %}text-danger{% elif s.distanza_km > 500 %}text-warning{% else %}text-success{% endif %}">
+                                {{ s.distanza_km }} <small class="fs-6 text-muted">km</small>
+                            </p>
+                            {% if s.primary %}
+                            <span class="badge bg-primary">Principale</span>
+                            {% endif %}
+                        </div>
+                        <div class="card-footer text-muted small">
+                            Modello rilevato: {{ s.modello_normalizzato }}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                Non hai ancora scarpe sincronizzate. Esegui una <strong>Sincronizzazione Manuale</strong> per scaricarle da Strava.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Scarpe Dismesse -->
+    {% if retired_shoes %}
+    <div class="card shadow-sm mb-5">
+        <div class="card-header bg-secondary text-white">
+            <h5 class="m-0"><i class="bi bi-archive"></i> Scarpe Dismesse / Ritirate</h5>
+        </div>
+        <div class="card-body">
+            <div class="row row-cols-1 row-cols-md-4 g-4">
+                {% for s in retired_shoes %}
+                <div class="col">
+                    <div class="card h-100 border-light bg-light text-muted">
+                        <div class="card-body text-center p-2">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                {% if s.logo_url %}
+                                    <img src="{{ s.logo_url }}" alt="{{ s.brand }}" style="height: 20px; object-fit: contain; opacity: 0.6;" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
+                                    <small style="display:none;">{{ s.brand }}</small>
+                                {% else %}
+                                    <small>{{ s.brand }}</small>
+                                {% endif %}
+                                <small>{{ s.distanza_km }} km</small>
+                            </div>
+                            <h6 class="card-title small m-0 text-truncate" title="{{ s.nome }}">{{ s.nome }}</h6>
+                        </div>
+                        <div class="card-footer p-1 text-center small" style="font-size: 0.7rem;">
+                            {{ s.modello_normalizzato }}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Statistiche Globali -->
+    <div class="row">
+        <!-- Top Brands -->
+        <div class="col-md-6 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="m-0"><i class="bi bi-award"></i> Brand più usati dal Team</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        {% for b in brands_stats %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-center">
+                                {% if b.logo %}
+                                    <img src="{{ b.logo }}" alt="{{ b.brand }}" style="height: 25px; width: 50px; object-fit: contain;" class="me-3" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
+                                    <span class="fw-bold me-3" style="display:none;">{{ b.brand }}</span>
+                                {% else %}
+                                    <span class="fw-bold me-3">{{ b.brand }}</span>
+                                {% endif %}
+                            </div>
+                            <div class="text-end">
+                                <span class="badge bg-secondary rounded-pill">{{ b.count }} paia</span>
+                                <small class="d-block text-muted">Media: {{ b.avg_km }} km</small>
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Models -->
+        <div class="col-md-6 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="m-0"><i class="bi bi-lightning-charge"></i> Modelli più popolari</h5>
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-striped mb-0">
+                        <thead>
+                            <tr>
+                                <th>Modello</th>
+                                <th class="text-center">Paia</th>
+                                <th class="text-end">Max Km</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for m in models_stats %}
+                            <tr>
+                                <td>
+                                    <strong>{{ m.modello_normalizzato }}</strong><br>
+                                    <small class="text-muted">{{ m.brand }}</small>
+                                </td>
+                                <td class="text-center"><span class="badge bg-light text-dark border">{{ m.count }}</span></td>
+                                <td class="text-end">{{ m.max_km }} km</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -639,3 +639,67 @@ def fix_strava_duplicates():
 
     except Exception as e:
         print(f"Errore fix_strava_duplicates: {e}", flush=True)
+
+def normalizza_scarpa(nome):
+    """
+    Tenta di estrarre Brand e Modello dal nome della scarpa su Strava.
+    """
+    nome_lower = nome.lower()
+    brands = {
+        'Nike': ['nike', 'pegasus', 'vaporfly', 'alphafly', 'zoom', 'terra kiger', 'wildhorse', 'invincible', 'vomero'],
+        'Hoka': ['hoka', 'one one', 'clifton', 'speedgoat', 'bondi', 'mach', 'challenger', 'mafate', 'tecton', 'zinal'],
+        'Adidas': ['adidas', 'adizero', 'boston', 'terrex', 'agravic'],
+        'Saucony': ['saucony', 'peregrine', 'kinvara', 'ride', 'endorphin', 'triumph', 'guide', 'xodus'],
+        'Brooks': ['brooks', 'ghost', 'glycerin', 'cascadia', 'catamount', 'caldera', 'hyperion'],
+        'Asics': ['asics', 'novablast', 'metaspeed', 'gel-kayano', 'kayano', 'nimbus', 'trabuco', 'cumulus'],
+        'New Balance': ['new balance', 'nb', 'hierro', '1080', 'rebel', 'more v'],
+        'La Sportiva': ['la sportiva', 'bushido', 'jackal', 'cyklon', 'helios', 'mutant', 'akasha', 'kaptiva'],
+        'Salomon': ['salomon', 'speedcross', 'sense', 'slab', 's-lab', 'pulsar', 'genesis', 'ultra glide'],
+        'Altra': ['altra', 'lone peak', 'olympus', 'timp', 'mont blanc', 'superior'],
+        'Scarpa': ['scarpa', 'spin', 'ribelle', 'golden gate'],
+        'Nnormal': ['nnormal', 'kjerag', 'tomir'],
+        'Dynafit': ['dynafit', 'ultra', 'feline'],
+        'The North Face': ['north face', 'vectiv', 'flight', 'enduris'],
+        'On': ['on running', 'cloud'],
+        'Puma': ['puma', 'nitro'],
+        'Mizuno': ['mizuno', 'wave'],
+        'Craft': ['craft'],
+        'Inov-8': ['inov', 'inov8'],
+        'Topo': ['topo athletic', 'topo'],
+        'Vibram': ['vibram', 'fivefingers'],
+        'Kiprun': ['kiprun', 'decathlon', 'evadict'],
+        'Scott': ['scott', 'kinabalu', 'supertrac'],
+    }
+    
+    detected_brand = "Altro"
+    
+    # 1. Rilevamento Brand
+    for brand_key, keywords in brands.items():
+        for kw in keywords:
+            if kw in nome_lower:
+                detected_brand = brand_key
+                break
+        if detected_brand != "Altro":
+            break
+            
+    # 2. Normalizzazione Modello
+    modello_clean = nome_lower
+    if detected_brand != "Altro":
+        # Rimuovi il brand dal nome
+        modello_clean = modello_clean.replace(detected_brand.lower(), '')
+        
+    # Rimuovi parole comuni e caratteri speciali
+    import re
+    modello_clean = re.sub(r'[^a-z0-9\s]', '', modello_clean) # Solo lettere e numeri
+    stopwords = ['scarpe', 'shoes', 'running', 'trail', 'goretex', 'gtx', 'mens', 'womens', 'uomo', 'donna', 'one one']
+    for word in stopwords:
+        modello_clean = modello_clean.replace(word, '')
+        
+    # Prendi le prime 2-3 parole significative
+    words = modello_clean.split()
+    if words:
+        detected_model = " ".join(words[:3]).title()
+    else:
+        detected_model = nome # Fallback se abbiamo cancellato tutto
+        
+    return detected_brand, detected_model
