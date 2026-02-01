@@ -165,15 +165,33 @@ APSCHEDULER_RUN_NOW_TIMEOUT = 25  # Secondi
 # certificato
 CSRF_TRUSTED_ORIGINS = os.getenv('CSRF_TRUSTED_ORIGINS', 'http://localhost:8000').split(',')
 
-SECURE_SSL_REDIRECT = True
+# SECURE_SSL_REDIRECT = True
+
+# if not DEBUG:
+#     # Impostazioni per la PRODUZIONE (HTTPS)
+#     SESSION_COOKIE_SECURE = True
+#     CSRF_COOKIE_SECURE = True
+#     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+# else:
+#     # Impostazioni per il LOCALE (HTTP)
+#     SESSION_COOKIE_SECURE = False
+#     CSRF_COOKIE_SECURE = False
+#     SECURE_PROXY_SSL_HEADER = None
 
 if not DEBUG:
     # Impostazioni per la PRODUZIONE (HTTPS)
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SECURE_SSL_REDIRECT = True  # <--- CAMBIA DA FALSE A TRUE
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
-    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    # Assicurati che l'header HSTS sia attivo per evitare downgrade
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
 else:
     # Impostazioni per il LOCALE (HTTP)
+    DEBUG = True
+    SECURE_SSL_REDIRECT = False
     SESSION_COOKIE_SECURE = False
     CSRF_COOKIE_SECURE = False
     SECURE_PROXY_SSL_HEADER = None
