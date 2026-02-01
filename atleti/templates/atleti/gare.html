@@ -139,6 +139,7 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
 <script>
     {% if has_races %}
     const ctx = document.getElementById('chartPositions').getContext('2d');
@@ -208,11 +209,22 @@
                 borderWidth: 1
             }]
         },
+        plugins: [ChartDataLabels],
         options: {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                legend: { position: 'bottom' }
+                legend: { position: 'bottom' },
+                datalabels: {
+                    color: (ctx) => ctx.dataIndex === 0 ? '#000' : '#fff', // Nero su giallo, bianco sugli altri
+                    font: { weight: 'bold' },
+                    formatter: (value, ctx) => {
+                        let sum = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                        if (sum === 0) return "";
+                        let percentage = (value * 100 / sum).toFixed(0) + "%";
+                        return value > 0 ? percentage : "";
+                    }
+                }
             }
         }
     });
