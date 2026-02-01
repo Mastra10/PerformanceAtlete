@@ -1288,7 +1288,7 @@ def confronto_attivita(request):
         try:
             profilo = ProfiloAtleta.objects.get(user_id=user_id)
             # Prendiamo tutte le attività (rimosso limite)
-            attivita = Attivita.objects.filter(atleta=profilo).order_by('-data')
+            attivita = Attivita.objects.filter(atleta=profilo).order_by('-data')[:60]
             data = []
             for a in attivita:
                 label = f"{a.data.strftime('%d/%m/%Y')} - {a.nome or 'Attività'} ({round(a.distanza/1000, 1)}km, {a.dislivello}m D+)"
