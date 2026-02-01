@@ -1090,8 +1090,8 @@ def confronto_attivita(request):
         user_id = request.GET.get('ajax_user_id')
         try:
             profilo = ProfiloAtleta.objects.get(user_id=user_id)
-            # Prendiamo le ultime 50 attività
-            attivita = Attivita.objects.filter(atleta=profilo).order_by('-data')[:50]
+            # Prendiamo tutte le attività (rimosso limite)
+            attivita = Attivita.objects.filter(atleta=profilo).order_by('-data')
             data = []
             for a in attivita:
                 label = f"{a.data.strftime('%d/%m/%Y')} - {a.nome or 'Attività'} ({round(a.distanza/1000, 1)}km, {a.dislivello}m D+)"
