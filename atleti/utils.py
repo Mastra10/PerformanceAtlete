@@ -586,3 +586,21 @@ def processa_attivita_strava(act, profilo, access_token):
 
     nuova_attivita.save()
     return nuova_attivita, created
+
+def fix_strava_duplicates():
+    """
+    Rileva e rimuove configurazioni Strava duplicate che causano errori 500.
+    """
+    try:
+        apps = SocialApp.objects.filter(provider='strava')
+        if apps.count() > 1:
+            first_app = apps.order_by('id').first()
+            from allauth.socialaccount.models import SocialToken
+            for app in apps.exclude(id=first_app.id):
+                for token in SocialToken.objects.filter(app=app):
+                    if not SocialToken.objects.filter(app=first_app, account=token.account).exists():
+                        token.app = first_app
+                        token.save()
+                app.delete()
+    except Exception as e:
+        print(f"Errore fix_strava_duplicates: {e}")

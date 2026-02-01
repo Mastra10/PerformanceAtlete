@@ -6,7 +6,7 @@ from allauth.socialaccount.models import SocialToken ,SocialAccount
 from django.core.cache import cache
 from .models import Attivita, ProfiloAtleta, LogSistema
 import math
-from .utils import analizza_performance_atleta, calcola_metrica_vo2max, stima_vo2max_atleta, stima_potenza_watt, calcola_trend_atleta, formatta_passo, stima_potenziale_gara, analizza_squadra_coach, calcola_vam_selettiva, refresh_strava_token, processa_attivita_strava
+from .utils import analizza_performance_atleta, calcola_metrica_vo2max, stima_vo2max_atleta, stima_potenza_watt, calcola_trend_atleta, formatta_passo, stima_potenziale_gara, analizza_squadra_coach, calcola_vam_selettiva, refresh_strava_token, processa_attivita_strava, fix_strava_duplicates
 import time
 from django.db.models import Sum, Max, Q, OuterRef, Subquery
 from django.utils import timezone
@@ -222,6 +222,9 @@ def _get_dashboard_context(user):
 
 # 1. Questa mostra la pagina (NON cancellarla!)
 def home(request):
+    # Fix preventivo per crash allauth su app duplicate
+    fix_strava_duplicates()
+
     # Endpoint per polling stato sync (chiamato via AJAX dal modal)
     if request.GET.get('sync_status'):
         if not request.user.is_authenticated:
