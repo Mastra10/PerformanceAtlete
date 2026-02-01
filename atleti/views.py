@@ -647,7 +647,8 @@ def ricalcola_statistiche(request):
     return redirect('home')
 
 def grafici_atleta(request):
-    if not request.user.is_authenticated:
+    if not request.user.is_authenticated or not (request.user.is_staff or request.user.has_perm('atleti.access_grafici')):
+        messages.error(request, "Non hai i permessi per visualizzare i Grafici.")
         return redirect('home')
         
     LogSistema.objects.create(livello='INFO', azione='Page View', utente=request.user, messaggio="Visita Grafici")
@@ -754,8 +755,9 @@ def riepilogo_atleti(request):
     if not request.user.is_authenticated:
         return redirect('home')
     
-    # Controllo permessi: Solo lo staff può vedere questa pagina
-    if not request.user.is_staff:
+    # Controllo permessi: Staff o Permesso Esplicito
+    if not (request.user.is_staff or request.user.has_perm('atleti.access_riepilogo')):
+        messages.error(request, "Non hai i permessi per visualizzare il Riepilogo Atleti.")
         return redirect('home')
     
     LogSistema.objects.create(livello='INFO', azione='Page View', utente=request.user, messaggio="Visita Riepilogo Atleti")
@@ -778,7 +780,8 @@ def riepilogo_atleti(request):
 
 def gare_atleta(request):
     """Visualizza solo le attività taggate come Gara su Strava"""
-    if not request.user.is_authenticated:
+    if not request.user.is_authenticated or not (request.user.is_staff or request.user.has_perm('atleti.access_gare')):
+        messages.error(request, "Non hai i permessi per visualizzare le Gare.")
         return redirect('home')
     
     LogSistema.objects.create(livello='INFO', azione='Page View', utente=request.user, messaggio="Visita Gare")
@@ -986,7 +989,8 @@ def _get_coach_dashboard_context(week_offset):
 
 def dashboard_coach(request):
     """Dashboard generale per il coach: stato squadra, trend e inattività"""
-    if not request.user.is_staff:
+    if not (request.user.is_staff or request.user.has_perm('atleti.access_coach_dashboard')):
+        messages.error(request, "Non hai i permessi per visualizzare la Dashboard Coach.")
         return redirect('home')
 
     # Gestione navigazione settimane
@@ -1147,6 +1151,11 @@ def confronto_attivita(request):
     Vista per confrontare due attività di due utenti diversi (o dello stesso).
     Gestisce sia la pagina principale che le chiamate AJAX per popolare le select.
     """
+    if not request.user.is_authenticated or not (request.user.is_staff or request.user.has_perm('atleti.access_confronto')):
+        if not request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            messages.error(request, "Non hai i permessi per accedere al Confronto.")
+        return redirect('home')
+
     # 1. Gestione AJAX: Restituisce le attività di un utente specifico
     if request.headers.get('x-requested-with') == 'XMLHttpRequest' and request.GET.get('ajax_user_id'):
         user_id = request.GET.get('ajax_user_id')
@@ -1205,7 +1214,8 @@ def confronto_attivita(request):
 
 def attrezzatura_scarpe(request):
     """Pagina statistiche scarpe e attrezzatura"""
-    if not request.user.is_authenticated:
+    if not request.user.is_authenticated or not (request.user.is_staff or request.user.has_perm('atleti.access_attrezzatura')):
+        messages.error(request, "Non hai i permessi per visualizzare l'Attrezzatura.")
         return redirect('home')
         
     LogSistema.objects.create(livello='INFO', azione='Page View', utente=request.user, messaggio="Visita Attrezzatura")

@@ -37,6 +37,16 @@ class ProfiloAtleta(models.Model):
     # Preferenza per nascondere l'avviso temporaneo nella home (persistente per utente)
     hide_home_notice = models.BooleanField(default=False, verbose_name="Nascondi avviso home")
 
+    class Meta:
+        permissions = [
+            ("access_riepilogo", "Può accedere al Riepilogo Atleti"),
+            ("access_coach_dashboard", "Può accedere alla Dashboard Coach"),
+            ("access_confronto", "Può accedere al Confronto"),
+            ("access_attrezzatura", "Può accedere all'Attrezzatura"),
+            ("access_gare", "Può accedere alle Gare"),
+            ("access_grafici", "Può accedere ai Grafici"),
+        ]
+
     def __str__(self):
         return f"Profilo di {self.user.username}"
 

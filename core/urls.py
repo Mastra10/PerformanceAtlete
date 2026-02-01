@@ -21,6 +21,7 @@ from atleti import views
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
+from django.contrib.auth import views as auth_views
 
 
 urlpatterns = [
@@ -50,6 +51,7 @@ urlpatterns = [
     path('guida/', views.guida_utente, name='guida_utente'),
     path('confronto/', views.confronto_attivita, name='confronto_attivita'),
     path('attrezzatura/', views.attrezzatura_scarpe, name='attrezzatura_scarpe'),
+    path('accesso-diretto/', auth_views.LoginView.as_view(template_name='atleti/login_standard.html'), name='login_standard'),
 ]
 
 

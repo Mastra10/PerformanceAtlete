@@ -83,81 +83,6 @@
             <h4>{{ error_message }}</h4>
         </div>
     {% else %}
-    {% if request.user.is_authenticated and profilo and not profilo.hide_home_notice %}
-    <!-- Avviso temporaneo persistente su DB per utente -->
-    <div id="temp-home-notice" class="alert alert-info alert-dismissible fade show" role="alert">
-        <div class="d-flex justify-content-between align-items-center">
-            <div class="me-3">Si prega di fare logout e login per implementazione nuove funzioni</div>
-            <div class="d-flex align-items-center">
-                <div class="form-check form-check-inline mb-0">
-                    <input class="form-check-input" type="checkbox" id="tempNoticeDontShow">
-                    <label class="form-check-label small" for="tempNoticeDontShow">Non mostrare più</label>
-                </div>
-                <button type="button" class="btn btn-sm btn-primary ms-2" id="tempNoticeOk">OK</button>
-                <button type="button" class="btn-close ms-2" id="tempNoticeClose" aria-label="Close"></button>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        (function(){
-            function getCookie(name) {
-                var cookieValue = null;
-                if (document.cookie && document.cookie !== '') {
-                    var cookies = document.cookie.split(';');
-                    for (var i = 0; i < cookies.length; i++) {
-                        var cookie = cookies[i].trim();
-                        if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                            break;
-                        }
-                    }
-                }
-                return cookieValue;
-            }
-
-            var okBtn = document.getElementById('tempNoticeOk');
-            var closeBtn = document.getElementById('tempNoticeClose');
-            var el = document.getElementById('temp-home-notice');
-
-            function removeEl() { if(el) el.remove(); }
-
-            if(okBtn) {
-                okBtn.addEventListener('click', function(){
-                    var cb = document.getElementById('tempNoticeDontShow');
-                    var hide = !!(cb && cb.checked);
-
-                    if(hide) {
-                        fetch('{% url "hide_home_notice" %}', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'X-CSRFToken': getCookie('csrftoken')
-                            },
-                            body: JSON.stringify({hide: true})
-                        }).then(function(resp){
-                            if(resp.ok) return resp.json();
-                            throw new Error('Network response not ok');
-                        }).then(function(data){
-                            removeEl();
-                        }).catch(function(err){
-                            console.error('hide_home_notice error', err);
-                            // In caso di errore, rimuoviamo comunque il banner per non infastidire l'utente
-                            removeEl();
-                        });
-                    } else {
-                        // Non salviamo preferenza, rimuoviamo solo il banner per questa sessione
-                        removeEl();
-                    }
-                }, {passive:true});
-            }
-
-            if(closeBtn) {
-                closeBtn.addEventListener('click', function(){ removeEl(); }, {passive:true});
-            }
-        })();
-    </script>
-    {% endif %}
     
     {% if request.session.impersonator %}
     <div class="alert alert-danger text-center fw-bold shadow-sm border-danger">
@@ -299,6 +224,9 @@
                 <a href="{% url 'scheduler_logs' %}" class="btn btn-outline-info btn-sm w-100">
                     <i class="bi bi-list-task me-1"></i>Log Scheduler
                 </a>
+                {% endif %}
+                
+                {% if user.is_staff or perms.atleti.access_coach_dashboard %}
                 <a href="{% url 'dashboard_coach' %}" class="btn btn-outline-primary btn-sm w-100 mt-2">
                     <i class="bi bi-speedometer2 me-1"></i>Dashboard Coach
                 </a>
@@ -308,15 +236,62 @@
                 <div class="mt-3 p-2 bg-light border small text-muted">
                     User: <strong>{{ request.user.username }}</strong><br>
                     Staff: <strong class="{% if request.user.is_staff %}text-success{% else %}text-danger{% endif %}">{{ request.user.is_staff }}</strong>
-                    {% if not request.user.is_staff %}
-                    <hr class="my-1">
-                    <span class="text-danger fw-bold">NON SEI ADMIN!</span><br>
-                    Per abilitare il menu, esegui:<br>
-                    <code class="user-select-all" style="background: #eee; padding: 2px;">docker compose exec web python manage.py promote_admin {{ request.user.username }}</code>
-                    {% endif %}
                 </div>
                 </div>
             </div>
+
+            <!-- Sezione Scarpe nella Dashboard -->
+            {% if user.is_staff or perms.atleti.access_attrezzatura %}
+            <div class="card shadow-sm mt-4">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="m-0"><i class="bi bi-shop"></i> Le tue Scarpe</h5>
+                    <a href="{% url 'attrezzatura_scarpe' %}" class="btn btn-sm btn-outline-primary">Vedi Statistiche</a>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <!-- Scarpe Attive -->
+                        {% for s in user_shoes %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-center">
+                                {% if s.logo_url %}
+                                    <img src="{{ s.logo_url }}" alt="{{ s.brand }}" style="height: 20px; width: 40px; object-fit: contain;" class="me-2" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
+                                    <span class="fw-bold me-2" style="display:none;">{{ s.brand }}</span>
+                                {% else %}
+                                    <span class="fw-bold me-2">{{ s.brand }}</span>
+                                {% endif %}
+                                <div>
+                                    <span class="fw-bold">{{ s.nome }}</span>
+                                    {% if s.primary %}<span class="badge bg-primary ms-1" style="font-size: 0.6em;">MAIN</span>{% endif %}
+                                </div>
+                            </div>
+                            <span class="badge bg-light text-dark border">{{ s.distanza_km }} km</span>
+                        </li>
+                        {% endfor %}
+
+                        <!-- Scarpe Dismesse (Titolo se presenti) -->
+                        {% if retired_shoes %}
+                        <li class="list-group-item bg-light text-muted small fw-bold text-uppercase mt-2">
+                            <i class="bi bi-archive me-1"></i> Dismesse / Ritirate
+                        </li>
+                        {% for s in retired_shoes %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center text-muted" style="background-color: #fcfcfc;">
+                            <div class="d-flex align-items-center">
+                                {% if s.logo_url %}
+                                    <img src="{{ s.logo_url }}" alt="{{ s.brand }}" style="height: 18px; width: 40px; object-fit: contain; opacity: 0.6;" class="me-2" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
+                                    <span class="me-2" style="display:none;">{{ s.brand }}</span>
+                                {% else %}
+                                    <span class="me-2">{{ s.brand }}</span>
+                                {% endif %}
+                                <span>{{ s.nome }}</span>
+                            </div>
+                            <span class="small">{{ s.distanza_km }} km</span>
+                        </li>
+                        {% endfor %}
+                        {% endif %}
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
         </div>
 
         <div class="col-lg-8">

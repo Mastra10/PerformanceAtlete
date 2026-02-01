@@ -71,22 +71,38 @@
                 
                 <ul class="nav flex-column mb-auto">
                     <li class="nav-item"><a class="nav-link {% if request.resolver_match.url_name == 'home' %}active{% endif %}" href="{% url 'home' %}"><i class="bi bi-speedometer2"></i> Dashboard</a></li>
-                    {% if user.is_staff %}
+                    
+                    {% if user.is_staff or perms.atleti.access_coach_dashboard %}
                     <li class="nav-item"><a class="nav-link {% if request.resolver_match.url_name == 'dashboard_coach' %}active{% endif %}" href="{% url 'dashboard_coach' %}"><i class="bi bi-clipboard-data"></i> Dashboard Coach</a></li>
+                    {% endif %}
+                    
+                    {% if user.is_staff or perms.atleti.access_riepilogo %}
                     <li class="nav-item"><a class="nav-link {% if request.resolver_match.url_name == 'riepilogo_atleti' %}active{% endif %}" href="{% url 'riepilogo_atleti' %}"><i class="bi bi-people"></i> Riepilogo Atleti</a></li>
                     {% endif %}
+                    
+                    {% if user.is_staff or perms.atleti.access_grafici %}
                     <li class="nav-item"><a class="nav-link {% if request.resolver_match.url_name == 'grafici' %}active{% endif %}" href="{% url 'grafici' %}"><i class="bi bi-graph-up"></i> Grafici</a></li>
+                    {% endif %}
+                    
+                    {% if user.is_staff or perms.atleti.access_gare %}
                     <li class="nav-item"><a class="nav-link {% if request.resolver_match.url_name == 'gare_atleta' %}active{% endif %}" href="{% url 'gare_atleta' %}"><i class="bi bi-trophy"></i> Gare</a></li>
+                    {% endif %}
+                    
+                    {% if user.is_staff or perms.atleti.access_confronto %}
                     <li class="nav-item">
     <a class="nav-link" href="{% url 'confronto_attivita' %}">
         <i class="bi bi-arrow-left-right"></i> Confronto
     </a>
 </li>
+                    {% endif %}
+
+                    {% if user.is_staff or perms.atleti.access_attrezzatura %}
 <li class="nav-item">
     <a class="nav-link" href="{% url 'attrezzatura_scarpe' %}">
         <i class="bi bi-shop"></i> Attrezzatura
     </a>
 </li>
+                    {% endif %}
                     <li class="nav-item"><a class="nav-link {% if request.resolver_match.url_name == 'impostazioni' %}active{% endif %}" href="{% url 'impostazioni' %}"><i class="bi bi-gear"></i> Impostazioni</a></li>
                 </ul>
 
