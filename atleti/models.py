@@ -34,6 +34,8 @@ class ProfiloAtleta(models.Model):
     
     data_ultima_sincronizzazione = models.DateTimeField(null=True, blank=True, verbose_name="Ultima Sincronizzazione Strava")
     data_ultimo_ricalcolo_statistiche = models.DateTimeField(null=True, blank=True, verbose_name="Ultimo Ricalcolo Statistiche")
+    # Preferenza per nascondere l'avviso temporaneo nella home (persistente per utente)
+    hide_home_notice = models.BooleanField(default=False, verbose_name="Nascondi avviso home")
 
     def __str__(self):
         return f"Profilo di {self.user.username}"

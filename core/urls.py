@@ -46,6 +46,7 @@ urlpatterns = [
     path('reset-task/<str:task_id>/', views.reset_task_trigger, name='reset_task_trigger'),
     path('impersonate/<str:username>/', views.impersonate_user, name='impersonate_user'),
     path('analisi-ai/', views.analisi_gemini, name='analisi_gemini'),
+    path('api/hide-home-notice/', views.hide_home_notice, name='hide_home_notice'),
     path('guida/', views.guida_utente, name='guida_utente'),
     path('confronto/', views.confronto_attivita, name='confronto_attivita'),
     path('attrezzatura/', views.attrezzatura_scarpe, name='attrezzatura_scarpe'),

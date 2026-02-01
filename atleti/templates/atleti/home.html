@@ -83,6 +83,81 @@
             <h4>{{ error_message }}</h4>
         </div>
     {% else %}
+    {% if request.user.is_authenticated and profilo and not profilo.hide_home_notice %}
+    <!-- Avviso temporaneo persistente su DB per utente -->
+    <div id="temp-home-notice" class="alert alert-info alert-dismissible fade show" role="alert">
+        <div class="d-flex justify-content-between align-items-center">
+            <div class="me-3">Si prega di fare logout e login per implementazione nuove funzioni</div>
+            <div class="d-flex align-items-center">
+                <div class="form-check form-check-inline mb-0">
+                    <input class="form-check-input" type="checkbox" id="tempNoticeDontShow">
+                    <label class="form-check-label small" for="tempNoticeDontShow">Non mostrare più</label>
+                </div>
+                <button type="button" class="btn btn-sm btn-primary ms-2" id="tempNoticeOk">OK</button>
+                <button type="button" class="btn-close ms-2" id="tempNoticeClose" aria-label="Close"></button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function(){
+            function getCookie(name) {
+                var cookieValue = null;
+                if (document.cookie && document.cookie !== '') {
+                    var cookies = document.cookie.split(';');
+                    for (var i = 0; i < cookies.length; i++) {
+                        var cookie = cookies[i].trim();
+                        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                            break;
+                        }
+                    }
+                }
+                return cookieValue;
+            }
+
+            var okBtn = document.getElementById('tempNoticeOk');
+            var closeBtn = document.getElementById('tempNoticeClose');
+            var el = document.getElementById('temp-home-notice');
+
+            function removeEl() { if(el) el.remove(); }
+
+            if(okBtn) {
+                okBtn.addEventListener('click', function(){
+                    var cb = document.getElementById('tempNoticeDontShow');
+                    var hide = !!(cb && cb.checked);
+
+                    if(hide) {
+                        fetch('{% url "hide_home_notice" %}', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': getCookie('csrftoken')
+                            },
+                            body: JSON.stringify({hide: true})
+                        }).then(function(resp){
+                            if(resp.ok) return resp.json();
+                            throw new Error('Network response not ok');
+                        }).then(function(data){
+                            removeEl();
+                        }).catch(function(err){
+                            console.error('hide_home_notice error', err);
+                            // In caso di errore, rimuoviamo comunque il banner per non infastidire l'utente
+                            removeEl();
+                        });
+                    } else {
+                        // Non salviamo preferenza, rimuoviamo solo il banner per questa sessione
+                        removeEl();
+                    }
+                }, {passive:true});
+            }
+
+            if(closeBtn) {
+                closeBtn.addEventListener('click', function(){ removeEl(); }, {passive:true});
+            }
+        })();
+    </script>
+    {% endif %}
     
     {% if request.session.impersonator %}
     <div class="alert alert-danger text-center fw-bold shadow-sm border-danger">

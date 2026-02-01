@@ -399,6 +399,36 @@ def aggiorna_dati_profilo(request):
             
     return redirect('impostazioni')
 
+
+@login_required
+def hide_home_notice(request):
+    """Endpoint AJAX per salvare la preferenza di non mostrare più l'avviso nella home."""
+    if request.method == 'POST':
+        try:
+            profilo, _ = ProfiloAtleta.objects.get_or_create(user=request.user)
+            # Accettiamo sia JSON che form-encoded
+            # Se client invia {'hide': true} -> impostiamo a True
+            hide = request.POST.get('hide')
+            if hide is None:
+                try:
+                    data = json.loads(request.body.decode('utf-8') or '{}')
+                    hide = data.get('hide')
+                except Exception:
+                    hide = None
+
+            if isinstance(hide, str):
+                hide = hide.lower() in ('1', 'true', 'on')
+
+            if hide is None:
+                return JsonResponse({'error': 'Parametro mancante'}, status=400)
+
+            profilo.hide_home_notice = bool(hide)
+            profilo.save()
+            return JsonResponse({'ok': True, 'hide': profilo.hide_home_notice})
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+    return JsonResponse({'error': 'Metodo non permesso'}, status=405)
+
 @login_required
 def sincronizza_strava(request):
     LogSistema.objects.create(livello='INFO', azione='Sync Manuale', utente=request.user, messaggio="Avvio sincronizzazione...")
