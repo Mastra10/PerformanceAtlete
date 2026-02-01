@@ -113,10 +113,18 @@
             responsive: true,
             scales: {
                 y: {
+                    type: 'logarithmic', // Scala logaritmica per espandere i numeri bassi (top ranking)
                     reverse: true, // Inverte l'asse Y (1 in alto)
                     beginAtZero: false,
                     title: { display: true, text: 'Posizione' },
-                    ticks: { stepSize: 1, precision: 0 },
+                    ticks: { 
+                        callback: function(value, index, values) {
+                            // Filtra le etichette per mostrare solo numeri "puliti" (1, 2, 5, 10, 20...)
+                            // ed evitare affollamento, garantendo però la visibilità della Top 5
+                            if (String(value).match(/^[125]0*$/) || value <= 5) return value;
+                            return null;
+                        }
+                    },
                     suggestedMin: 1, // Assicura che l'asse parta da numeri bassi
                     suggestedMax: 10 // Default se vuoto
                 },
