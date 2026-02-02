@@ -719,13 +719,12 @@ def normalizza_scarpa(nome):
     # 0. Normalizza spazi (rimuove doppi spazi e spazi iniziali/finali)
     modello_clean = " ".join(modello_clean.split())
 
-    # 1. Rimuovi varianti speciali come "s/lab" o "slab"
-    modello_clean = re.sub(r'\bs/?lab\b', '', modello_clean)
+    # 1. Rimuovi suffissi specifici (ii, iii, iv, sl) ma NON "slab"
+    modello_clean = re.sub(r'\b(ii|iii|iv|sl)\b', '', modello_clean)
 
-    # 2. Rimuovi suffissi versione (v2, v13, ii, iii, sl) assicurandosi di gestire gli spazi
-    # Usa \b per word boundary per essere più preciso
-    # Aggiunto \.? per gestire "v.2" e \s* per "v 2"
-    modello_clean = re.sub(r'\b(v\.?\s*\d+(\.\d+)?|ii|iii|iv|sl)\b', '', modello_clean)
+    # 2. Gestione prefisso "v" per versioni numeriche (es. "v13" -> "13", "v.2" -> "2")
+    # Rimuove "v" o "v." se seguiti da un numero, mantenendo il numero.
+    modello_clean = re.sub(r'\bv\.?\s*(?=\d)', '', modello_clean)
 
     # Rimuovi parole comuni e caratteri speciali
     # FIX: Aggiunto \. per preservare versioni decimali come "2.0"
@@ -741,9 +740,7 @@ def normalizza_scarpa(nome):
     # 3. Normalizza spazi di nuovo prima del taglio finale
     modello_clean = " ".join(modello_clean.split())
 
-    # 4. Rimuovi numeri INTERI isolati alla fine (es. "Clifton 9" -> "Clifton", "Ride 17" -> "Ride")
-    # Questo raggruppa tutte le edizioni sotto il modello base, ma mantiene "2.0"
-    modello_clean = re.sub(r'\s+\d+$', '', modello_clean)
+    # 4. (RIMOSSO) Non rimuoviamo più i numeri finali (es. "Ride 17" resta "Ride 17")
         
     # Prendi le prime 2-3 parole significative
     words = modello_clean.split()
