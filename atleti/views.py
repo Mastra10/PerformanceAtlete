@@ -547,7 +547,7 @@ def sincronizza_strava(request):
         # Aggiungiamo 1 secondo per non riscaricare l'ultima attività
         timestamp_checkpoint = int(last_activity.data.timestamp()) + 1
     else:
-        LogSistema.objects.create(livello='INFO', azione='Sync Manuale', utente=request.user, messaggio="Primo download completo.")
+        LogSistema.objects.create(livello='INFO', azione='Sync Manuale', utente=request.user, messaggio="Avvio primo download completo (storico).")
 
     url_activities = "https://www.strava.com/api/v3/athlete/activities"
     
@@ -568,11 +568,14 @@ def sincronizza_strava(request):
             # Tentiamo un refresh forzato e riproviamo.
             new_token = refresh_strava_token(token_obj, force=True)
             if new_token:
+                access_token = new_token # Aggiorniamo anche la variabile locale per le chiamate successive (es. VAM)
                 headers = {'Authorization': f'Bearer {new_token}'}
                 response = requests.get(url_activities, headers=headers, params=params)
             
             if response.status_code == 401:
-                LogSistema.objects.create(livello='WARNING', azione='Sync Manuale', utente=request.user, messaggio="Token scaduto/revocato anche dopo refresh. Login richiesto.")
+                # Logghiamo il corpo della risposta per capire il motivo (es. Scope mancanti)
+                err_msg = f"Token rifiutato dopo refresh. Strava dice: {response.text[:150]}"
+                LogSistema.objects.create(livello='WARNING', azione='Sync Manuale', utente=request.user, messaggio=err_msg)
                 return redirect('/accounts/strava/login/')
 
         if response.status_code == 429:

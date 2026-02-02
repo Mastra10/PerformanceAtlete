@@ -66,7 +66,10 @@ def refresh_strava_token(token_obj, buffer_minutes=10, force=False):
             token_obj.token_secret = new_data['refresh_token']
             token_obj.expires_at = timezone.now() + timedelta(seconds=new_data['expires_in'])
             token_obj.save()
-            LogSistema.objects.create(livello='INFO', azione='Token Refresh', utente=token_obj.account.user, messaggio="Token Strava rinnovato con successo.")
+            
+            # Logghiamo eventuali info sugli scope per debug
+            scopes = new_data.get('scope', 'N/A')
+            LogSistema.objects.create(livello='INFO', azione='Token Refresh', utente=token_obj.account.user, messaggio=f"Token Strava rinnovato. Scopes: {scopes}")
             return token_obj.token
         else:
             LogSistema.objects.create(livello='ERROR', azione='Token Refresh', utente=token_obj.account.user, messaggio=f"ERRORE Refresh: {response.text}")
