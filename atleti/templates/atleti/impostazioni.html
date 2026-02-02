@@ -22,6 +22,42 @@
                         </div>
                     </div>
                     <div class="card-body p-4">
+                        <!-- Gestione Connessione Strava -->
+                        <div class="mb-4 p-3 bg-white rounded border shadow-sm">
+                            <h5 class="fw-bold mb-3 text-dark"><i class="bi bi-link-45deg"></i> Stato Connessione</h5>
+                            {% load socialaccount %}
+                            
+                            {% if strava_connected %}
+                                <div class="alert alert-success py-2 small d-flex align-items-center">
+                                    <i class="bi bi-check-circle-fill me-2 fs-5"></i>
+                                    <div>
+                                        <strong>Account Collegato</strong><br>
+                                        <span class="text-muted">Tutto pronto per la sincronizzazione.</span>
+                                    </div>
+                                </div>
+                                <div class="d-grid gap-2">
+                                    <form method="POST" onsubmit="return confirm('Vuoi davvero scollegare Strava?');">
+                                        {% csrf_token %}
+                                        <button type="submit" name="disconnect_strava" class="btn btn-outline-danger btn-sm w-100">
+                                            <i class="bi bi-power me-1"></i>Scollega Account
+                                        </button>
+                                    </form>
+                                </div>
+                                <div class="mt-2 text-center">
+                                    <small class="text-muted" style="font-size: 0.75rem;">
+                                        Vuoi aggiornare i permessi (es. attività private)? Scollega e ricollega.
+                                    </small>
+                                </div>
+                            {% else %}
+                                <div class="alert alert-warning py-2 small">
+                                    <i class="bi bi-exclamation-triangle-fill me-2"></i>Nessun Account Collegato
+                                </div>
+                                <a href="{% provider_login_url 'strava' process='connect' %}" class="btn btn-warning btn-sm w-100 text-dark fw-bold shadow-sm">
+                                    <img src="https://upload.wikimedia.org/wikipedia/commons/c/cb/Strava_Logo.svg" height="16" class="me-1"> Ricollega Strava
+                                </a>
+                            {% endif %}
+                        </div>
+
                         <div class="mb-4 text-center border-bottom pb-3">
                             <p class="text-muted small">I dati non corrispondono a Strava?</p>
                             <a href="{% url 'aggiorna_profilo' %}" class="btn btn-outline-primary btn-sm"><i class="bi bi-arrow-repeat"></i> Importa Peso da Strava (64kg)</a>
@@ -52,7 +88,10 @@
                                 </div>
                                 <div class="form-check mt-2">
                                     <input class="form-check-input" type="checkbox" name="importa_attivita_private" id="importaPrivate" {% if profilo.importa_attivita_private %}checked{% endif %}>
-                                    <label class="form-check-label text-muted small" for="importaPrivate">Importa anche le attività segnate come "Private" su Strava</label>
+                                    <label class="form-check-label text-muted small" for="importaPrivate">
+                                        Importa anche le attività segnate come "Private" su Strava
+                                        <br><span class="text-danger" style="font-size: 0.7rem;">(Richiede permesso 'activity:read_all'. Se non funziona, scollega e ricollega Strava accettando tutto).</span>
+                                    </label>
                                 </div>
                                 <div class="form-check mt-2">
                                     <input class="form-check-input" type="checkbox" name="condividi_metriche" id="condividiMetriche" {% if profilo.condividi_metriche %}checked{% endif %}>

@@ -336,7 +336,17 @@ def impostazioni(request):
         LogSistema.objects.create(livello='INFO', azione='Page View', utente=request.user, messaggio="Visita Impostazioni")
 
     profilo, _ = ProfiloAtleta.objects.get_or_create(user=request.user)
+    strava_connected = SocialAccount.objects.filter(user=request.user, provider='strava').exists()
+
     if request.method == 'POST':
+        # Gestione Disconnessione Strava (per aggiornare permessi o cambiare account)
+        if 'disconnect_strava' in request.POST:
+            SocialToken.objects.filter(account__user=request.user, account__provider='strava').delete()
+            SocialAccount.objects.filter(user=request.user, provider='strava').delete()
+            LogSistema.objects.create(livello='WARNING', azione='Disconnessione', utente=request.user, messaggio="Account Strava scollegato.")
+            messages.success(request, "Account Strava scollegato. Ricollegalo per aggiornare i permessi.")
+            return redirect('impostazioni')
+
         try:
             peso = float(request.POST.get('peso'))
             fc_riposo = int(request.POST.get('fc_riposo'))
@@ -373,7 +383,7 @@ def impostazioni(request):
             return redirect('home')
         except ValueError:
             pass
-    return render(request, 'atleti/impostazioni.html', {'profilo': profilo})
+    return render(request, 'atleti/impostazioni.html', {'profilo': profilo, 'strava_connected': strava_connected})
 
 def aggiorna_dati_profilo(request):
     """Forza l'aggiornamento dei dati anagrafici (Peso, Nome) da Strava/SocialAccount senza sync attività"""

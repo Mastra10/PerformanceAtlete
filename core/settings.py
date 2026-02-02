@@ -146,7 +146,7 @@ LOGOUT_REDIRECT_URL = '/'
 # Impostazioni specifiche per Strava
 SOCIALACCOUNT_PROVIDERS = {
     'strava': {
-        'SCOPE': ['activity:read_all,profile:read_all'], # Unica stringa con virgola per evitare errori di formato Strava
+        'SCOPE': ['activity:read,activity:read_all,profile:read_all'], # Unica stringa con virgola per evitare errori di formato Strava
         'AUTH_PARAMS': {'approval_prompt': 'auto'},
         'VERIFIED_EMAIL': False,
     }

@@ -540,6 +540,8 @@ def processa_attivita_strava(act, profilo, access_token):
     """
     # 0. Filtro Privacy: Ignoriamo attività private SE l'utente non ha abilitato l'import
     if act.get('private') and not profilo.importa_attivita_private:
+        # Logica di sicurezza: Se l'utente non vuole importare le private, le scartiamo silenziosamente.
+        # Questo previene l'importazione indesiderata se il token ha permessi ampi (activity:read_all).
         return None, False
 
     # 1. Tipo Attività
