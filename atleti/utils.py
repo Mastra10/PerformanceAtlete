@@ -719,8 +719,8 @@ def normalizza_scarpa(nome):
     # 0. Normalizza spazi (rimuove doppi spazi e spazi iniziali/finali)
     modello_clean = " ".join(modello_clean.split())
 
-    # 1. Rimuovi suffissi specifici (ii, iii, iv, sl) ma NON "slab"
-    modello_clean = re.sub(r'\b(ii|iii|iv|sl)\b', '', modello_clean)
+    # 1. Rimuovi suffissi specifici (ii, iii, iv) ma NON "slab" o "sl" (es. Evo SL)
+    modello_clean = re.sub(r'\b(ii|iii|iv)\b', '', modello_clean)
 
     # 2. Gestione prefisso "v" per versioni numeriche (es. "v13" -> "13", "v.2" -> "2")
     # Rimuove "v" o "v." se seguiti da un numero, mantenendo il numero.
