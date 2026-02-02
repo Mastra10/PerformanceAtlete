@@ -564,8 +564,16 @@ def sincronizza_strava(request):
         
 
         if response.status_code == 401:
-            LogSistema.objects.create(livello='WARNING', azione='Sync Manuale', utente=request.user, messaggio="Token scaduto durante fetch attività.")
-            return redirect('/accounts/strava/login/')
+            # TENTATIVO DI RECOVERY: Il token potrebbe essere revocato o scaduto nonostante il DB dica il contrario.
+            # Tentiamo un refresh forzato e riproviamo.
+            new_token = refresh_strava_token(token_obj, force=True)
+            if new_token:
+                headers = {'Authorization': f'Bearer {new_token}'}
+                response = requests.get(url_activities, headers=headers, params=params)
+            
+            if response.status_code == 401:
+                LogSistema.objects.create(livello='WARNING', azione='Sync Manuale', utente=request.user, messaggio="Token scaduto/revocato anche dopo refresh. Login richiesto.")
+                return redirect('/accounts/strava/login/')
 
         if response.status_code == 429:
             LogSistema.objects.create(livello='WARNING', azione='Sync Manuale', utente=request.user, messaggio="Rate Limit Strava raggiunto.")

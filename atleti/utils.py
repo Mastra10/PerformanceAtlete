@@ -18,21 +18,23 @@ def formatta_passo(velocita_ms):
         return f"{minuti}:{secondi:02d}"
     return "0:00"
 
-def refresh_strava_token(token_obj, buffer_minutes=10):
+def refresh_strava_token(token_obj, buffer_minutes=10, force=False):
     """
     Controlla se il token è scaduto e lo rinnova usando il refresh_token.
     Restituisce il token valido (stringa) o None se fallisce.
     buffer_minutes: Minuti di anticipo con cui rinnovare il token (default 10).
+    force: Se True, tenta il rinnovo ignorando la data di scadenza salvata (utile per errori 401).
     """
-    # Se il token scade tra meno di buffer_minutes (o è già scaduto), lo rinnoviamo
-    if token_obj.expires_at and token_obj.expires_at > timezone.now() + timedelta(minutes=buffer_minutes):
+    # Se NON è forzato e il token scade tra meno di buffer_minutes (o è già scaduto), lo rinnoviamo
+    if not force and token_obj.expires_at and token_obj.expires_at > timezone.now() + timedelta(minutes=buffer_minutes):
         return token_obj.token
 
     if not token_obj.token_secret:
         LogSistema.objects.create(livello='ERROR', azione='Token Refresh', utente=token_obj.account.user, messaggio="Refresh Token mancante. Necessario nuovo login.")
         return None
 
-    LogSistema.objects.create(livello='INFO', azione='Token Refresh', utente=token_obj.account.user, messaggio="Token scaduto. Tento rinnovo...")
+    msg = "Token scaduto. Tento rinnovo..." if not force else "Refresh Forzato (Recovery 401)..."
+    LogSistema.objects.create(livello='INFO', azione='Token Refresh', utente=token_obj.account.user, messaggio=msg)
     
     try:
         # Recuperiamo le credenziali dell'app
