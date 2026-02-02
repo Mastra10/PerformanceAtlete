@@ -55,8 +55,8 @@ def _get_dashboard_context(user):
     avg_weekly_km = round(annuale_km / max(1, current_week), 1)
     avg_weekly_elev = int(dislivello_annuale / max(1, current_week))
 
-        # 2. Recupero le ultime 10 attività per la tabella
-    attivita_list = Attivita.objects.filter(atleta=profilo).order_by('-data')[:10]
+        # 2. Recupero le ultime 30 attività per la tabella
+    attivita_list = Attivita.objects.filter(atleta=profilo).order_by('-data')[:30]
         
         # 3. Dati per i grafici Dashboard (Ultime 30 attività)
     qs_charts = Attivita.objects.filter(atleta=profilo).order_by('-data')[:30]
