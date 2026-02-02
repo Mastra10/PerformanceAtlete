@@ -722,9 +722,11 @@ def normalizza_scarpa(nome):
     # 1. Rimuovi suffissi specifici (ii, iii, iv) ma NON "slab" o "sl" (es. Evo SL)
     modello_clean = re.sub(r'\b(ii|iii|iv)\b', '', modello_clean)
 
-    # 2. Gestione prefisso "v" per versioni numeriche (es. "v13" -> "13", "v.2" -> "2")
-    # Rimuove "v" o "v." se seguiti da un numero, mantenendo il numero.
-    modello_clean = re.sub(r'\bv\.?\s*(?=\d)', '', modello_clean)
+    # 2a. Rimuovi "v." seguito da numero (es. "Prodigio v.2" -> "Prodigio") - Caso specifico "Paio"
+    modello_clean = re.sub(r'\bv\.\s*\d+', '', modello_clean)
+
+    # 2b. Rimuovi solo prefisso "v" se seguito da numero (es. "Boston v13" -> "Boston 13") - Caso "Versione"
+    modello_clean = re.sub(r'\bv\s*(?=\d)', '', modello_clean)
 
     # Rimuovi parole comuni e caratteri speciali
     # FIX: Aggiunto \. per preservare versioni decimali come "2.0"
