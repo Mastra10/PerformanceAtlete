@@ -1023,13 +1023,18 @@ def _get_coach_dashboard_context(week_offset):
     # Calcoliamo il carico basato sui "Km Sforzo" (1km + 100m D+)
     acwr_alerts = []
     
+    # FIX: Per la settimana corrente (offset 0), calcoliamo ACWR su finestra mobile reale (fino a oggi)
+    # per evitare falsi allarmi "Detraining" a inizio settimana.
+    # Per lo storico, manteniamo il calcolo a fine settimana.
+    acwr_ref_date = timezone.now() if week_offset == 0 else target_week_end
+
     for a in all_atleti:
         # Definiamo finestre temporali
-        start_acute = target_week_end - timedelta(days=7)
-        start_chronic = target_week_end - timedelta(days=28)
+        start_acute = acwr_ref_date - timedelta(days=7)
+        start_chronic = acwr_ref_date - timedelta(days=28)
         
         # Recuperiamo attività degli ultimi 28gg
-        qs_chronic = Attivita.objects.filter(atleta=a, data__gte=start_chronic, data__lt=target_week_end)
+        qs_chronic = Attivita.objects.filter(atleta=a, data__gte=start_chronic, data__lt=acwr_ref_date)
         
         load_acute = 0
         load_chronic_total = 0
