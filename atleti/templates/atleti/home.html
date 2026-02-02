@@ -533,7 +533,11 @@
                         <tbody>
                             {% for act in attivita_recenti %}
                             <tr>
-                                <td class="small">{{ act.data|date:"d/m/Y" }}</td>
+                                <td class="small">
+                                    <a href="https://www.strava.com/activities/{{ act.strava_activity_id }}" target="_blank" class="text-decoration-none text-dark" title="Vedi su Strava">
+                                        {{ act.data|date:"d/m/Y" }} <i class="bi bi-box-arrow-up-right text-muted" style="font-size: 0.65rem;"></i>
+                                    </a>
+                                </td>
                                 <td>
                                     {% if act.tipo_attivita == "TrailRun" %}
                                         <i class="bi bi-mountain text-success me-1"></i> Trail
