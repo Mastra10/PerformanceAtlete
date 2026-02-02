@@ -713,13 +713,21 @@ def normalizza_scarpa(nome):
     if detected_brand != "Altro":
         # Rimuovi il brand dal nome
         modello_clean = modello_clean.replace(detected_brand.lower(), '')
-        
-    # Rimuovi parole comuni e caratteri speciali
     import re
+    
+    # FIX: Normalizzazione avanzata per raggruppare paia e versioni (es. "Prodigio V2" -> "Prodigio")
+    # 1. Rimuovi suffissi tipo "v2", "ii", "iii" (es. "Kjerag Ii" -> "Kjerag")
+    modello_clean = re.sub(r'\b(v\d+|ii|iii|iv)\b', '', modello_clean)
+
+    # Rimuovi parole comuni e caratteri speciali
     modello_clean = re.sub(r'[^a-z0-9\s]', '', modello_clean) # Solo lettere e numeri
     stopwords = ['scarpe', 'shoes', 'running', 'trail', 'goretex', 'gtx', 'mens', 'womens', 'uomo', 'donna', 'one one']
     for word in stopwords:
         modello_clean = modello_clean.replace(word, '')
+        
+    # 2. Rimuovi numeri isolati alla fine (es. "Clifton 9" -> "Clifton", "Prodigio 2" -> "Prodigio")
+    # Questo unifica le versioni e i secondi paia sotto lo stesso modello base.
+    modello_clean = re.sub(r'\s+\d+\s*$', '', modello_clean)
         
     # Prendi le prime 2-3 parole significative
     words = modello_clean.split()
