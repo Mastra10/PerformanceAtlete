@@ -716,12 +716,15 @@ def normalizza_scarpa(nome):
         modello_clean = modello_clean.replace(detected_brand.lower(), '')
     
     # FIX: Normalizzazione avanzata per raggruppare paia e versioni (es. "Prodigio V2" -> "Prodigio")
+    # 0. Normalizza spazi (rimuove doppi spazi e spazi iniziali/finali)
+    modello_clean = " ".join(modello_clean.split())
+
     # 1. Rimuovi varianti speciali come "s/lab" o "slab"
     modello_clean = re.sub(r'\bs/?lab\b', '', modello_clean)
 
     # 2. Rimuovi suffissi versione (v2, v13, ii, iii, sl) assicurandosi di gestire gli spazi
-    # (?:^|\s) assicura che matchi inizio stringa o spazio. (?=$|\s) assicura fine stringa o spazio.
-    modello_clean = re.sub(r'(?:^|\s)(v\d+(\.\d+)?|ii|iii|iv|sl)(?=$|\s)', '', modello_clean)
+    # Usa \b per word boundary per essere più preciso
+    modello_clean = re.sub(r'\b(v\d+(\.\d+)?|ii|iii|iv|sl)\b', '', modello_clean)
 
     # Rimuovi parole comuni e caratteri speciali
     modello_clean = re.sub(r'[^a-z0-9\s]', '', modello_clean) # Solo lettere e numeri
@@ -729,7 +732,10 @@ def normalizza_scarpa(nome):
     for word in stopwords:
         modello_clean = modello_clean.replace(word, '')
         
-    # 3. Rimuovi numeri isolati alla fine (es. "Clifton 9" -> "Clifton", "Ride 17" -> "Ride")
+    # 3. Normalizza spazi di nuovo prima del taglio finale
+    modello_clean = " ".join(modello_clean.split())
+
+    # 4. Rimuovi numeri isolati alla fine (es. "Clifton 9" -> "Clifton", "Ride 17" -> "Ride")
     # Questo raggruppa tutte le edizioni sotto il modello base.
     modello_clean = re.sub(r'\s+\d+(\.\d+)?$', '', modello_clean)
         

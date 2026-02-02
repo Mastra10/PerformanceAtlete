@@ -1368,11 +1368,17 @@ def attrezzatura_scarpe(request):
             _, new_model = normalizza_scarpa(s.nome)
             new_model = new_model.strip() # Rimuove spazi extra residui
             if s.modello_normalizzato != new_model:
+                print(f"FIX SCARPA: {s.nome} -> {new_model}", flush=True) # DEBUG LOG
                 s.modello_normalizzato = new_model
                 s.save()
                 count += 1
         messages.success(request, f"Database scarpe aggiornato: {count} modelli rinormalizzati.")
         return redirect('attrezzatura_scarpe')
+
+    # Messaggio per Admin per facilitare il fix
+    if request.user.is_staff:
+        fix_url = request.path + "?fix_names=1"
+        messages.info(request, mark_safe(f'🔧 <b>Admin Zone:</b> I nomi delle scarpe sembrano duplicati? <a href="{fix_url}" class="alert-link">Clicca qui per normalizzare il Database</a> (es. Ride 17 -> Ride).'))
 
     from django.db.models import Count, Avg
     
