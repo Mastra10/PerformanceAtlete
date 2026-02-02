@@ -1,4 +1,5 @@
 from google import genai
+import re
 import requests
 import os
 from .models import Attivita, ProfiloAtleta, LogSistema
@@ -713,11 +714,14 @@ def normalizza_scarpa(nome):
     if detected_brand != "Altro":
         # Rimuovi il brand dal nome
         modello_clean = modello_clean.replace(detected_brand.lower(), '')
-    import re
     
     # FIX: Normalizzazione avanzata per raggruppare paia e versioni (es. "Prodigio V2" -> "Prodigio")
-    # 1. Rimuovi suffissi tipo "v2", "ii", "iii", "slab", "sl" (es. "Kjerag Ii" -> "Kjerag", "Genesis Slab" -> "Genesis")
-    modello_clean = re.sub(r'\b(v\d+(\.\d+)?|ii|iii|iv|slab|sl)\b', '', modello_clean)
+    # 1. Rimuovi varianti speciali come "s/lab" o "slab"
+    modello_clean = re.sub(r'\bs/?lab\b', '', modello_clean)
+
+    # 2. Rimuovi suffissi versione (v2, v13, ii, iii, sl) assicurandosi di gestire gli spazi
+    # (?:^|\s) assicura che matchi inizio stringa o spazio. (?=$|\s) assicura fine stringa o spazio.
+    modello_clean = re.sub(r'(?:^|\s)(v\d+(\.\d+)?|ii|iii|iv|sl)(?=$|\s)', '', modello_clean)
 
     # Rimuovi parole comuni e caratteri speciali
     modello_clean = re.sub(r'[^a-z0-9\s]', '', modello_clean) # Solo lettere e numeri
@@ -725,9 +729,9 @@ def normalizza_scarpa(nome):
     for word in stopwords:
         modello_clean = modello_clean.replace(word, '')
         
-    # 2. Rimuovi numeri isolati alla fine (es. "Clifton 9" -> "Clifton", "Prodigio 2" -> "Prodigio")
-    # Modificato per essere più robusto su spazi e versioni (es. "Ride 17", "Tomir 2.0")
-    modello_clean = re.sub(r'\s+v?\d+(\.\d+)?\s*$', '', modello_clean)
+    # 3. Rimuovi numeri isolati alla fine (es. "Clifton 9" -> "Clifton", "Ride 17" -> "Ride")
+    # Questo raggruppa tutte le edizioni sotto il modello base.
+    modello_clean = re.sub(r'\s+\d+(\.\d+)?$', '', modello_clean)
         
     # Prendi le prime 2-3 parole significative
     words = modello_clean.split()

@@ -1366,6 +1366,7 @@ def attrezzatura_scarpe(request):
         count = 0
         for s in Scarpa.objects.all():
             _, new_model = normalizza_scarpa(s.nome)
+            new_model = new_model.strip() # Rimuove spazi extra residui
             if s.modello_normalizzato != new_model:
                 s.modello_normalizzato = new_model
                 s.save()
