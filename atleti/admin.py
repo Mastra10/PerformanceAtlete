@@ -1,10 +1,26 @@
 from django.contrib import admin
 from .models import ProfiloAtleta, Attivita, TaskSettings, LogSistema, Scarpa
+from allauth.socialaccount.models import SocialAccount, SocialToken
+from django.utils import timezone
 
 @admin.register(ProfiloAtleta)
 class ProfiloAtletaAdmin(admin.ModelAdmin):
-    list_display = ('user', 'peso', 'fc_max', 'indice_itra', 'indice_utmb')
+    list_display = ('user', 'strava_status', 'token_expiration', 'peso', 'fc_max', 'importa_attivita_private', 'indice_itra')
     search_fields = ('user__username', 'user__first_name', 'user__last_name')
+    list_filter = ('importa_attivita_private', 'mostra_peso')
+
+    @admin.display(description='Strava', boolean=True)
+    def strava_status(self, obj):
+        return SocialAccount.objects.filter(user=obj.user, provider='strava').exists()
+
+    @admin.display(description='Stato Token')
+    def token_expiration(self, obj):
+        token = SocialToken.objects.filter(account__user=obj.user, account__provider='strava').first()
+        if token and token.expires_at:
+            is_expired = token.expires_at < timezone.now()
+            status = "⚠️ SCADUTO" if is_expired else "✅ OK"
+            return f"{token.expires_at.strftime('%d/%m')} {status}"
+        return "❌ NO TOKEN"
 
 @admin.register(Attivita)
 class AttivitaAdmin(admin.ModelAdmin):
