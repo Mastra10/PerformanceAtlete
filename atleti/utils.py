@@ -716,8 +716,8 @@ def normalizza_scarpa(nome):
     import re
     
     # FIX: Normalizzazione avanzata per raggruppare paia e versioni (es. "Prodigio V2" -> "Prodigio")
-    # 1. Rimuovi suffissi tipo "v2", "ii", "iii" (es. "Kjerag Ii" -> "Kjerag")
-    modello_clean = re.sub(r'\b(v\d+|ii|iii|iv)\b', '', modello_clean)
+    # 1. Rimuovi suffissi tipo "v2", "ii", "iii", "slab", "sl" (es. "Kjerag Ii" -> "Kjerag", "Genesis Slab" -> "Genesis")
+    modello_clean = re.sub(r'\b(v\d+(\.\d+)?|ii|iii|iv|slab|sl)\b', '', modello_clean)
 
     # Rimuovi parole comuni e caratteri speciali
     modello_clean = re.sub(r'[^a-z0-9\s]', '', modello_clean) # Solo lettere e numeri
@@ -726,8 +726,8 @@ def normalizza_scarpa(nome):
         modello_clean = modello_clean.replace(word, '')
         
     # 2. Rimuovi numeri isolati alla fine (es. "Clifton 9" -> "Clifton", "Prodigio 2" -> "Prodigio")
-    # Questo unifica le versioni e i secondi paia sotto lo stesso modello base.
-    modello_clean = re.sub(r'\s+\d+\s*$', '', modello_clean)
+    # Modificato per essere più robusto su spazi e versioni (es. "Ride 17", "Tomir 2.0")
+    modello_clean = re.sub(r'\s+v?\d+(\.\d+)?\s*$', '', modello_clean)
         
     # Prendi le prime 2-3 parole significative
     words = modello_clean.split()

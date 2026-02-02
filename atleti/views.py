@@ -1361,6 +1361,18 @@ def attrezzatura_scarpe(request):
         
     LogSistema.objects.create(livello='INFO', azione='Page View', utente=request.user, messaggio="Visita Attrezzatura")
     
+    # FIX MANUALE: Rinormalizzazione DB su richiesta (per applicare le nuove regex ai dati vecchi)
+    if request.GET.get('fix_names'):
+        count = 0
+        for s in Scarpa.objects.all():
+            _, new_model = normalizza_scarpa(s.nome)
+            if s.modello_normalizzato != new_model:
+                s.modello_normalizzato = new_model
+                s.save()
+                count += 1
+        messages.success(request, f"Database scarpe aggiornato: {count} modelli rinormalizzati.")
+        return redirect('attrezzatura_scarpe')
+
     from django.db.models import Count, Avg
     
     # Filtriamo scarpe con almeno 50km per evitare rumore statistico
