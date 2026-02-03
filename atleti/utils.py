@@ -137,6 +137,52 @@ def calcola_vam_selettiva(activity_id, access_token):
         LogSistema.objects.create(livello='ERROR', azione='Calcolo VAM', messaggio=f"Eccezione ID {activity_id}: {e}")
         return None
 
+def calcola_vo2max_effettivo(attivita, profilo):
+    """
+    Calcola il VO2max Effettivo (Running Index) basato sull'efficienza (Mastra-Logic).
+    Formula: Costo O2 del Passo / % Riserva Cardiaca.
+    
+    Logica:
+    - Se Passo Reale < Passo Atteso (per quel VO2), il punteggio sale (Alta Efficienza).
+    - Se Passo Reale > Passo Atteso, il punteggio scende (Bassa Efficienza).
+    - Se Dislivello > 50m, usa il GAP (Passo Regolato) per neutralizzare la pendenza.
+    """
+    # Calcolo solo su strada/corsa come richiesto
+    if attivita.tipo_attivita != 'Run':
+        return None
+        
+    # 1. Determina la velocità di calcolo (m/s)
+    speed_ms = 0
+    # Se c'è dislivello significativo (>50m) e Strava ci dà il GAP, usiamo quello
+    if attivita.dislivello > 50 and attivita.gap_passo:
+        speed_ms = attivita.gap_passo
+    elif attivita.distanza > 0 and attivita.durata > 0:
+        speed_ms = attivita.distanza / attivita.durata
+            
+    if speed_ms <= 0:
+        return None
+        
+    # 2. Costo O2 (Formula ACSM: 0.2 * v_m_min + 3.5)
+    speed_m_min = speed_ms * 60
+    vo2_cost = (0.2 * speed_m_min) + 3.5
+    
+    # 3. Intensità (% Riserva Cardiaca)
+    hr_max = profilo.fc_massima_teorica or profilo.fc_max
+    if not attivita.fc_media or not hr_max or not profilo.fc_riposo:
+        return None
+        
+    hrr = hr_max - profilo.fc_riposo
+    if hrr <= 0: return None
+    
+    intensity = (attivita.fc_media - profilo.fc_riposo) / hrr
+    
+    # Filtro: Se l'intensità è troppo bassa (<50%), il calcolo non è lineare/affidabile
+    if intensity < 0.50:
+        return None
+        
+    # 4. VO2max Effettivo
+    return round(vo2_cost / intensity, 2)
+
 def calcola_metrica_vo2max(attivita, profilo):
     """
     Calcola il VO2max matematico basato sui dati reali di Strava.
