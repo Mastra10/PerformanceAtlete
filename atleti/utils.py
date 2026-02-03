@@ -687,6 +687,22 @@ def processa_attivita_strava(act, profilo, access_token):
             if vam_sel and vam_sel > 0:
                 nuova_attivita.vam_selettiva = vam_sel
 
+    # 6. Recupero Dispositivo (Solo per NUOVE attività per risparmiare API)
+    # Il campo 'device_name' è presente solo nel dettaglio attività, non nel summary.
+    if created and access_token:
+        try:
+            url_detail = f"https://www.strava.com/api/v3/activities/{act['id']}"
+            # Timeout breve per non bloccare il sync
+            resp_detail = requests.get(url_detail, headers={'Authorization': f'Bearer {access_token}'}, timeout=5)
+            if resp_detail.status_code == 200:
+                detail_data = resp_detail.json()
+                device_name = detail_data.get('device_name')
+                if device_name:
+                    nuova_attivita.dispositivo = device_name
+                    nuova_attivita.save(update_fields=['dispositivo'])
+        except Exception as e:
+            print(f"Warning: Impossibile recuperare dispositivo per {act['id']}: {e}", flush=True)
+
     if created:
         LogSistema.objects.create(livello='INFO', azione='Import Attività', utente=profilo.user, messaggio=f"Nuova attività: {nuova_attivita.nome} ({nuova_attivita.tipo_attivita})")
     else:
@@ -847,6 +863,35 @@ def normalizza_scarpa(nome):
         detected_model = nome # Fallback se abbiamo cancellato tutto
         
     return detected_brand, detected_model
+
+def normalizza_dispositivo(nome_device):
+    """
+    Estrae il Brand dal nome del dispositivo (es. 'Garmin Forerunner 245' -> 'Garmin').
+    """
+    if not nome_device:
+        return "Sconosciuto", "Sconosciuto"
+        
+    nome_lower = nome_device.lower()
+    
+    brands_map = {
+        'Garmin': ['garmin'],
+        'Apple': ['apple', 'watch'],
+        'Suunto': ['suunto'],
+        'Polar': ['polar'],
+        'Coros': ['coros'],
+        'Wahoo': ['wahoo', 'elemnt'],
+        'Zwift': ['zwift'],
+        'Bryton': ['bryton'],
+        'Huawei': ['huawei'],
+        'Samsung': ['samsung', 'galaxy watch'],
+        'Amazfit': ['amazfit', 'zepp'],
+    }
+    
+    for brand, keywords in brands_map.items():
+        if any(k in nome_lower for k in keywords):
+            return brand, nome_device
+            
+    return "Altro", nome_device
 
 def analizza_gare_atleta(profilo):
     """Genera un'analisi AI specifica per le gare dell'atleta."""

@@ -6,7 +6,7 @@ from allauth.socialaccount.models import SocialToken ,SocialAccount
 from django.core.cache import cache
 from .models import Attivita, ProfiloAtleta, LogSistema, Scarpa
 import math
-from .utils import analizza_performance_atleta, calcola_metrica_vo2max, stima_vo2max_atleta, stima_potenza_watt, calcola_trend_atleta, formatta_passo, stima_potenziale_gara, analizza_squadra_coach, calcola_vam_selettiva, refresh_strava_token, processa_attivita_strava, fix_strava_duplicates, normalizza_scarpa, BRAND_LOGOS, analizza_gare_atleta, calcola_vo2max_effettivo, calcola_efficienza
+from .utils import analizza_performance_atleta, calcola_metrica_vo2max, stima_vo2max_atleta, stima_potenza_watt, calcola_trend_atleta, formatta_passo, stima_potenziale_gara, analizza_squadra_coach, calcola_vam_selettiva, refresh_strava_token, processa_attivita_strava, fix_strava_duplicates, normalizza_scarpa, BRAND_LOGOS, analizza_gare_atleta, calcola_vo2max_effettivo, calcola_efficienza, normalizza_dispositivo
 import time
 from django.db.models import Sum, Max, Q, OuterRef, Subquery, Avg
 from django.utils import timezone
@@ -1480,4 +1480,48 @@ def attrezzatura_scarpe(request):
         'models_stats': models_stats,
         'user_shoes': user_shoes,
         'retired_shoes': retired_shoes
+    })
+
+def statistiche_dispositivi(request):
+    """Pagina statistiche sui dispositivi GPS utilizzati"""
+    if not request.user.is_authenticated or not (request.user.is_staff or request.user.has_perm('atleti.access_attrezzatura')):
+        messages.error(request, "Non hai i permessi per visualizzare i Dispositivi.")
+        return redirect('home')
+        
+    LogSistema.objects.create(livello='INFO', azione='Page View', utente=request.user, messaggio="Visita Statistiche Dispositivi")
+    
+    from django.db.models import Count
+    
+    # Recuperiamo tutte le attività che hanno un dispositivo registrato
+    # Escludiamo Zwift virtuale se vogliamo solo hardware fisico, ma per ora teniamo tutto
+    qs = Attivita.objects.filter(dispositivo__isnull=False).exclude(dispositivo='')
+    
+    # 1. Statistiche Raw per Modello
+    raw_stats = qs.values('dispositivo').annotate(count=Count('id')).order_by('-count')
+    
+    brand_counts = {}
+    model_counts = []
+    
+    total_activities = 0
+    
+    for item in raw_stats:
+        dev_name = item['dispositivo']
+        count = item['count']
+        total_activities += count
+        
+        brand, _ = normalizza_dispositivo(dev_name)
+        
+        # Aggregazione Brand
+        brand_counts[brand] = brand_counts.get(brand, 0) + count
+        
+        # Lista Modelli
+        model_counts.append({'modello': dev_name, 'brand': brand, 'count': count})
+        
+    # Ordina Brand per popolarità
+    sorted_brands = sorted(brand_counts.items(), key=lambda x: x[1], reverse=True)
+    
+    return render(request, 'atleti/dispositivi.html', {
+        'brands': sorted_brands,
+        'models': model_counts[:30], # Top 30 modelli
+        'total_activities': total_activities
     })

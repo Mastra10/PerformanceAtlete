@@ -77,6 +77,7 @@ class Attivita(models.Model):
     analisi_tecnica_ai = models.TextField(blank=True, null=True)
     battito_riposo = models.IntegerField(null=True, blank=True)
     piazzamento = models.IntegerField(null=True, blank=True, verbose_name="Posizione in classifica")
+    dispositivo = models.CharField(max_length=100, null=True, blank=True, verbose_name="Dispositivo GPS")
     
 
     class Meta:

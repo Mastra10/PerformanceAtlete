@@ -53,7 +53,7 @@ class AttivitaAdmin(admin.ModelAdmin):
         ('Metriche di Performance', {'fields': ('distanza', 'durata', 'passo_medio', 'dislivello', 'vam_selettiva')}),
         ('Dati Fisiologici', {'fields': ('fc_media', 'fc_max_sessione', 'sforzo_relativo')}),
         ('Metriche Avanzate', {'fields': ('potenza_media', 'vo2max_stimato', 'gap_passo', 'cadenza_media', 'analisi_tecnica_ai'), 'classes': ('collapse',)}),
-        ('Dati Strava', {'fields': ('strava_activity_id', 'zone_cardiache'), 'classes': ('collapse',)}),
+        ('Dati Strava', {'fields': ('strava_activity_id', 'zone_cardiache', 'dispositivo'), 'classes': ('collapse',)}),
     )
     readonly_fields = ('strava_activity_id', 'analisi_tecnica_ai')
 

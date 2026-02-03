@@ -1,0 +1,107 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold m-0"><i class="bi bi-watch"></i> Statistiche Dispositivi GPS</h2>
+        <span class="badge bg-primary rounded-pill">{{ total_activities }} Sessioni Analizzate</span>
+    </div>
+
+    <div class="alert alert-info small">
+        <i class="bi bi-info-circle me-2"></i>
+        I dati sui dispositivi vengono scaricati solo per le <strong>nuove attività</strong> sincronizzate. 
+        Lo storico pregresso potrebbe non avere queste informazioni.
+    </div>
+
+    <div class="row g-4">
+        <!-- Grafico Brands -->
+        <div class="col-md-5">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="m-0"><i class="bi bi-pie-chart-fill me-2"></i>Market Share Squadra</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="brandChart"></canvas>
+                </div>
+                <div class="card-footer bg-white">
+                    <ul class="list-group list-group-flush small">
+                        {% for brand, count in brands %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                            <span class="fw-bold">{{ brand }}</span>
+                            <span class="badge bg-secondary rounded-pill">{{ count }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabella Modelli -->
+        <div class="col-md-7">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="m-0"><i class="bi bi-list-ol me-2"></i>Top 30 Modelli più usati</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover mb-0 align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 50px;">#</th>
+                                    <th>Modello</th>
+                                    <th>Brand</th>
+                                    <th class="text-end">Sessioni</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for m in models %}
+                                <tr>
+                                    <td class="text-muted small">{{ forloop.counter }}</td>
+                                    <td class="fw-bold">{{ m.modello }}</td>
+                                    <td>
+                                        {% if m.brand == 'Garmin' %}<span class="badge bg-dark">Garmin</span>
+                                        {% elif m.brand == 'Apple' %}<span class="badge bg-secondary">Apple</span>
+                                        {% elif m.brand == 'Suunto' %}<span class="badge bg-danger">Suunto</span>
+                                        {% elif m.brand == 'Coros' %}<span class="badge bg-warning text-dark">Coros</span>
+                                        {% else %}<span class="badge bg-light text-dark border">{{ m.brand }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end fw-bold">{{ m.count }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="4" class="text-center py-4">Nessun dato disponibile. Sincronizza nuove attività.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const ctx = document.getElementById('brandChart').getContext('2d');
+    
+    // Preparazione Dati
+    const labels = [{% for b, c in brands %}"{{ b }}",{% endfor %}];
+    const data = [{% for b, c in brands %}{{ c }},{% endfor %}];
+    
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: data,
+                backgroundColor: ['#000000', '#6c757d', '#dc3545', '#ffc107', '#0d6efd', '#198754', '#6610f2'],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { position: 'bottom' } }
+        }
+    });
+</script>
+{% endblock %}

@@ -103,12 +103,23 @@
     </a>
 </li>
                     {% endif %}
+
+                    <!-- Menu Dispositivi (Visibile solo a Staff o chi ha permessi) -->
+{% if user.is_staff or perms.atleti.access_attrezzatura %}
+<li class="nav-item">
+    <a class="nav-link" href="{% url 'statistiche_dispositivi' %}">
+        <i class="bi bi-watch"></i>
+        <span class="ms-2">Dispositivi</span>
+    </a>
+</li>
+{% endif %}
+
                     <li class="nav-item"><a class="nav-link {% if request.resolver_match.url_name == 'impostazioni' %}active{% endif %}" href="{% url 'impostazioni' %}"><i class="bi bi-gear"></i> Impostazioni</a></li>
                 </ul>
 
                 <div class="mt-auto p-3">
                     <!-- Card Novità -->
-                    <div class="card mb-3 border-0 shadow-sm" style="background-color: #e3f2fd;">
+                    <!-- <div class="card mb-3 border-0 shadow-sm" style="background-color: #e3f2fd;">
                         <div class="card-body p-2">
                             <small class="fw-bold text-primary d-block mb-1"><i class="bi bi-stars me-1"></i>Nuova versione 3.2</small>
                             <ul class="list-unstyled small mb-0 text-dark" style="font-size: 0.75rem;">
@@ -120,7 +131,7 @@
                                 <i class="bi bi-info-circle me-1"></i>Per attivare le nuove funzioni, effettua <strong>Logout</strong> e poi <strong>Login</strong>.
                             </div>
                         </div>
-                    </div>
+                    </div> -->
 
                     <div class="text-center mb-3">
                         <small class="text-white opacity-50 d-block"><i class="bi bi-strava me-1"></i>Powered by Strava</small>
