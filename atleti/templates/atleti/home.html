@@ -100,7 +100,20 @@
     <h2 class="fw-bold mb-4">Dashboard Personale</h2>
     <div class="row g-4">
         <div class="col-lg-4">
-            <div class="card p-4 text-center mb-4">
+            <div class="card p-4 text-center mb-4 position-relative">
+                <!-- Campanello Notifiche Allarmi -->
+                {% if allarmi %}
+                <div class="position-absolute top-0 end-0 p-3">
+                    <button type="button" class="btn btn-light position-relative rounded-circle shadow-sm border" data-bs-toggle="modal" data-bs-target="#alarmsModal">
+                        <i class="bi bi-bell-fill text-danger shake-animation"></i>
+                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-light">
+                            {{ allarmi|length }}
+                            <span class="visually-hidden">allarmi</span>
+                        </span>
+                    </button>
+                </div>
+                {% endif %}
+
                 <div class="mb-3">
                     {% if profilo.immagine_profilo %}
                         <img src="{{ profilo.immagine_profilo }}" alt="Profilo Strava" class="rounded-circle shadow-sm" style="width: 120px; height: 120px; object-fit: cover; border: 4px solid var(--barilla-blue);">
@@ -585,6 +598,32 @@
     </div>
     {% endif %}
 
+<!-- Modal Allarmi Fisiologici -->
+<div class="modal fade" id="alarmsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle-fill me-2"></i>Attenzione: Segnalazioni Coach</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                {% for alert in allarmi %}
+                <div class="alert alert-{{ alert.tipo }} mb-3 shadow-sm">
+                    <h6 class="fw-bold"><i class="bi bi-activity me-2"></i>{{ alert.titolo }}</h6>
+                    <p class="mb-0 small">{{ alert.msg }}</p>
+                </div>
+                {% endfor %}
+                <div class="text-muted small mt-3 fst-italic">
+                    <i class="bi bi-info-circle me-1"></i>Questi avvisi sono generati automaticamente analizzando il tuo carico di lavoro (ACWR) e i trend cardiaci recenti.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Ho capito</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Modal Analisi AI Personale -->
 <div class="modal fade" id="aiPersonalModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
@@ -663,6 +702,11 @@
 {% block extra_js %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script>
+    // Animazione CSS per il campanello (opzionale, inline per semplicità)
+    const style = document.createElement('style');
+    style.innerHTML = `@keyframes shake { 0% { transform: rotate(0deg); } 25% { transform: rotate(15deg); } 50% { transform: rotate(0deg); } 75% { transform: rotate(-15deg); } 100% { transform: rotate(0deg); } } .shake-animation { display: inline-block; animation: shake 2s infinite; }`;
+    document.head.appendChild(style);
+
     // Inizializzazione Tooltip Bootstrap
     const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]')
     const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl))

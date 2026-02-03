@@ -213,6 +213,44 @@ def _get_dashboard_context(user):
     if token_obj and token_obj.expires_at and token_obj.expires_at < timezone.now():
         warning_token = "⚠️ Il tuo token Strava è scaduto. Prova a sincronizzare. Se fallisce, scollega e ricollega l'account nelle Impostazioni."
 
+    # --- CALCOLO ALLARMI FISIOLOGICI & CARICO ---
+    allarmi = []
+    
+    # 1. Allarme ACWR (Acute:Chronic Workload Ratio)
+    # Calcoliamo il carico basato sui "Km Sforzo" (1km + 100m D+)
+    today_acwr = timezone.now()
+    start_acute = today_acwr - timedelta(days=7)
+    start_chronic = today_acwr - timedelta(days=28)
+    
+    qs_chronic = Attivita.objects.filter(atleta=profilo, data__gte=start_chronic, data__lte=today_acwr)
+    
+    load_acute = 0
+    load_chronic_total = 0
+    
+    for act in qs_chronic:
+        km_flat = act.distanza / 1000
+        km_vert = act.dislivello / 100
+        load_val = km_flat + km_vert # Km Sforzo
+        
+        load_chronic_total += load_val
+        if act.data >= start_acute:
+            load_acute += load_val
+            
+    avg_chronic = load_chronic_total / 4
+    
+    # Analizziamo solo se c'è un volume minimo (>10 Km Sforzo/settimana di media)
+    if avg_chronic > 10:
+        ratio = load_acute / avg_chronic if avg_chronic > 0 else 0
+        if ratio >= 1.3:
+            allarmi.append({'tipo': 'danger', 'titolo': 'Rischio Infortunio (ACWR)', 'msg': f"Carico Acuto ({int(load_acute)}) eccessivo rispetto al Cronico ({int(avg_chronic)}). Ratio: {ratio:.2f}. Rischio infortunio alto, scarica!"})
+        elif ratio <= 0.6:
+            allarmi.append({'tipo': 'warning', 'titolo': 'Detraining (ACWR)', 'msg': f"Carico Acuto ({int(load_acute)}) troppo basso rispetto al tuo standard ({int(avg_chronic)}). Ratio: {ratio:.2f}. Stai perdendo forma."})
+
+    # 2. Allarme FC (Trend in aumento > 5%)
+    # trends['fc_media'] è la variazione % recente vs storico calcolata da calcola_trend_atleta
+    if trends.get('fc_media', 0) > 5:
+        allarmi.append({'tipo': 'warning', 'titolo': 'Deriva Cardiaca', 'msg': f"La tua FC media è salita del {trends['fc_media']}% recentemente a parità di passo. Possibile accumulo di fatica o stress."})
+
     return {
         'totale_km': totale_km,
         'dislivello_totale': int(dislivello_totale),
@@ -251,6 +289,7 @@ def _get_dashboard_context(user):
         'efficienza_tooltip': "Efficiency Factor (EF): Misura quanti metri percorri per ogni battito cardiaco. Formula: Velocità (m/min) / FC. Più è alto, più il tuo motore è efficiente (es. > 1.5 è ottimo).",
         'warning_peso': warning_peso,
         'warning_token': warning_token,
+        'allarmi': allarmi,
     }
 
 # 1. Questa mostra la pagina (NON cancellarla!)
