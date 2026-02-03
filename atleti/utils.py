@@ -113,18 +113,38 @@ def calcola_vam_selettiva(activity_id, access_token):
         total_gain = 0
         total_time = 0
         
+        # Variabili per il segmento corrente
+        current_gain = 0
+        current_time = 0
+        
         # Iteriamo sui punti. Assumiamo che le liste siano allineate.
         # Partiamo da 1 perché serve il delta rispetto al precedente.
         for i in range(1, len(grades)):
-            # Filtro: Pendenza > 7%
+            # Filtro: Pendenza > 7% (Mastra-Logic: Solo salite vere)
             if grades[i] > 7.0:
                 delta_h = altitudes[i] - altitudes[i-1]
                 delta_t = times[i] - times[i-1]
                 
                 # Sommiamo solo se c'è guadagno positivo e tempo positivo
                 if delta_h > 0 and delta_t > 0:
-                    total_gain += delta_h
-                    total_time += delta_t
+                    current_gain += delta_h
+                    current_time += delta_t
+            else:
+                # Il segmento si è interrotto (pendenza scesa sotto il 7%)
+                # Commit del segmento SOLO se è durato più di 10 minuti (600s)
+                # Questo evita che "strappi" brevi falsino la VAM media su lunghe distanze.
+                if current_time >= 600:
+                    total_gain += current_gain
+                    total_time += current_time
+                
+                # Reset del segmento corrente
+                current_gain = 0
+                current_time = 0
+        
+        # Controllo finale se l'attività finisce durante una salita valida
+        if current_time >= 600:
+            total_gain += current_gain
+            total_time += current_time
                     
         if total_time > 0:
             # VAM = (Metri / Secondi) * 3600 -> Metri/Ora

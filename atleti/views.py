@@ -70,6 +70,11 @@ def _get_dashboard_context(user):
     power_values = [a.potenza_media for a in chart_data if a.potenza_media and a.potenza_media > 0]
     potenza_media = int(sum(power_values) / len(power_values)) if power_values else 0
         
+    # Calcolo Potenza W/kg (Priorità Mastra-Logic)
+    potenza_media_wkg = 0
+    if potenza_media > 0 and profilo.peso:
+        potenza_media_wkg = round(potenza_media / profilo.peso, 2)
+
         # Calcolo FC Media Recente (ultime 30)
     fc_values = [a.fc_media for a in chart_data if a.fc_media]
     fc_media_recent = int(sum(fc_values) / len(fc_values)) if fc_values else 0
@@ -204,6 +209,7 @@ def _get_dashboard_context(user):
         'avg_weekly_elev': avg_weekly_elev,
         'vam_media': vam_media,
         'potenza_media': potenza_media,
+        'potenza_media_wkg': potenza_media_wkg,
         'fc_media_recent': fc_media_recent,
         'passo_media_recent': passo_media_recent,
         'livello_vo2max': livello_vo2max,

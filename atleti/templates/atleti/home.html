@@ -368,8 +368,13 @@
                 <div class="col-6">
                     <div class="card p-3 stats-box h-100" style="border-color: #6610f2;">
                         <i class="bi bi-lightning h3" style="color: #6610f2;"></i>
-                        <small class="text-muted d-block">Potenza (W)</small>
-                        <span class="h4 fw-bold" style="color: #6610f2;">{{ potenza_media }}</span>
+                        <small class="text-muted d-block">Potenza (W/kg)</small>
+                        {% if potenza_media_wkg %}
+                            <span class="h4 fw-bold" style="color: #6610f2;">{{ potenza_media_wkg }}</span>
+                            <div class="small text-muted" style="font-size: 0.7rem;">{{ potenza_media }} Watt</div>
+                        {% else %}
+                            <span class="h4 fw-bold" style="color: #6610f2;">{{ potenza_media }} W</span>
+                        {% endif %}
                         {% if trends.potenza is not None %}
                             <div class="small fw-bold mt-1 {% if trends.potenza > 0 %}text-success{% else %}text-danger{% endif %}">
                                 {% if trends.potenza > 0 %}<i class="bi bi-arrow-up-right"></i>{% elif trends.potenza < 0 %}<i class="bi bi-arrow-down-right"></i>{% endif %}
