@@ -193,6 +193,15 @@ def _get_dashboard_context(user):
     eff_values = [v for v in eff_values if v is not None]
     efficienza_media = round(sum(eff_values) / len(eff_values), 2) if eff_values else None
 
+    # Calcolo Livello Efficienza
+    livello_efficienza = ""
+    if efficienza_media:
+        if efficienza_media >= 1.60: livello_efficienza = "Elite 🏆"
+        elif efficienza_media >= 1.40: livello_efficienza = "Eccellente 🥇"
+        elif efficienza_media >= 1.20: livello_efficienza = "Buono 🥈"
+        elif efficienza_media >= 1.00: livello_efficienza = "Sufficiente 🥉"
+        else: livello_efficienza = "Base"
+
     # Warning Peso
     warning_peso = None
     if not profilo.peso or profilo.peso <= 0:
@@ -221,6 +230,7 @@ def _get_dashboard_context(user):
         'livello_vo2max_strada': livello_vo2max_strada,
         'vo2max_effettivo_avg': vo2max_effettivo_avg,
         'efficienza_media': efficienza_media,
+        'livello_efficienza': livello_efficienza,
         'livello_vam': livello_vam,
         'livello_potenza': livello_potenza,
         'livello_itra': livello_itra,
