@@ -464,23 +464,21 @@
                         {% endif %}
                     </div>
                 </div>
-                <!--
                 <div class="col-6">
-                    <div class="card p-3 stats-box h-100" style="border-color: #198754;">
-                        <i class="bi bi-lightning-charge-fill h3 text-success"></i>
+                    <div class="card p-3 stats-box h-100" style="border-color: #20c997;">
+                        <i class="bi bi-fuel-pump h3" style="color: #20c997;"></i>
                         <small class="text-muted d-block">
-                            VO2max Effettivo
-                            <i class="bi bi-info-circle-fill ms-1" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="{{ vo2max_effettivo_tooltip }}"></i>
+                            Efficienza (EF)
+                            <i class="bi bi-info-circle-fill ms-1" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="{{ efficienza_tooltip }}"></i>
                         </small>
-                        {% if vo2max_effettivo_avg %}
-                            <span class="h4 fw-bold text-success">{{ vo2max_effettivo_avg }}</span>
-                            <div class="small text-muted mt-1" style="font-size: 0.7rem;">Running Index (Efficienza)</div>
+                        {% if efficienza_media %}
+                            <span class="h4 fw-bold" style="color: #20c997;">{{ efficienza_media }}</span>
+                            <div class="small text-muted mt-1" style="font-size: 0.7rem;">Metri / Battito</div>
                         {% else %}
-                            <span class="h4 fw-bold text-success">--</span>
+                            <span class="h4 fw-bold" style="color: #20c997;">--</span>
                         {% endif %}
                     </div>
                 </div>
-                -->
             </div>
 
             <!-- Indici Internazionali -->

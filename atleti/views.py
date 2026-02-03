@@ -6,7 +6,7 @@ from allauth.socialaccount.models import SocialToken ,SocialAccount
 from django.core.cache import cache
 from .models import Attivita, ProfiloAtleta, LogSistema, Scarpa
 import math
-from .utils import analizza_performance_atleta, calcola_metrica_vo2max, stima_vo2max_atleta, stima_potenza_watt, calcola_trend_atleta, formatta_passo, stima_potenziale_gara, analizza_squadra_coach, calcola_vam_selettiva, refresh_strava_token, processa_attivita_strava, fix_strava_duplicates, normalizza_scarpa, BRAND_LOGOS, analizza_gare_atleta, calcola_vo2max_effettivo
+from .utils import analizza_performance_atleta, calcola_metrica_vo2max, stima_vo2max_atleta, stima_potenza_watt, calcola_trend_atleta, formatta_passo, stima_potenziale_gara, analizza_squadra_coach, calcola_vam_selettiva, refresh_strava_token, processa_attivita_strava, fix_strava_duplicates, normalizza_scarpa, BRAND_LOGOS, analizza_gare_atleta, calcola_vo2max_effettivo, calcola_efficienza
 import time
 from django.db.models import Sum, Max, Q, OuterRef, Subquery, Avg
 from django.utils import timezone
@@ -188,6 +188,11 @@ def _get_dashboard_context(user):
     vo2_eff_values = [v for v in vo2_eff_values if v is not None]
     vo2max_effettivo_avg = round(sum(vo2_eff_values) / len(vo2_eff_values), 1) if vo2_eff_values else None
 
+    # Calcolo Efficienza Media (EF - Metri/Battito)
+    eff_values = [calcola_efficienza(a) for a in chart_data]
+    eff_values = [v for v in eff_values if v is not None]
+    efficienza_media = round(sum(eff_values) / len(eff_values), 2) if eff_values else None
+
     # Warning Peso
     warning_peso = None
     if not profilo.peso or profilo.peso <= 0:
@@ -215,6 +220,7 @@ def _get_dashboard_context(user):
         'livello_vo2max': livello_vo2max,
         'livello_vo2max_strada': livello_vo2max_strada,
         'vo2max_effettivo_avg': vo2max_effettivo_avg,
+        'efficienza_media': efficienza_media,
         'livello_vam': livello_vam,
         'livello_potenza': livello_potenza,
         'livello_itra': livello_itra,
@@ -232,6 +238,7 @@ def _get_dashboard_context(user):
         'chart_elev': json.dumps(elev_data),
         'vam_tooltip': "VAM Selettiva (Pro): Calcolata isolando solo i tratti di salita con pendenza > 7% (dati reali secondo per secondo). Esclude pause, discese e tratti in piano per riflettere la tua vera velocità ascensionale.",
         'vo2max_effettivo_tooltip': "VO2max Effettivo (Mastra-Logic): Indicatore di Efficienza (RE). Calcolato rapportando il Costo O2 del tuo passo reale all'impegno cardiaco (%FC Riserva). Se il percorso è collinare (>50m D+), usiamo il Passo Regolato (GAP) per neutralizzare la pendenza. Premia chi corre forte con pulsazioni basse.",
+        'efficienza_tooltip': "Efficiency Factor (EF): Misura quanti metri percorri per ogni battito cardiaco. Formula: Velocità (m/min) / FC. Più è alto, più il tuo motore è efficiente (es. > 1.5 è ottimo).",
         'warning_peso': warning_peso,
         'warning_token': warning_token,
     }

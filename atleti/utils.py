@@ -203,6 +203,30 @@ def calcola_vo2max_effettivo(attivita, profilo):
     # 4. VO2max Effettivo
     return round(vo2_cost / intensity, 2)
 
+def calcola_efficienza(attivita):
+    """
+    Calcola l'Efficiency Factor (EF) in Metri/Battito.
+    Formula: Velocità GAP (m/min) / FC (bpm).
+    Indica quanti metri percorri con un singolo battito cardiaco.
+    """
+    if attivita.tipo_attivita != 'Run' or not attivita.fc_media or attivita.fc_media <= 0:
+        return None
+    
+    # Determina la velocità (m/s) usando GAP se c'è dislivello significativo
+    speed_ms = 0
+    if attivita.dislivello > 50 and attivita.gap_passo:
+        speed_ms = attivita.gap_passo
+    elif attivita.distanza > 0 and attivita.durata > 0:
+        speed_ms = attivita.distanza / attivita.durata
+        
+    if speed_ms <= 0:
+        return None
+        
+    speed_m_min = speed_ms * 60
+    
+    # EF = m/min / bpm = metri/battito
+    return round(speed_m_min / attivita.fc_media, 2)
+
 def calcola_metrica_vo2max(attivita, profilo):
     """
     Calcola il VO2max matematico basato sui dati reali di Strava.
