@@ -1853,12 +1853,14 @@ def dettaglio_allenamento(request, pk):
         partecipazione_utente = Partecipazione.objects.filter(allenamento=allenamento, atleta=request.user).first()
         
     partecipanti = Partecipazione.objects.filter(allenamento=allenamento).select_related('atleta', 'atleta__profiloatleta')
+    num_confermati = partecipanti.filter(stato='Approvata').count()
     commenti = allenamento.commenti.all().order_by('data')
     
     return render(request, 'atleti/allenamento_detail.html', {
         'allenamento': allenamento,
         'partecipazione_utente': partecipazione_utente,
         'partecipanti': partecipanti,
+        'num_confermati': num_confermati,
         'commenti': commenti,
         'commento_form': CommentoForm() if request.user.is_authenticated else None
     })

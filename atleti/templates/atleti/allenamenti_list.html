@@ -76,7 +76,7 @@
                         </ul>
                     </div>
                     {% endif %}
-                    <button class="btn btn-success text-white flex-shrink-0" onclick="shareWorkout('{{ a.titolo|escapejs }}', '{{ a.distanza_km }}', '{{ a.dislivello }}', '{% url 'dettaglio_allenamento' a.pk %}', '{% if a.file_gpx %}{{ a.file_gpx.url }}{% endif %}')" title="Condividi su WhatsApp">
+                    <button class="btn btn-success text-white flex-shrink-0" onclick="shareWorkout('{{ a.titolo|escapejs }}', '{{ a.data_orario|date:"d/m H:i" }}', '{{ a.distanza_km }}', '{{ a.dislivello }}', '{{ a.num_confermati }}', '{% url 'dettaglio_allenamento' a.pk %}', '{% if a.file_gpx %}{{ a.file_gpx.url }}{% endif %}')" title="Condividi su WhatsApp">
                         <i class="bi bi-whatsapp"></i>
                     </button>
                 </div>
@@ -97,8 +97,8 @@
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
     var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) { return new bootstrap.Tooltip(tooltipTriggerEl) })
 
-    async function shareWorkout(title, dist, elev, relativeUrl, gpxUrl) {
-        const text = `Ciao! Guarda questo allenamento: ${title} (${dist}km, ${elev}m D+).`;
+    async function shareWorkout(title, date, dist, elev, participants, relativeUrl, gpxUrl) {
+        const text = `Ciao! Guarda questo allenamento: ${title} il ${date} (${dist}km, ${elev}m D+). Già ${participants} partecipanti!`;
         const url = window.location.origin + relativeUrl;
         
         // Tentativo condivisione file (Mobile)

@@ -274,7 +274,9 @@
 
     async function shareWorkout() {
         const title = "{{ allenamento.titolo|escapejs }}";
-        const text = "Ciao! Guarda questo allenamento di gruppo: {{ allenamento.titolo|escapejs }} ({{ allenamento.distanza_km }}km, {{ allenamento.dislivello }}m D+).";
+        const date = "{{ allenamento.data_orario|date:'d/m H:i' }}";
+        const participants = "{{ num_confermati }}";
+        const text = `Ciao! Guarda questo allenamento di gruppo: ${title} il ${date} ({{ allenamento.distanza_km }}km, {{ allenamento.dislivello }}m D+). Già ${participants} partecipanti!`;
         const url = window.location.href;
         
         {% if allenamento.file_gpx %}
