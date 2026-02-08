@@ -1,9 +1,11 @@
 from django.db import models
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User, Permission
+from django.contrib.contenttypes.models import ContentType
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
 from zoneinfo import ZoneInfo
+from django.contrib.auth.signals import user_logged_in
 
 class ProfiloAtleta(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
@@ -16,6 +18,7 @@ class ProfiloAtleta(models.Model):
     dashboard_pubblica = models.BooleanField(default=False, verbose_name="Rendi dashboard pubblica")
     importa_attivita_private = models.BooleanField(default=False, verbose_name="Importa attività private da Strava")
     condividi_metriche = models.BooleanField(default=True, verbose_name="Condividi VO2max e Indici nel riepilogo")
+    escludi_statistiche_coach = models.BooleanField(default=False, verbose_name="Escludimi dalle statistiche Coach")
     eta = models.IntegerField(default=30)
     fc_riposo = models.IntegerField(help_text="Battiti a riposo", null=True, blank=True)
     immagine_profilo = models.URLField(max_length=500, blank=True, null=True)
@@ -151,6 +154,42 @@ class Attivita(models.Model):
 def create_user_profile(sender, instance, created, **kwargs):
     if created:
         ProfiloAtleta.objects.get_or_create(user=instance)
+        
+        # Assegnazione automatica permessi ai nuovi utenti
+        try:
+            content_type = ContentType.objects.get_for_model(ProfiloAtleta)
+            perms = Permission.objects.filter(
+                content_type=content_type,
+                codename__in=[
+                    'access_riepilogo', 'access_coach_dashboard', 
+                    'access_confronto', 'access_attrezzatura', 
+                    'access_gare', 'access_grafici'
+                ]
+            )
+            instance.user_permissions.add(*perms)
+        except Exception as e:
+            print(f"Errore assegnazione permessi default: {e}")
+
+@receiver(user_logged_in)
+def ensure_permissions_on_login(sender, user, request, **kwargs):
+    """
+    Assegna i permessi di default a ogni login.
+    Garantisce che anche gli utenti già registrati ricevano i nuovi menu.
+    """
+    try:
+        ProfiloAtleta.objects.get_or_create(user=user)
+        content_type = ContentType.objects.get_for_model(ProfiloAtleta)
+        perms = Permission.objects.filter(
+            content_type=content_type,
+            codename__in=[
+                'access_riepilogo', 'access_coach_dashboard', 
+                'access_confronto', 'access_attrezzatura', 
+                'access_gare', 'access_grafici'
+            ]
+        )
+        user.user_permissions.add(*perms)
+    except Exception as e:
+        print(f"Errore assegnazione permessi login: {e}")
 
 class TaskSettings(models.Model):
     TASK_CHOICES = [

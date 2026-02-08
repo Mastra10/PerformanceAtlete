@@ -83,63 +83,82 @@
 
                         <form method="POST">
                             {% csrf_token %}
-                            <div class="mb-3">
-                                <label class="form-label fw-bold">Peso (kg)</label>
-                                <input type="number" step="0.1" name="peso" class="form-control" value="{{ profilo.peso|unlocalize|default:'' }}" required>
-                                <div class="form-check mt-2">
-                                    <input class="form-check-input" type="checkbox" name="mostra_peso" id="mostraPeso" {% if profilo.mostra_peso %}checked{% endif %}>
-                                    <label class="form-check-label text-muted small" for="mostraPeso">Mostra il mio peso nella classifica di squadra (se disattivato nessuno potrà visualizzarlo)</label>
-                                </div>
-                                <div class="form-check mt-2">
-                                    <input class="form-check-input" type="checkbox" name="peso_manuale" id="pesoManuale" {% if profilo.peso_manuale %}checked{% endif %}>
-                                    <label class="form-check-label text-muted small" for="pesoManuale">Blocca questo valore (impedisci aggiornamento automatico da Strava)</label>
-                                </div>
-                                <div class="form-check mt-2">
-                                    <input class="form-check-input" type="checkbox" name="dashboard_pubblica" id="dashboardPubblica" {% if profilo.dashboard_pubblica %}checked{% endif %}>
-                                    <label class="form-check-label text-muted small" for="dashboardPubblica">Rendi la mia Dashboard visibile agli altri atleti della squadra</label>
-                                </div>
-                                <div class="form-check mt-2">
-                                    <input class="form-check-input" type="checkbox" name="importa_attivita_private" id="importaPrivate" {% if profilo.importa_attivita_private %}checked{% endif %}>
-                                    <label class="form-check-label text-muted small" for="importaPrivate">
-                                        Importa anche le attività segnate come "Private" su Strava
-                                        <br><span class="text-danger" style="font-size: 0.7rem;">(Richiede permesso 'activity:read_all'. Se non funziona, scollega e ricollega Strava accettando tutto).</span>
-                                    </label>
-                                </div>
-                                <div class="form-check mt-2">
-                                    <input class="form-check-input" type="checkbox" name="condividi_metriche" id="condividiMetriche" {% if profilo.condividi_metriche %}checked{% endif %}>
-                                    <label class="form-check-label text-muted small" for="condividiMetriche">Condividi VO2max e Indici nella tabella riepilogo (se disattivato, saranno visibili solo a te)</label>
-                                </div>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label fw-bold">Frequenza Cardiaca a Riposo (bpm)</label>
-                                <input type="number" name="fc_riposo" class="form-control" value="{{ profilo.fc_riposo|default:'' }}" required>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label fw-bold">Frequenza Cardiaca Massima (bpm)</label>
-                                <input type="number" name="fc_max" class="form-control" value="{{ profilo.fc_max|default:190 }}" required>
-                                <div class="form-check mt-2">
-                                    <input class="form-check-input" type="checkbox" name="fc_max_manuale" id="fcMaxManuale" {% if profilo.fc_max_manuale %}checked{% endif %}>
-                                    <label class="form-check-label text-muted small" for="fcMaxManuale">Blocca questo valore (impedisci aggiornamento automatico da Strava)</label>
-                                </div>
-                            </div>
                             
-                            <hr class="my-4">
-                            <h5 class="fw-bold mb-3">Indici Competitivi</h5>
-                            <div class="alert alert-info small">
-                                <i class="bi bi-info-circle me-1"></i> Questi valori vengono aggiornati automaticamente ogni settimana dai batch di sistema. Puoi inserirli manualmente per un aggiornamento immediato.
-                            </div>
-                            <div class="row">
-                                <div class="col-6 mb-3">
-                                    <label class="form-label fw-bold">ITRA Index</label>
-                                    <input type="number" name="indice_itra" class="form-control" value="{{ profilo.indice_itra|default:'' }}" placeholder="Es: 650">
+                            <!-- Sezione 1: Dati Biometrici -->
+                            <h5 class="fw-bold text-primary mb-3"><i class="bi bi-heart-pulse me-2"></i>Dati Biometrici & Metriche</h5>
+                            <div class="card p-3 mb-4 bg-light border-0">
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label fw-bold">Peso (kg)</label>
+                                        <input type="number" step="0.1" name="peso" class="form-control" value="{{ profilo.peso|unlocalize|default:'' }}" required>
+                                        <div class="form-check mt-2">
+                                            <input class="form-check-input" type="checkbox" name="peso_manuale" id="pesoManuale" {% if profilo.peso_manuale %}checked{% endif %}>
+                                            <label class="form-check-label text-muted small" for="pesoManuale">Blocca valore (no sync Strava)</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label fw-bold">FC Max (bpm)</label>
+                                        <input type="number" name="fc_max" class="form-control" value="{{ profilo.fc_max|default:190 }}" required>
+                                        <div class="form-check mt-2">
+                                            <input class="form-check-input" type="checkbox" name="fc_max_manuale" id="fcMaxManuale" {% if profilo.fc_max_manuale %}checked{% endif %}>
+                                            <label class="form-check-label text-muted small" for="fcMaxManuale">Blocca valore (no sync Strava)</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label fw-bold">FC Riposo (bpm)</label>
+                                        <input type="number" name="fc_riposo" class="form-control" value="{{ profilo.fc_riposo|default:'' }}" required>
+                                    </div>
                                 </div>
-                                <div class="col-6 mb-3">
-                                    <label class="form-label fw-bold">UTMB Index</label>
-                                    <input type="number" name="indice_utmb" class="form-control" value="{{ profilo.indice_utmb|default:'' }}" placeholder="Es: 660">
+                                
+                                <hr>
+                                <h6 class="fw-bold mb-2">Indici Competitivi</h6>
+                                <div class="row">
+                                    <div class="col-6 mb-3">
+                                        <label class="form-label fw-bold">ITRA Index</label>
+                                        <input type="number" name="indice_itra" class="form-control" value="{{ profilo.indice_itra|default:'' }}" placeholder="Es: 650">
+                                    </div>
+                                    <div class="col-6 mb-3">
+                                        <label class="form-label fw-bold">UTMB Index</label>
+                                        <input type="number" name="indice_utmb" class="form-control" value="{{ profilo.indice_utmb|default:'' }}" placeholder="Es: 660">
+                                    </div>
                                 </div>
                             </div>
 
-                            <button type="submit" class="btn btn-success w-100 py-2">Salva e Torna alla Dashboard</button>
+                            <!-- Sezione 2: Privacy & Visibilità -->
+                            <h5 class="fw-bold text-primary mb-3"><i class="bi bi-shield-lock me-2"></i>Privacy & Visibilità</h5>
+                            <div class="card p-3 mb-4 bg-light border-0">
+                                <div class="form-check form-switch mb-3">
+                                    <input class="form-check-input" type="checkbox" name="mostra_peso" id="mostraPeso" {% if profilo.mostra_peso %}checked{% endif %}>
+                                    <label class="form-check-label fw-bold" for="mostraPeso">Mostra Peso in Classifica</label>
+                                    <div class="text-muted small">Se disattivato, il tuo peso sarà nascosto agli altri atleti.</div>
+                                </div>
+                                
+                                <div class="form-check form-switch mb-3">
+                                    <input class="form-check-input" type="checkbox" name="dashboard_pubblica" id="dashboardPubblica" {% if profilo.dashboard_pubblica %}checked{% endif %}>
+                                    <label class="form-check-label fw-bold" for="dashboardPubblica">Dashboard Pubblica</label>
+                                    <div class="text-muted small">Permetti agli altri membri del team di vedere la tua dashboard completa.</div>
+                                </div>
+                                
+                                <div class="form-check form-switch mb-3">
+                                    <input class="form-check-input" type="checkbox" name="condividi_metriche" id="condividiMetriche" {% if profilo.condividi_metriche %}checked{% endif %}>
+                                    <label class="form-check-label fw-bold" for="condividiMetriche">Condividi Metriche (VO2max, Indici)</label>
+                                    <div class="text-muted small">Se disattivato, i tuoi valori fisiologici saranno nascosti nel Riepilogo Atleti.</div>
+                                </div>
+
+                                <div class="form-check form-switch mb-3">
+                                    <input class="form-check-input" type="checkbox" name="escludi_statistiche_coach" id="escludiCoach" {% if profilo.escludi_statistiche_coach %}checked{% endif %}>
+                                    <label class="form-check-label fw-bold text-danger" for="escludiCoach">Escludimi dalla Dashboard Coach</label>
+                                    <div class="text-muted small">Se attivato, i tuoi dati non verranno inclusi nelle statistiche aggregate del team (Coach Dashboard).</div>
+                                </div>
+                                
+                                <div class="form-check form-switch mb-3">
+                                    <input class="form-check-input" type="checkbox" name="importa_attivita_private" id="importaPrivate" {% if profilo.importa_attivita_private %}checked{% endif %}>
+                                    <label class="form-check-label fw-bold" for="importaPrivate">Importa Attività Private</label>
+                                    <div class="text-muted small">Richiede permessi Strava aggiuntivi. Utile se tieni il profilo Strava privato.</div>
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn btn-success w-100 py-2">Salva Impostazioni</button>
                         </form>
                     </div>
                 </div>

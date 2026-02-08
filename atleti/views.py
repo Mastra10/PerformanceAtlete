@@ -430,6 +430,7 @@ def impostazioni(request):
             indice_utmb = int(request.POST.get('indice_utmb') or 0)
             importa_attivita_private = request.POST.get('importa_attivita_private') == 'on'
             condividi_metriche = request.POST.get('condividi_metriche') == 'on'
+            escludi_statistiche_coach = request.POST.get('escludi_statistiche_coach') == 'on'
             
             profilo.peso = peso
             profilo.mostra_peso = mostra_peso
@@ -437,6 +438,7 @@ def impostazioni(request):
             profilo.dashboard_pubblica = dashboard_pubblica
             profilo.importa_attivita_private = importa_attivita_private
             profilo.condividi_metriche = condividi_metriche
+            profilo.escludi_statistiche_coach = escludi_statistiche_coach
             profilo.fc_riposo = fc_riposo
             profilo.fc_max = fc_max
             profilo.fc_massima_teorica = fc_max
@@ -1072,30 +1074,34 @@ def _get_coach_dashboard_context(week_offset):
     target_week_end = target_week_start + timedelta(weeks=1)
     prev_week_start = target_week_start - timedelta(weeks=1)
 
+    # Base QuerySets (Escludiamo Mastra e chi ha la privacy attiva)
+    base_qs = ProfiloAtleta.objects.exclude(user__username='mastra').exclude(escludi_statistiche_coach=True)
+    activity_base_qs = Attivita.objects.exclude(atleta__user__username='mastra').exclude(atleta__escludi_statistiche_coach=True)
+
     # 1. Distribuzione VO2max (Pie Chart)
     vo2_ranges = {
-        'Elite (>65)': ProfiloAtleta.objects.exclude(user__username='mastra').filter(vo2max_stima_statistica__gte=65).count(),
-        'Eccellente (58-65)': ProfiloAtleta.objects.exclude(user__username='mastra').filter(vo2max_stima_statistica__gte=58, vo2max_stima_statistica__lt=65).count(),
-        'Ottimo (52-58)': ProfiloAtleta.objects.exclude(user__username='mastra').filter(vo2max_stima_statistica__gte=52, vo2max_stima_statistica__lt=58).count(),
-        'Buono (45-52)': ProfiloAtleta.objects.exclude(user__username='mastra').filter(vo2max_stima_statistica__gte=45, vo2max_stima_statistica__lt=52).count(),
-        'Base (<45)': ProfiloAtleta.objects.exclude(user__username='mastra').filter(vo2max_stima_statistica__lt=45).count(),
+        'Elite (>65)': base_qs.filter(vo2max_stima_statistica__gte=65).count(),
+        'Eccellente (58-65)': base_qs.filter(vo2max_stima_statistica__gte=58, vo2max_stima_statistica__lt=65).count(),
+        'Ottimo (52-58)': base_qs.filter(vo2max_stima_statistica__gte=52, vo2max_stima_statistica__lt=58).count(),
+        'Buono (45-52)': base_qs.filter(vo2max_stima_statistica__gte=45, vo2max_stima_statistica__lt=52).count(),
+        'Base (<45)': base_qs.filter(vo2max_stima_statistica__lt=45).count(),
     }
     print(f"DEBUG COACH - VO2 Ranges: {vo2_ranges}", flush=True)
 
     # 1c. Distribuzione VO2max Solo Strada
     vo2_strada_ranges = {
-        'Elite (>65)': ProfiloAtleta.objects.exclude(user__username='mastra').filter(vo2max_strada__gte=65).count(),
-        'Eccellente (58-65)': ProfiloAtleta.objects.exclude(user__username='mastra').filter(vo2max_strada__gte=58, vo2max_strada__lt=65).count(),
-        'Ottimo (52-58)': ProfiloAtleta.objects.exclude(user__username='mastra').filter(vo2max_strada__gte=52, vo2max_strada__lt=58).count(),
-        'Buono (45-52)': ProfiloAtleta.objects.exclude(user__username='mastra').filter(vo2max_strada__gte=45, vo2max_strada__lt=52).count(),
-        'Base (<45)': ProfiloAtleta.objects.exclude(user__username='mastra').filter(vo2max_strada__lt=45).count(),
+        'Elite (>65)': base_qs.filter(vo2max_strada__gte=65).count(),
+        'Eccellente (58-65)': base_qs.filter(vo2max_strada__gte=58, vo2max_strada__lt=65).count(),
+        'Ottimo (52-58)': base_qs.filter(vo2max_strada__gte=52, vo2max_strada__lt=58).count(),
+        'Buono (45-52)': base_qs.filter(vo2max_strada__gte=45, vo2max_strada__lt=52).count(),
+        'Base (<45)': base_qs.filter(vo2max_strada__lt=45).count(),
     }
     print(f"DEBUG COACH - VO2 Strada Ranges: {vo2_strada_ranges}", flush=True)
     
     # 1b. Distribuzione Strada vs Trail (Ultimi 90 giorni rispetto alla settimana visualizzata)
     last_90_days = target_week_end - timedelta(days=90)
-    trail_count = Attivita.objects.exclude(atleta__user__username='mastra').filter(data__gte=last_90_days, data__lte=target_week_end, tipo_attivita='TrailRun').count()
-    road_count = Attivita.objects.exclude(atleta__user__username='mastra').filter(data__gte=last_90_days, data__lte=target_week_end, tipo_attivita='Run').count()
+    trail_count = activity_base_qs.filter(data__gte=last_90_days, data__lte=target_week_end, tipo_attivita='TrailRun').count()
+    road_count = activity_base_qs.filter(data__gte=last_90_days, data__lte=target_week_end, tipo_attivita='Run').count()
     print(f"DEBUG COACH - Trail: {trail_count}, Road: {road_count}", flush=True)
 
     # 2. Atleti Inattivi (> 7 giorni)
@@ -1108,13 +1114,13 @@ def _get_coach_dashboard_context(week_offset):
         data__lt=check_date
     ).order_by('-data').values('data')[:1]
 
-    atleti_inattivi = ProfiloAtleta.objects.exclude(user__username='mastra').annotate(
+    atleti_inattivi = base_qs.annotate(
         last_act=Subquery(last_activity_subquery)
     ).filter(Q(last_act__lt=seven_days_before_check) | Q(last_act__isnull=True)).order_by('last_act')
 
     # 3. Volume Settimanale Squadra (Trend)
-    vol_current = Attivita.objects.exclude(atleta__user__username='mastra').filter(data__gte=target_week_start, data__lt=target_week_end).aggregate(Sum('distanza'))['distanza__sum'] or 0
-    vol_prev = Attivita.objects.exclude(atleta__user__username='mastra').filter(data__gte=prev_week_start, data__lt=target_week_start).aggregate(Sum('distanza'))['distanza__sum'] or 0
+    vol_current = activity_base_qs.filter(data__gte=target_week_start, data__lt=target_week_end).aggregate(Sum('distanza'))['distanza__sum'] or 0
+    vol_prev = activity_base_qs.filter(data__gte=prev_week_start, data__lt=target_week_start).aggregate(Sum('distanza'))['distanza__sum'] or 0
     
     vol_current_km = round(vol_current / 1000, 1)
     vol_prev_km = round(vol_prev / 1000, 1)
@@ -1124,11 +1130,11 @@ def _get_coach_dashboard_context(week_offset):
         trend_vol = round(((vol_current_km - vol_prev_km) / vol_prev_km) * 100, 1)
 
     # 5. Top Ranking (ITRA & UTMB)
-    top_itra = ProfiloAtleta.objects.exclude(user__username='mastra').filter(indice_itra__gt=0).select_related('user').order_by('-indice_itra')[:5]
-    top_utmb = ProfiloAtleta.objects.exclude(user__username='mastra').filter(indice_utmb__gt=0).select_related('user').order_by('-indice_utmb')[:5]
+    top_itra = base_qs.filter(indice_itra__gt=0).select_related('user').order_by('-indice_itra')[:5]
+    top_utmb = base_qs.filter(indice_utmb__gt=0).select_related('user').order_by('-indice_utmb')[:5]
     
     # Definiamo all_atleti qui, prima di usarlo nei cicli successivi
-    all_atleti = ProfiloAtleta.objects.select_related('user').exclude(user__username='mastra').all()
+    all_atleti = base_qs.select_related('user').all()
 
     # 9. Top Power (W)
     atleti_power = []

@@ -103,30 +103,14 @@
                     <li class="nav-item"><a class="nav-link {% if 'allenamenti' in request.path %}active{% endif %}" href="{% url 'lista_allenamenti' %}"><i class="bi bi-calendar-event"></i> Allenamenti</a></li>
                     
                     {% if user.is_staff or perms.atleti.access_confronto %}
-                    <li class="nav-item">
-    <a class="nav-link" href="{% url 'confronto_attivita' %}">
-        <i class="bi bi-arrow-left-right"></i> Confronto
-    </a>
-</li>
+                    <li class="nav-item"><a class="nav-link {% if request.resolver_match.url_name == 'confronto_attivita' %}active{% endif %}" href="{% url 'confronto_attivita' %}"><i class="bi bi-arrow-left-right"></i> Confronto</a></li>
                     {% endif %}
 
                     {% if user.is_staff or perms.atleti.access_attrezzatura %}
-<li class="nav-item">
-    <a class="nav-link" href="{% url 'attrezzatura_scarpe' %}">
-        <i class="bi bi-shop"></i> Attrezzatura
-    </a>
-</li>
+                    <li class="nav-item"><a class="nav-link {% if request.resolver_match.url_name == 'attrezzatura_scarpe' %}active{% endif %}" href="{% url 'attrezzatura_scarpe' %}"><i class="bi bi-shop"></i> Attrezzatura</a></li>
+                    
+                    <li class="nav-item"><a class="nav-link {% if request.resolver_match.url_name == 'statistiche_dispositivi' %}active{% endif %}" href="{% url 'statistiche_dispositivi' %}"><i class="bi bi-watch"></i> Dispositivi</a></li>
                     {% endif %}
-
-                    <!-- Menu Dispositivi (Visibile solo a Staff o chi ha permessi) -->
-{% if user.is_staff or perms.atleti.access_attrezzatura %}
-<li class="nav-item">
-    <a class="nav-link" href="{% url 'statistiche_dispositivi' %}">
-        <i class="bi bi-watch"></i>
-        <span class="ms-2">Dispositivi</span>
-    </a>
-</li>
-{% endif %}
 
                     {% if user.is_staff %}
                     <li class="nav-item">
