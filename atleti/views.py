@@ -6,7 +6,7 @@ from allauth.socialaccount.models import SocialToken ,SocialAccount
 from django.core.cache import cache
 from .models import Attivita, ProfiloAtleta, LogSistema, Scarpa
 import math
-from .utils import analizza_performance_atleta, calcola_metrica_vo2max, stima_vo2max_atleta, stima_potenza_watt, calcola_trend_atleta, formatta_passo, stima_potenziale_gara, analizza_squadra_coach, calcola_vam_selettiva, refresh_strava_token, processa_attivita_strava, fix_strava_duplicates, normalizza_scarpa, BRAND_LOGOS, analizza_gare_atleta, calcola_vo2max_effettivo, calcola_efficienza, normalizza_dispositivo
+from .utils import analizza_performance_atleta, calcola_metrica_vo2max, stima_vo2max_atleta, stima_potenza_watt, calcola_trend_atleta, formatta_passo, stima_potenziale_gara, analizza_squadra_coach, calcola_vam_selettiva, refresh_strava_token, processa_attivita_strava, fix_strava_duplicates, normalizza_scarpa, BRAND_LOGOS, analizza_gare_atleta, calcola_vo2max_effettivo, calcola_efficienza, normalizza_dispositivo, genera_commenti_podio_ai
 import time
 from django.db.models import Sum, Max, Q, OuterRef, Subquery, Avg
 from django.utils import timezone
@@ -973,9 +973,25 @@ def riepilogo_atleti(request):
 
     # Ordiniamo per punteggio e prendiamo i primi 3
     podio = sorted(active_atleti, key=lambda x: x.punteggio_podio, reverse=True)[:3]
+    
+    # --- AI GENERATION (Con Caching Intelligente) ---
+    if podio:
+        # La chiave cache dipende dagli username E dai punteggi. Se i dati cambiano, la cache salta.
+        podio_sig = "_".join([f"{p.user.username}-{p.punteggio_podio}" for p in podio])
+        cache_key = f"podio_ai_desc_v1_{hash(podio_sig)}"
+        
+        ai_comments = cache.get(cache_key)
+        if not ai_comments:
+            ai_comments = genera_commenti_podio_ai(podio)
+            if ai_comments:
+                cache.set(cache_key, ai_comments, 7200) # Cache valida 2 ore
+
     # Assegnazione metadati per il template (colori e icone)
     for i, p in enumerate(podio):
         p.podio_rank = i + 1
+        # Sovrascriviamo la motivazione algoritmica con quella AI se disponibile
+        if podio and ai_comments and p.user.username in ai_comments:
+            p.motivazione_podio = ai_comments[p.user.username]
 
     return render(request, 'atleti/riepilogo_atleti.html', {
         'atleti': atleti,

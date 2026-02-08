@@ -1,4 +1,5 @@
 from google import genai
+import json
 import re
 import requests
 import os
@@ -932,3 +933,44 @@ def analizza_gare_atleta(profilo):
         return response.text
     except Exception as e:
         return f"Errore analisi AI: {e}"
+
+def genera_commenti_podio_ai(podio_atleti):
+    """
+    Genera commenti motivazionali brevi per i 3 atleti a podio usando Gemini.
+    Restituisce un dizionario {username: commento}.
+    """
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        return {}
+
+    client = genai.Client(api_key=api_key)
+    
+    lines = []
+    for p in podio_atleti:
+        lines.append(f"User: {p.user.username} | Nome: {p.user.first_name} | {p.km_week} km | {p.dplus_week} m D+ | Score: {p.punteggio_podio}")
+
+    prompt = f"""
+    Sei un commentatore sportivo tecnico ma simpatico. Analizza le performance settimanali di questi 3 atleti sul podio:
+    
+    {chr(10).join(lines)}
+    
+    Per ognuno, scrivi UNA sola frase (max 20 parole) che spieghi il motivo del successo (es. "Volume mostruoso", "Dislivello da capra", "Intensità alta").
+    Usa un tono vario: epico per il primo, analitico per il secondo, incoraggiante per il terzo. Usa emoji.
+    
+    Rispondi ESCLUSIVAMENTE con un JSON valido formato così:
+    {{
+        "username_atleta_1": "Frase...",
+        "username_atleta_2": "Frase..."
+    }}
+    """
+
+    try:
+        response = client.models.generate_content(
+            model="gemini-2.5-flash", 
+            contents=prompt,
+            config={'response_mime_type': 'application/json'}
+        )
+        return json.loads(response.text)
+    except Exception as e:
+        print(f"Errore AI Podio: {e}")
+        return {}
