@@ -11,7 +11,7 @@ import time
 from django.db.models import Sum, Max, Q, OuterRef, Subquery, Avg, Count
 from django.db.models.functions import TruncDate
 from django.utils import timezone
-from datetime import timedelta
+from datetime import timedelta, timezone as dt_timezone
 import json
 from django.contrib.auth.models import User
 import csv
@@ -1916,7 +1916,7 @@ def download_allenamento_ics(request, pk):
     dt_end = dt_start + allenamento.tempo_stimato
     
     def format_ics_dt(dt):
-        return dt.astimezone(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+        return dt.astimezone(dt_timezone.utc).strftime('%Y%m%dT%H%M%SZ')
         
     ics_content = f"""BEGIN:VCALENDAR
 VERSION:2.0
