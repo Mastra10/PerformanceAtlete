@@ -927,12 +927,37 @@ def riepilogo_atleti(request):
     
     max_km = max([a.km_week for a in active_atleti]) if active_atleti else 1
     max_dplus = max([a.dplus_week for a in active_atleti]) if active_atleti else 1
+    
+    # --- CALCOLO PODIO VIRTUALE ---
+    for a in active_atleti:
+        # Punteggio: 1 punto per km + 1.5 punti per ogni 100m D+ (Premia la fatica in salita)
+        score = a.km_week + (a.dplus_week / 100 * 1.5)
+        a.punteggio_podio = round(score, 1)
+        
+        # Generazione Motivazione Dinamica
+        if a.dplus_week > 0 and (a.dplus_week / max(a.km_week, 1)) > 25:
+            a.motivazione_podio = f"Scalatore puro! 🐐 Ha accumulato {a.dplus_week}m D+ su soli {a.km_week}km."
+        elif a.km_week > 60:
+            a.motivazione_podio = f"Macinatore di km! 🏃‍♂️ Volume impressionante di {a.km_week}km."
+        elif a.dplus_week > 1000:
+             a.motivazione_podio = f"Dislivello Monster: {a.dplus_week}m D+ portati a casa."
+        elif score > 40:
+            a.motivazione_podio = f"Prestazione solida e bilanciata: {a.km_week}km con {a.dplus_week}m D+."
+        else:
+            a.motivazione_podio = f"Buon allenamento settimanale: {a.km_week}km e {a.dplus_week}m D+."
+
+    # Ordiniamo per punteggio e prendiamo i primi 3
+    podio = sorted(active_atleti, key=lambda x: x.punteggio_podio, reverse=True)[:3]
+    # Assegnazione metadati per il template (colori e icone)
+    for i, p in enumerate(podio):
+        p.podio_rank = i + 1
 
     return render(request, 'atleti/riepilogo_atleti.html', {
         'atleti': atleti,
         'active_atleti': active_atleti,
         'max_km': max_km,
-        'max_dplus': max_dplus
+        'max_dplus': max_dplus,
+        'podio': podio
     })
 
 def gare_atleta(request):

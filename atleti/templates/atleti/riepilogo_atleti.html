@@ -6,6 +6,45 @@
     <span class="badge bg-primary rounded-pill">{{ atleti.count }} Atleti Registrati</span>
 </div>
 
+<!-- Podio Virtuale -->
+{% if podio %}
+<div class="row justify-content-center mb-5">
+    <div class="col-12 text-center mb-4">
+        <h2 class="fw-bold text-uppercase" style="letter-spacing: 2px;">🏆 Podio della Settimana</h2>
+        <p class="text-muted">Gli atleti che si sono distinti per volume e dislivello (Punteggio Km-Sforzo)</p>
+    </div>
+    {% for p in podio %}
+    <div class="col-md-4 mb-3">
+        <div class="card h-100 border-0 shadow-sm" 
+             style="background: linear-gradient(to bottom right, #ffffff, {% if p.podio_rank == 1 %}#fff3cd{% elif p.podio_rank == 2 %}#e2e3e5{% else %}#f8d7da{% endif %}); 
+                    border-top: 5px solid {% if p.podio_rank == 1 %}#ffc107{% elif p.podio_rank == 2 %}#6c757d{% else %}#dc3545{% endif %} !important;">
+            <div class="card-body text-center position-relative">
+                <div class="display-1 position-absolute top-0 start-50 translate-middle-x opacity-25" style="font-size: 5rem; z-index: 0;">
+                    {% if p.podio_rank == 1 %}🥇{% elif p.podio_rank == 2 %}🥈{% else %}🥉{% endif %}
+                </div>
+                <div class="position-relative" style="z-index: 1;">
+                    {% if p.immagine_profilo %}
+                    <img src="{{ p.immagine_profilo }}" class="rounded-circle mb-3 border border-4 border-white shadow" style="width: 100px; height: 100px; object-fit: cover;">
+                    {% else %}
+                    <div class="rounded-circle bg-white d-flex align-items-center justify-content-center mx-auto mb-3 shadow border border-4 border-white" style="width: 100px; height: 100px;">
+                        <span class="display-6 fw-bold text-secondary">{{ p.user.first_name|slice:":1" }}</span>
+                    </div>
+                    {% endif %}
+                    
+                    <h4 class="fw-bold mb-1">{{ p.user.first_name }} {{ p.user.last_name }}</h4>
+                    <div class="badge {% if p.podio_rank == 1 %}bg-warning text-dark{% elif p.podio_rank == 2 %}bg-secondary{% else %}bg-danger{% endif %} mb-3 shadow-sm">{{ p.punteggio_podio }} Punti</div>
+                    
+                    <div class="alert alert-light border-0 shadow-sm fst-italic small mb-0">
+                        <i class="bi bi-quote text-muted me-1"></i>{{ p.motivazione_podio }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
 <!-- Grafici Settimanali -->
 <div class="row g-4 mb-4">
     <!-- Grafico KM (Barre Orizzontali con Avatar) -->
