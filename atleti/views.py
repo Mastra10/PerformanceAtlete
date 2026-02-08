@@ -1750,6 +1750,7 @@ def statistiche_log(request):
 @login_required
 def lista_allenamenti(request):
     """Lista allenamenti futuri visibili all'utente"""
+    timezone.activate(ZoneInfo("Europe/Rome")) # Assicura visualizzazione orari corretta
     now = timezone.now()
     # Logica visibilità: Pubblici OR (Privati AND Utente tra gli invitati) OR Creati dall'utente
     qs = Allenamento.objects.filter(
@@ -1764,8 +1765,8 @@ def lista_allenamenti(request):
 
 @login_required
 def crea_allenamento(request):
+    timezone.activate(ZoneInfo("Europe/Rome")) # Attiva fuso orario per GET (form) e POST (salvataggio)
     if request.method == 'POST':
-        timezone.activate(ZoneInfo("Europe/Rome")) # FIX Timezone: Interpreta l'input come orario italiano
         form = AllenamentoForm(request.POST, request.FILES)
         if form.is_valid():
             allenamento = form.save(commit=False)
@@ -1830,6 +1831,7 @@ def crea_allenamento(request):
 
 def dettaglio_allenamento(request, pk):
     allenamento = get_object_or_404(Allenamento, pk=pk)
+    timezone.activate(ZoneInfo("Europe/Rome")) # Assicura visualizzazione orari corretta
     
     # Gestione Commenti
     if request.user.is_authenticated and request.method == 'POST' and 'commento' in request.POST:
@@ -1893,9 +1895,10 @@ def modifica_allenamento(request, pk):
     if request.user != allenamento.creatore:
         messages.error(request, "Non sei autorizzato a modificare questo allenamento.")
         return redirect('dettaglio_allenamento', pk=pk)
+    
+    timezone.activate(ZoneInfo("Europe/Rome")) # Attiva fuso orario per GET e POST
 
     if request.method == 'POST':
-        timezone.activate(ZoneInfo("Europe/Rome")) # FIX Timezone
         form = AllenamentoForm(request.POST, request.FILES, instance=allenamento)
         if form.is_valid():
             obj = form.save(commit=False)
