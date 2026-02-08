@@ -512,6 +512,7 @@ def hide_home_notice(request):
 @login_required
 def sincronizza_strava(request):
     LogSistema.objects.create(livello='INFO', azione='Sync Manuale', utente=request.user, messaggio="Avvio sincronizzazione...")
+    only_shoes = request.GET.get('only_shoes') == 'true'
     cache_key = f"sync_progress_{request.user.id}"
     cache.set(cache_key, {'status': 'Connessione a Strava...', 'progress': 5}, timeout=300)
     
@@ -602,6 +603,11 @@ def sincronizza_strava(request):
         # Le scarpe che abbiamo nel DB ma non sono più nella lista di Strava sono considerate "Dismesse"
         Scarpa.objects.filter(atleta=profilo).exclude(strava_id__in=strava_shoe_ids).update(retired=True)
     profilo.save()
+
+    # Se richiesto solo aggiornamento scarpe, ci fermiamo qui (Sync Rapido)
+    if only_shoes:
+        messages.success(request, "Scarpe e Attrezzatura aggiornate con successo!")
+        return redirect('attrezzatura_scarpe')
 
     # --- CHECK BLOCCANTE: Se mancano Peso o FC Riposo, STOP ---
     if not profilo.peso or not profilo.fc_riposo:

@@ -212,6 +212,7 @@ def task_sync_strava():
                         }
                     )
                 Scarpa.objects.filter(atleta=profilo).exclude(strava_id__in=strava_shoe_ids).update(retired=True)
+                logger.info(f"Sync Scarpe per {user.username}: {len(shoes)} scarpe aggiornate.")
         except Exception as e:
             logger.error(f"Errore sync scarpe per {user.username}: {e}")
 
