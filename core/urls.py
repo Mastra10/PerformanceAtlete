@@ -56,6 +56,7 @@ urlpatterns = [
     path('attrezzatura/', views.attrezzatura_scarpe, name='attrezzatura_scarpe'),
     path('accesso-diretto/', auth_views.LoginView.as_view(template_name='atleti/login_standard.html'), name='login_standard'),
     path('dispositivi/', statistiche_dispositivi, name='statistiche_dispositivi'),
+    path('statistiche-log/', views.statistiche_log, name='statistiche_log'),
 ]
 
 

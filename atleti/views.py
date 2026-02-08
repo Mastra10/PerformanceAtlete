@@ -8,7 +8,8 @@ from .models import Attivita, ProfiloAtleta, LogSistema, Scarpa
 import math
 from .utils import analizza_performance_atleta, calcola_metrica_vo2max, stima_vo2max_atleta, stima_potenza_watt, calcola_trend_atleta, formatta_passo, stima_potenziale_gara, analizza_squadra_coach, calcola_vam_selettiva, refresh_strava_token, processa_attivita_strava, fix_strava_duplicates, normalizza_scarpa, BRAND_LOGOS, analizza_gare_atleta, calcola_vo2max_effettivo, calcola_efficienza, normalizza_dispositivo, genera_commenti_podio_ai
 import time
-from django.db.models import Sum, Max, Q, OuterRef, Subquery, Avg
+from django.db.models import Sum, Max, Q, OuterRef, Subquery, Avg, Count
+from django.db.models.functions import TruncDate
 from django.utils import timezone
 from datetime import timedelta
 import json
@@ -1660,4 +1661,61 @@ def statistiche_dispositivi(request):
         'brands': sorted_brands,
         'models': model_counts[:30], # Top 30 modelli
         'total_activities': total_activities
+    })
+
+@login_required
+def statistiche_log(request):
+    """
+    Pagina di statistiche sui log di sistema (Visite, Azioni Utente).
+    Visibile solo agli admin.
+    """
+    if not request.user.is_staff:
+        messages.error(request, "Accesso negato.")
+        return redirect('home')
+
+    LogSistema.objects.create(livello='INFO', azione='Page View', utente=request.user, messaggio="Visita Statistiche Log")
+
+    # 1. Filtro base: Escludiamo task tecnici/automatici
+    # Escludiamo 'Token Refresh', 'Import Attività' (generato da sync), 'Calcolo VAM'
+    logs_qs = LogSistema.objects.exclude(azione__in=['Token Refresh', 'Import Attività', 'Calcolo VAM', 'System', 'Token Refresh'])
+    
+    # 2. Pagine più visitate (Azione = 'Page View')
+    # Estraiamo il nome della pagina dal messaggio "Visita [NomePagina]"
+    page_logs = logs_qs.filter(azione='Page View').values('messaggio')
+    page_counts = {}
+    for log in page_logs:
+        page = log['messaggio'].replace('Visita ', '')
+        page_counts[page] = page_counts.get(page, 0) + 1
+    
+    # Sort and top 10
+    sorted_pages = sorted(page_counts.items(), key=lambda x: x[1], reverse=True)[:10]
+    page_stats = [{'page': k, 'count': v} for k, v in sorted_pages]
+
+    # 3. Utenti più attivi (Top 10)
+    user_stats_qs = logs_qs.exclude(utente__isnull=True).values('utente__username', 'utente__first_name', 'utente__last_name').annotate(count=Count('id')).order_by('-count')[:10]
+    
+    user_stats = []
+    for u in user_stats_qs:
+        display_name = f"{u['utente__first_name']} {u['utente__last_name']}" if u['utente__first_name'] else u['utente__username']
+        user_stats.append({'user': display_name, 'count': u['count']})
+
+    # 4. Distribuzione Azioni (Che cosa fanno gli utenti?)
+    # Escludiamo Page View per vedere le azioni "attive" (Sync, Analisi, ecc)
+    action_stats_qs = logs_qs.exclude(azione='Page View').values('azione').annotate(count=Count('id')).order_by('-count')
+    
+    action_stats = [{'azione': item['azione'], 'count': item['count']} for item in action_stats_qs]
+
+    # 5. Attività nel tempo (Ultimi 14 giorni)
+    last_14_days = timezone.now() - timedelta(days=14)
+    daily_stats_qs = logs_qs.filter(data__gte=last_14_days).annotate(day=TruncDate('data')).values('day').annotate(count=Count('id')).order_by('day')
+    
+    daily_labels = [item['day'].strftime('%d/%m') for item in daily_stats_qs]
+    daily_data = [item['count'] for item in daily_stats_qs]
+
+    return render(request, 'atleti/statistiche_log.html', {
+        'page_stats': page_stats,
+        'user_stats': user_stats,
+        'action_stats': action_stats,
+        'daily_labels': json.dumps(daily_labels),
+        'daily_data': json.dumps(daily_data),
     })

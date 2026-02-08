@@ -1,0 +1,182 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold m-0"><i class="bi bi-bar-chart-steps me-2"></i>Statistiche Utilizzo App</h2>
+        <span class="badge bg-dark">Admin Only</span>
+    </div>
+
+    <!-- Riga 1: Pagine e Utenti -->
+    <div class="row g-4 mb-4">
+        <!-- Pagine più visitate -->
+        <div class="col-lg-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white fw-bold">
+                    <i class="bi bi-file-earmark-text me-2"></i>Pagine più Visitate
+                </div>
+                <div class="card-body">
+                    <canvas id="chartPages"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Utenti più attivi -->
+        <div class="col-lg-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white fw-bold">
+                    <i class="bi bi-people me-2"></i>Utenti più Attivi (Top 10)
+                </div>
+                <div class="card-body">
+                    <canvas id="chartUsers"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Riga 2: Azioni e Trend -->
+    <div class="row g-4">
+        <!-- Distribuzione Azioni -->
+        <div class="col-lg-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white fw-bold">
+                    <i class="bi bi-hand-index-thumb me-2"></i>Azioni Eseguite
+                </div>
+                <div class="card-body">
+                    <canvas id="chartActions" style="max-height: 300px;"></canvas>
+                    <div class="mt-3 small text-muted text-center">
+                        *Esclusi task automatici e visite pagina
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Trend Temporale -->
+        <div class="col-lg-8">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white fw-bold">
+                    <i class="bi bi-graph-up me-2"></i>Traffico Ultimi 14 Giorni
+                </div>
+                <div class="card-body">
+                    <canvas id="chartTrend"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabella Dettaglio Pagine -->
+    <div class="card shadow-sm mt-4">
+        <div class="card-header bg-light fw-bold">
+            Dettaglio Pagine
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Pagina</th>
+                            <th class="text-end">Visualizzazioni</th>
+                            <th class="text-end">% Totale</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in page_stats %}
+                        <tr>
+                            <td>{{ p.page }}</td>
+                            <td class="text-end fw-bold">{{ p.count }}</td>
+                            <td class="text-end text-muted small">
+                                <div class="progress" style="height: 6px; width: 100px; display: inline-flex;">
+                                    <div class="progress-bar" role="progressbar" style="width: {% widthratio p.count page_stats.0.count 100 %}%"></div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Colori Barilla/Mastra
+    const colors = ['#003366', '#FC4C02', '#6e41e2', '#28a745', '#ffc107', '#17a2b8', '#dc3545', '#6610f2', '#fd7e14', '#20c997'];
+
+    // 1. Chart Pagine (Barre Orizzontali)
+    new Chart(document.getElementById('chartPages'), {
+        type: 'bar',
+        data: {
+            labels: [{% for p in page_stats %}"{{ p.page }}",{% endfor %}],
+            datasets: [{
+                label: 'Visite',
+                data: [{% for p in page_stats %}{{ p.count }},{% endfor %}],
+                backgroundColor: '#003366',
+                borderRadius: 4
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            plugins: { legend: { display: false } }
+        }
+    });
+
+    // 2. Chart Utenti (Barre Verticali)
+    new Chart(document.getElementById('chartUsers'), {
+        type: 'bar',
+        data: {
+            labels: [{% for u in user_stats %}"{{ u.user }}",{% endfor %}],
+            datasets: [{
+                label: 'Interazioni',
+                data: [{% for u in user_stats %}{{ u.count }},{% endfor %}],
+                backgroundColor: '#FC4C02',
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true } }
+        }
+    });
+
+    // 3. Chart Azioni (Doughnut)
+    new Chart(document.getElementById('chartActions'), {
+        type: 'doughnut',
+        data: {
+            labels: [{% for a in action_stats %}"{{ a.azione }}",{% endfor %}],
+            datasets: [{
+                data: [{% for a in action_stats %}{{ a.count }},{% endfor %}],
+                backgroundColor: colors,
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { position: 'right' } }
+        }
+    });
+
+    // 4. Chart Trend (Linea)
+    new Chart(document.getElementById('chartTrend'), {
+        type: 'line',
+        data: {
+            labels: {{ daily_labels|safe }},
+            datasets: [{
+                label: 'Attività Totale',
+                data: {{ daily_data|safe }},
+                borderColor: '#6e41e2',
+                backgroundColor: 'rgba(110, 65, 226, 0.1)',
+                tension: 0.3,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true } }
+        }
+    });
+</script>
+{% endblock %}
