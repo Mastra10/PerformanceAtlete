@@ -1,4 +1,13 @@
 {% extends 'base.html' %}
+{% load static %}
+
+{% block meta %}
+<meta property="og:title" content="{{ allenamento.titolo }} - Mastra Monitor">
+<meta property="og:description" content="Allenamento di Gruppo: {{ allenamento.distanza_km }}km, {{ allenamento.dislivello }}m D+. Unisciti a noi!">
+<meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{% static 'images/Mastra.png' %}">
+<meta property="og:url" content="{{ request.build_absolute_uri }}">
+<meta property="og:type" content="website">
+{% endblock %}
 
 {% block extra_css %}
 <!-- OpenLayers CSS -->
@@ -50,11 +59,15 @@
                     <hr>
                     
                     <!-- Azione Utente -->
-                    {% if not partecipazione_utente %}
-                        <form method="POST">
-                            {% csrf_token %}
-                            <button type="submit" name="join" class="btn btn-success w-100">Richiedi di Partecipare</button>
-                        </form>
+                    {% if not request.user.is_authenticated %}
+                        <div class="alert alert-info text-center">
+                            <a href="{% url 'account_login' %}?next={{ request.path }}" class="btn btn-primary">Accedi per Partecipare</a>
+                        </div>
+                    {% elif not partecipazione_utente %}
+                    <form method="POST">
+                        {% csrf_token %}
+                        <button type="submit" name="join" class="btn btn-success w-100">Richiedi di Partecipare</button>
+                    </form>
                     {% else %}
                         <div class="alert {% if partecipazione_utente.stato == 'Approvata' %}alert-success{% elif partecipazione_utente.stato == 'Rifiutata' %}alert-danger{% else %}alert-warning{% endif %}">
                             Stato richiesta: <strong>{{ partecipazione_utente.stato }}</strong>
@@ -80,11 +93,13 @@
                     </div>
                     {% endfor %}
                     
+                    {% if request.user.is_authenticated %}
                     <form method="POST" class="mt-3">
                         {% csrf_token %}
                         {{ commento_form.testo }}
                         <button type="submit" name="commento" class="btn btn-sm btn-dark mt-2">Invia</button>
                     </form>
+                    {% endif %}
                 </div>
             </div>
         </div>

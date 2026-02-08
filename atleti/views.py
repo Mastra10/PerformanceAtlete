@@ -1755,7 +1755,9 @@ def lista_allenamenti(request):
         Q(visibilita='Pubblico') | 
         Q(invitati=request.user) | 
         Q(creatore=request.user)
-    ).filter(data_orario__gte=now).distinct().order_by('data_orario').prefetch_related('partecipanti__atleta__profiloatleta')
+    ).filter(data_orario__gte=now).distinct().annotate(
+        num_confermati=Count('partecipanti', filter=Q(partecipanti__stato='Approvata'))
+    ).order_by('data_orario').prefetch_related('partecipanti__atleta__profiloatleta')
     
     return render(request, 'atleti/allenamenti_list.html', {'allenamenti': qs})
 
@@ -1824,12 +1826,15 @@ def crea_allenamento(request):
         form = AllenamentoForm()
     return render(request, 'atleti/allenamento_form.html', {'form': form})
 
-@login_required
 def dettaglio_allenamento(request, pk):
     allenamento = get_object_or_404(Allenamento, pk=pk)
     
+    # Controllo Visibilità: Se non pubblico e utente anonimo -> Login
+    if not request.user.is_authenticated and allenamento.visibilita != 'Pubblico':
+        return redirect(f"/accounts/login/?next={request.path}")
+
     # Gestione Commenti
-    if request.method == 'POST' and 'commento' in request.POST:
+    if request.user.is_authenticated and request.method == 'POST' and 'commento' in request.POST:
         c_form = CommentoForm(request.POST)
         if c_form.is_valid():
             comm = c_form.save(commit=False)
@@ -1839,7 +1844,7 @@ def dettaglio_allenamento(request, pk):
             return redirect('dettaglio_allenamento', pk=pk)
     
     # Gestione Adesione
-    if request.method == 'POST' and 'join' in request.POST:
+    if request.user.is_authenticated and request.method == 'POST' and 'join' in request.POST:
         part, created = Partecipazione.objects.get_or_create(allenamento=allenamento, atleta=request.user)
         if created:
             part.check_risk() # Calcola rischio
@@ -1847,7 +1852,10 @@ def dettaglio_allenamento(request, pk):
             messages.success(request, "Richiesta inviata!")
         return redirect('dettaglio_allenamento', pk=pk)
 
-    partecipazione_utente = Partecipazione.objects.filter(allenamento=allenamento, atleta=request.user).first()
+    partecipazione_utente = None
+    if request.user.is_authenticated:
+        partecipazione_utente = Partecipazione.objects.filter(allenamento=allenamento, atleta=request.user).first()
+        
     partecipanti = Partecipazione.objects.filter(allenamento=allenamento).select_related('atleta', 'atleta__profiloatleta')
     commenti = allenamento.commenti.all().order_by('data')
     
@@ -1856,7 +1864,7 @@ def dettaglio_allenamento(request, pk):
         'partecipazione_utente': partecipazione_utente,
         'partecipanti': partecipanti,
         'commenti': commenti,
-        'commento_form': CommentoForm()
+        'commento_form': CommentoForm() if request.user.is_authenticated else None
     })
 
 @login_required
