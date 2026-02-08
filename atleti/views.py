@@ -6,7 +6,7 @@ from allauth.socialaccount.models import SocialToken ,SocialAccount
 from django.core.cache import cache
 from .models import Attivita, ProfiloAtleta, LogSistema, Scarpa
 import math
-from .utils import analizza_performance_atleta, calcola_metrica_vo2max, stima_vo2max_atleta, stima_potenza_watt, calcola_trend_atleta, formatta_passo, stima_potenziale_gara, analizza_squadra_coach, calcola_vam_selettiva, refresh_strava_token, processa_attivita_strava, fix_strava_duplicates, normalizza_scarpa, BRAND_LOGOS, analizza_gare_atleta, calcola_vo2max_effettivo, calcola_efficienza, normalizza_dispositivo, genera_commenti_podio_ai
+from .utils import analizza_performance_atleta, calcola_metrica_vo2max, stima_vo2max_atleta, stima_potenza_watt, calcola_trend_atleta, formatta_passo, stima_potenziale_gara, analizza_squadra_coach, calcola_vam_selettiva, refresh_strava_token, processa_attivita_strava, fix_strava_duplicates, normalizza_scarpa, BRAND_LOGOS, analizza_gare_atleta, calcola_vo2max_effettivo, calcola_efficienza, normalizza_dispositivo, genera_commenti_podio_ai, get_atleti_con_statistiche_settimanali
 import time
 from django.db.models import Sum, Max, Q, OuterRef, Subquery, Avg, Count
 from django.db.models.functions import TruncDate
@@ -910,104 +910,31 @@ def riepilogo_atleti(request):
     
     LogSistema.objects.create(livello='INFO', azione='Page View', utente=request.user, messaggio="Visita Riepilogo Atleti")
     
-    # Calcolo inizio settimana (Lunedì)
-    today = timezone.now()
-    start_week = today - timedelta(days=today.weekday())
-    start_week = start_week.replace(hour=0, minute=0, second=0, microsecond=0)
-
-    # Aggiungiamo l'annotazione per l'ultima attività e i totali settimanali
-    atleti_qs = ProfiloAtleta.objects.select_related('user').exclude(user__username='mastra').annotate(
-        ultima_corsa=Max('sessioni__data'),
-        km_week_raw=Sum('sessioni__distanza', filter=Q(sessioni__data__gte=start_week)),
-        dplus_week_raw=Sum('sessioni__dislivello', filter=Q(sessioni__data__gte=start_week)),
-        fc_avg_week=Avg('sessioni__fc_media', filter=Q(sessioni__data__gte=start_week))
-    ).order_by('-vo2max_stima_statistica')
+    # 1. Recupero Dati e Podio (Logica spostata in utils)
+    atleti, active_atleti, podio = get_atleti_con_statistiche_settimanali()
     
-    atleti = []
-    for a in atleti_qs:
-        # Calcolo valori puliti
-        a.km_week = round((a.km_week_raw or 0) / 1000, 1)
-        a.dplus_week = int(a.dplus_week_raw or 0)
-        
-        # Offuscamento dati sensibili per chi non vuole condividerli (tranne per Staff)
-        if not request.user.is_staff:
+    # 2. Offuscamento dati sensibili
+    if not request.user.is_staff:
+        for a in atleti:
             if not a.condividi_metriche:
-                # Sovrascriviamo i valori sull'oggetto in memoria (non nel DB)
                 a.vo2max_stima_statistica = None 
                 a.vo2max_strada = None
                 a.indice_itra = 0
                 a.indice_utmb = 0
-        atleti.append(a)
-    
-    # Dati per i grafici (solo chi ha fatto attività questa settimana)
-    active_atleti = [a for a in atleti if a.km_week > 0 or a.dplus_week > 0]
-    
+
     max_km = max([a.km_week for a in active_atleti]) if active_atleti else 1
     max_dplus = max([a.dplus_week for a in active_atleti]) if active_atleti else 1
     
-    # --- CALCOLO PODIO VIRTUALE ---
-    for a in active_atleti:
-        # 1. Calcolo Km Sforzo (Volume + Dislivello)
-        # 100m D+ equivalgono a circa 1km piano in termini di costo energetico
-        km_sforzo = a.km_week + (a.dplus_week / 100)
-        
-        # 2. Fattore Intensità (Basato su FC Riserva)
-        intensity_multiplier = 1.0
-        intensity_label = "Fondo"
-        
-        if a.fc_avg_week and a.fc_massima_teorica and a.fc_riposo:
-            hrr = a.fc_massima_teorica - a.fc_riposo
-            if hrr > 0:
-                # % Riserva Cardiaca media settimanale
-                intensity_pct = (a.fc_avg_week - a.fc_riposo) / hrr
-                
-                if intensity_pct >= 0.85:
-                    intensity_multiplier = 1.5
-                    intensity_label = "Alta Intensità (Z4/Z5)"
-                elif intensity_pct >= 0.75:
-                    intensity_multiplier = 1.3
-                    intensity_label = "Medio/Soglia (Z3/Z4)"
-                elif intensity_pct >= 0.60:
-                    intensity_multiplier = 1.1
-                    intensity_label = "Fondo Aerobico (Z2)"
-                else:
-                    intensity_multiplier = 0.95
-                    intensity_label = "Recupero (Z1)"
-        
-        # Punteggio Finale
-        a.punteggio_podio = round(km_sforzo * intensity_multiplier, 1)
-        
-        # Generazione Motivazione Dinamica
-        if intensity_multiplier >= 1.3:
-            a.motivazione_podio = f"Qualità & Quantità! 🚀 {a.km_week}km a {intensity_label}."
-        elif a.dplus_week > 1000:
-             a.motivazione_podio = f"Scalatore puro! 🐐 {a.dplus_week}m D+ portati a casa."
-        elif a.km_week > 50:
-            a.motivazione_podio = f"Macinatore di km! 🏃‍♂️ {a.km_week}km di volume solido."
-        else:
-            a.motivazione_podio = f"Settimana bilanciata: {a.km_week}km con {a.dplus_week}m D+."
-
-    # Ordiniamo per punteggio e prendiamo i primi 3
-    podio = sorted(active_atleti, key=lambda x: x.punteggio_podio, reverse=True)[:3]
-    
-    # --- AI GENERATION (Con Caching Intelligente) ---
+    # 3. Recupero Commenti AI (SOLO DA CACHE, generati dal task background)
     if podio:
-        # La chiave cache dipende dagli username E dai punteggi. Se i dati cambiano, la cache salta.
-        podio_sig = "_".join([f"{p.user.username}-{p.punteggio_podio}" for p in podio])
-        cache_key = f"podio_ai_desc_v1_{hash(podio_sig)}"
-        
-        ai_comments = cache.get(cache_key)
-        if not ai_comments:
-            ai_comments = genera_commenti_podio_ai(podio)
-            if ai_comments:
-                cache.set(cache_key, ai_comments, 7200) # Cache valida 2 ore
+        ai_comments = cache.get("podio_ai_comments_latest")
 
-    # Assegnazione metadati per il template (colori e icone)
-    for i, p in enumerate(podio):
-        p.podio_rank = i + 1
-        # Sovrascriviamo la motivazione algoritmica con quella AI se disponibile
-        if podio and ai_comments and p.user.username in ai_comments:
-            p.motivazione_podio = ai_comments[p.user.username]
+        # Assegnazione metadati per il template (colori e icone)
+        for i, p in enumerate(podio):
+            p.podio_rank = i + 1
+            # Sovrascriviamo la motivazione algoritmica con quella AI se disponibile in cache
+            if ai_comments and p.user.username in ai_comments:
+                p.motivazione_podio = ai_comments[p.user.username]
 
     return render(request, 'atleti/riepilogo_atleti.html', {
         'atleti': atleti,

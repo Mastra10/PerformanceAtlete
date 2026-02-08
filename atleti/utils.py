@@ -6,7 +6,7 @@ import os
 from .models import Attivita, ProfiloAtleta, LogSistema
 from django.utils import timezone
 from datetime import timedelta
-from django.db.models import Sum, Max
+from django.db.models import Sum, Max, Q, Avg
 from allauth.socialaccount.models import SocialApp
 
 
@@ -974,3 +974,72 @@ def genera_commenti_podio_ai(podio_atleti):
     except Exception as e:
         print(f"Errore AI Podio: {e}")
         return {}
+
+def get_atleti_con_statistiche_settimanali():
+    """
+    Calcola le statistiche settimanali e il podio per tutti gli atleti.
+    Restituisce: (atleti_list, active_atleti_list, podio_list)
+    """
+    from .models import ProfiloAtleta # Import locale per evitare cicli
+    
+    today = timezone.now()
+    start_week = today - timedelta(days=today.weekday())
+    start_week = start_week.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    atleti_qs = ProfiloAtleta.objects.select_related('user').exclude(user__username='mastra').annotate(
+        ultima_corsa=Max('sessioni__data'),
+        km_week_raw=Sum('sessioni__distanza', filter=Q(sessioni__data__gte=start_week)),
+        dplus_week_raw=Sum('sessioni__dislivello', filter=Q(sessioni__data__gte=start_week)),
+        fc_avg_week=Avg('sessioni__fc_media', filter=Q(sessioni__data__gte=start_week))
+    ).order_by('-vo2max_stima_statistica')
+    
+    atleti = []
+    active_atleti = []
+    
+    for a in atleti_qs:
+        a.km_week = round((a.km_week_raw or 0) / 1000, 1)
+        a.dplus_week = int(a.dplus_week_raw or 0)
+        atleti.append(a)
+        
+        if a.km_week > 0 or a.dplus_week > 0:
+            # Calcolo Punteggio Podio
+            km_sforzo = a.km_week + (a.dplus_week / 100)
+            
+            intensity_multiplier = 1.0
+            intensity_label = "Fondo"
+            
+            if a.fc_avg_week and a.fc_massima_teorica and a.fc_riposo:
+                hrr = a.fc_massima_teorica - a.fc_riposo
+                if hrr > 0:
+                    intensity_pct = (a.fc_avg_week - a.fc_riposo) / hrr
+                    
+                    if intensity_pct >= 0.85:
+                        intensity_multiplier = 1.5
+                        intensity_label = "Alta Intensità (Z4/Z5)"
+                    elif intensity_pct >= 0.75:
+                        intensity_multiplier = 1.3
+                        intensity_label = "Medio/Soglia (Z3/Z4)"
+                    elif intensity_pct >= 0.60:
+                        intensity_multiplier = 1.1
+                        intensity_label = "Fondo Aerobico (Z2)"
+                    else:
+                        intensity_multiplier = 0.95
+                        intensity_label = "Recupero (Z1)"
+            
+            a.punteggio_podio = round(km_sforzo * intensity_multiplier, 1)
+            
+            # Motivazione Algoritmica (Fallback)
+            if intensity_multiplier >= 1.3:
+                a.motivazione_podio = f"Qualità & Quantità! 🚀 {a.km_week}km a {intensity_label}."
+            elif a.dplus_week > 1000:
+                 a.motivazione_podio = f"Scalatore puro! 🐐 {a.dplus_week}m D+ portati a casa."
+            elif a.km_week > 50:
+                a.motivazione_podio = f"Macinatore di km! 🏃‍♂️ {a.km_week}km di volume solido."
+            else:
+                a.motivazione_podio = f"Settimana bilanciata: {a.km_week}km con {a.dplus_week}m D+."
+                
+            active_atleti.append(a)
+
+    podio = sorted(active_atleti, key=lambda x: x.punteggio_podio, reverse=True)[:3]
+    
+    return atleti, active_atleti, podio

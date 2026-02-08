@@ -10,7 +10,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from django.utils import timezone
 from .models import ProfiloAtleta, Attivita, Scarpa
 from allauth.socialaccount.models import SocialToken
-from .utils import refresh_strava_token, processa_attivita_strava, stima_vo2max_atleta, normalizza_scarpa
+from .utils import refresh_strava_token, processa_attivita_strava, stima_vo2max_atleta, normalizza_scarpa, get_atleti_con_statistiche_settimanali, genera_commenti_podio_ai
 import requests
 
 # Configura il logger per tracciare l'esecuzione
@@ -69,6 +69,32 @@ def task_repair_strava():
     call_command('repair_strava')
     logger.info("SCHEDULER: Riparazione completata.")
 
+def task_aggiorna_podio_ai():
+    """
+    Task pianificato per generare e cachare i commenti AI del podio.
+    """
+    logger.info("SCHEDULER: Avvio generazione commenti AI Podio...")
+    from django.core.cache import cache
+    
+    try:
+        # 1. Calcola Podio
+        _, _, podio = get_atleti_con_statistiche_settimanali()
+        
+        if podio:
+            # 2. Genera Commenti AI
+            ai_comments = genera_commenti_podio_ai(podio)
+            
+            if ai_comments:
+                # 3. Salva in Cache (Durata: 24h per coprire eventuali buchi del task)
+                cache.set("podio_ai_comments_latest", ai_comments, 86400)
+                logger.info(f"SCHEDULER: Commenti Podio aggiornati per {len(ai_comments)} atleti.")
+            else:
+                logger.warning("SCHEDULER: AI non ha restituito commenti.")
+        else:
+            logger.info("SCHEDULER: Nessun atleta attivo per il podio.")
+    except Exception as e:
+        logger.error(f"SCHEDULER: Errore task podio AI: {e}")
+
 def task_heartbeat():
     """Task di sistema per tenere sveglio lo scheduler (polling DB)"""
     # Chiudiamo le connessioni vecchie per evitare che il task si blocchi su connessioni stale
@@ -87,6 +113,7 @@ def task_heartbeat():
         'pulizia_log_settimanale': ('cmd', 'clean_scheduler_logs'),
         'sync_strava_periodico': ('func', 'task_sync_strava'), # Aggiunto supporto Strava
         'repair_strava_settimanale': ('func', 'task_repair_strava'),
+        'aggiorna_podio_ai_4h': ('func', 'task_aggiorna_podio_ai'),
     }
 
     # Cerca task con trigger manuale attivo
