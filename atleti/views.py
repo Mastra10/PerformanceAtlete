@@ -1706,11 +1706,27 @@ def statistiche_log(request):
     action_stats = [{'azione': item['azione'], 'count': item['count']} for item in action_stats_qs]
 
     # 5. Attività nel tempo (Ultimi 14 giorni)
-    last_14_days = timezone.now() - timedelta(days=14)
-    daily_stats_qs = logs_qs.filter(data__gte=last_14_days).annotate(day=TruncDate('data')).values('day').annotate(count=Count('id')).order_by('day')
+    start_date = timezone.now().date() - timedelta(days=14)
     
-    daily_labels = [item['day'].strftime('%d/%m') for item in daily_stats_qs]
-    daily_data = [item['count'] for item in daily_stats_qs]
+    # Totale attività (Log totali)
+    daily_stats_qs = logs_qs.filter(data__date__gte=start_date).annotate(day=TruncDate('data')).values('day').annotate(count=Count('id')).order_by('day')
+    
+    # Accessi univoci (Utenti distinti per giorno)
+    daily_unique_qs = logs_qs.exclude(utente__isnull=True).filter(data__date__gte=start_date).annotate(day=TruncDate('data')).values('day').annotate(unique_count=Count('utente', distinct=True)).order_by('day')
+    
+    # Allineamento date (per coprire giorni vuoti e sincronizzare i due dataset)
+    stats_dict = {item['day']: item['count'] for item in daily_stats_qs}
+    unique_dict = {item['day']: item['unique_count'] for item in daily_unique_qs}
+    
+    daily_labels = []
+    daily_data = []
+    daily_unique_data = []
+    
+    for i in range(15):
+        d = start_date + timedelta(days=i)
+        daily_labels.append(d.strftime('%d/%m'))
+        daily_data.append(stats_dict.get(d, 0))
+        daily_unique_data.append(unique_dict.get(d, 0))
 
     return render(request, 'atleti/statistiche_log.html', {
         'page_stats': page_stats,
@@ -1718,4 +1734,5 @@ def statistiche_log(request):
         'action_stats': action_stats,
         'daily_labels': json.dumps(daily_labels),
         'daily_data': json.dumps(daily_data),
+        'daily_unique_data': json.dumps(daily_unique_data),
     })

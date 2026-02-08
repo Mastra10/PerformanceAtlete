@@ -163,18 +163,28 @@
         type: 'line',
         data: {
             labels: {{ daily_labels|safe }},
-            datasets: [{
-                label: 'Attività Totale',
-                data: {{ daily_data|safe }},
-                borderColor: '#6e41e2',
-                backgroundColor: 'rgba(110, 65, 226, 0.1)',
-                tension: 0.3,
-                fill: true
-            }]
+            datasets: [
+                {
+                    label: 'Attività Totale',
+                    data: {{ daily_data|safe }},
+                    borderColor: '#6e41e2',
+                    backgroundColor: 'rgba(110, 65, 226, 0.1)',
+                    tension: 0.3,
+                    fill: true
+                },
+                {
+                    label: 'Utenti Unici',
+                    data: {{ daily_unique_data|safe }},
+                    borderColor: '#20c997',
+                    backgroundColor: 'rgba(32, 201, 151, 0.1)',
+                    tension: 0.3,
+                    fill: true
+                }
+            ]
         },
         options: {
             responsive: true,
-            plugins: { legend: { display: false } },
+            plugins: { legend: { display: true } },
             scales: { y: { beginAtZero: true } }
         }
     });
