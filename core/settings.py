@@ -94,6 +94,9 @@ DATABASES = {
         'PASSWORD': os.environ.get('DB_PASSWORD', 'cr00586'),
         'HOST': os.environ.get('DB_HOST', 'db'),
         'PORT': os.environ.get('DB_PORT', '5432'),
+        'OPTIONS': {
+            'options': '-c timezone=Europe/Rome', # <--- AGGIUNGI QUESTA
+        },
     }
 }
 
@@ -120,13 +123,21 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'it-it'
 
 TIME_ZONE = 'Europe/Rome'
 
 USE_I18N = True
+USE_L10N = False
+USE_TZ = False
 
-USE_TZ = True
+# Specifica i formati esatti per evitare ambiguità
+DATETIME_FORMAT = 'd/m/Y H:i'
+DATETIME_INPUT_FORMATS = [
+    '%Y-%m-%d %H:%M:%S',
+    '%Y-%m-%d %H:%M',
+    '%d/%m/%Y %H:%M',
+]
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/

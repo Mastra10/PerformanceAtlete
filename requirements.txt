@@ -9,3 +9,4 @@ django-apscheduler       # Per schedulare i task
 undetected-chromedriver  # Per lo scraping anti-bot
 setuptools
 gpxpy
+tzdata                   # Database fusi orari IANA (Fix Europe/Rome)

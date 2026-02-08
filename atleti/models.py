@@ -2,6 +2,8 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.utils import timezone
+from zoneinfo import ZoneInfo
 
 class ProfiloAtleta(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
@@ -238,6 +240,11 @@ class Allenamento(models.Model):
 
     def __str__(self):
         return f"{self.titolo} ({self.data_orario.date()})"
+
+    def save(self, *args, **kwargs):
+        if self.data_orario and timezone.is_naive(self.data_orario):
+            self.data_orario = timezone.make_aware(self.data_orario, ZoneInfo("Europe/Rome"))
+        super().save(*args, **kwargs)
 
 class Partecipazione(models.Model):
     STATO_CHOICES = [

@@ -28,6 +28,7 @@ import os
 from django.core.exceptions import MultipleObjectsReturned
 from django.utils.safestring import mark_safe
 from django.urls import reverse
+from django.utils.dateparse import parse_datetime
 from zoneinfo import ZoneInfo
 
 def _get_dashboard_context(user):
@@ -1772,6 +1773,17 @@ def crea_allenamento(request):
             allenamento = form.save(commit=False)
             allenamento.creatore = request.user
             
+            # FIX TIMEZONE: Intercettiamo il dato grezzo e forziamo Europe/Rome
+            # Questo impedisce a Django di usare UTC di default se l'ambiente è configurato male
+            raw_data = request.POST.get('data_orario')
+            if raw_data:
+                try:
+                    dt_naive = parse_datetime(raw_data)
+                    if dt_naive and timezone.is_naive(dt_naive):
+                        allenamento.data_orario = timezone.make_aware(dt_naive, ZoneInfo("Europe/Rome"))
+                except Exception:
+                    pass # Se fallisce, usiamo quello che ha capito il form
+            
             # --- AUTO-FILL DA GPX ---
             if allenamento.file_gpx:
                 try:
@@ -1897,11 +1909,22 @@ def modifica_allenamento(request, pk):
         return redirect('dettaglio_allenamento', pk=pk)
     
     timezone.activate(ZoneInfo("Europe/Rome")) # Attiva fuso orario per GET e POST
-
+    
     if request.method == 'POST':
         form = AllenamentoForm(request.POST, request.FILES, instance=allenamento)
         if form.is_valid():
             obj = form.save(commit=False)
+            
+            # FIX TIMEZONE ANCHE IN MODIFICA
+            raw_data = request.POST.get('data_orario')
+            if raw_data:
+                try:
+                    dt_naive = parse_datetime(raw_data)
+                    if dt_naive and timezone.is_naive(dt_naive):
+                        obj.data_orario = timezone.make_aware(dt_naive, ZoneInfo("Europe/Rome"))
+                except Exception:
+                    pass
+            
             # Se c'è un nuovo file GPX, ricalcoliamo i dati
             if 'file_gpx' in request.FILES:
                 try:

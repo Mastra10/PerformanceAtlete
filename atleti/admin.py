@@ -1,7 +1,10 @@
 from django.contrib import admin
-from .models import ProfiloAtleta, Attivita, TaskSettings, LogSistema, Scarpa
+from .models import ProfiloAtleta, Attivita, TaskSettings, LogSistema, Scarpa, Allenamento, Partecipazione, CommentoAllenamento
+from .forms import AllenamentoForm
 from allauth.socialaccount.models import SocialAccount, SocialToken
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
+from zoneinfo import ZoneInfo
 
 @admin.register(ProfiloAtleta)
 class ProfiloAtletaAdmin(admin.ModelAdmin):
@@ -88,3 +91,41 @@ class ScarpaAdmin(admin.ModelAdmin):
     list_display = ('nome', 'atleta', 'brand', 'modello_normalizzato', 'distanza', 'primary', 'retired')
     list_filter = ('brand', 'primary', 'retired')
     search_fields = ('nome', 'atleta__user__username')
+
+@admin.register(Allenamento)
+class AllenamentoAdmin(admin.ModelAdmin):
+    form = AllenamentoForm  # Usa il form personalizzato con widget datetime-local
+    list_display = ('titolo', 'data_orario', 'creatore', 'tipo', 'distanza_km', 'dislivello', 'visibilita')
+    list_filter = ('tipo', 'visibilita', 'data_orario')
+    search_fields = ('titolo', 'creatore__username', 'descrizione')
+    date_hierarchy = 'data_orario'
+    filter_horizontal = ('invitati',)
+
+    def save_model(self, request, obj, form, change):
+        # FIX TIMEZONE: Intercettiamo il dato grezzo e forziamo Europe/Rome anche nell'Admin
+        # Questo impedisce a Django di usare UTC di default se l'ambiente è configurato male
+        raw_data = request.POST.get('data_orario')
+        if raw_data:
+            try:
+                dt_naive = parse_datetime(raw_data)
+                if dt_naive and timezone.is_naive(dt_naive):
+                    obj.data_orario = timezone.make_aware(dt_naive, ZoneInfo("Europe/Rome"))
+            except Exception as e:
+                print(f"Errore fix timezone admin: {e}")
+        
+        super().save_model(request, obj, form, change)
+
+@admin.register(Partecipazione)
+class PartecipazioneAdmin(admin.ModelAdmin):
+    list_display = ('allenamento', 'atleta', 'stato', 'is_at_risk', 'data_richiesta')
+    list_filter = ('stato', 'is_at_risk', 'data_richiesta')
+    search_fields = ('allenamento__titolo', 'atleta__username')
+
+@admin.register(CommentoAllenamento)
+class CommentoAllenamentoAdmin(admin.ModelAdmin):
+    list_display = ('allenamento', 'autore', 'data', 'testo_short')
+    search_fields = ('allenamento__titolo', 'autore__username', 'testo')
+    
+    def testo_short(self, obj):
+        return obj.testo[:50]
+    testo_short.short_description = 'Testo'
