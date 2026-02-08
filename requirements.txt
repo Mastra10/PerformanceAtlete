@@ -8,3 +8,4 @@ google-generativeai
 django-apscheduler       # Per schedulare i task
 undetected-chromedriver  # Per lo scraping anti-bot
 setuptools
+gpxpy

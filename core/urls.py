@@ -57,8 +57,19 @@ urlpatterns = [
     path('accesso-diretto/', auth_views.LoginView.as_view(template_name='atleti/login_standard.html'), name='login_standard'),
     path('dispositivi/', statistiche_dispositivi, name='statistiche_dispositivi'),
     path('statistiche-log/', views.statistiche_log, name='statistiche_log'),
+    
+    # --- ALLENAMENTI ---
+    path('allenamenti/', views.lista_allenamenti, name='lista_allenamenti'),
+    path('allenamenti/nuovo/', views.crea_allenamento, name='crea_allenamento'),
+    path('allenamenti/<int:pk>/', views.dettaglio_allenamento, name='dettaglio_allenamento'),
+    path('allenamenti/partecipazione/<int:pk>/<str:action>/', views.gestisci_partecipazione, name='gestisci_partecipazione'),
+    path('allenamenti/modifica/<int:pk>/', views.modifica_allenamento, name='modifica_allenamento'),
+    path('allenamenti/elimina/<int:pk>/', views.elimina_allenamento, name='elimina_allenamento'),
+    path('notifica-letta/<int:pk>/', views.segna_notifica_letta, name='segna_notifica_letta'),
 ]
 
 
 if settings.DEBUG:
     urlpatterns += staticfiles_urlpatterns()
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    

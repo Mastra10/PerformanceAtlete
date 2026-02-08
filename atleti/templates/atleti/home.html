@@ -109,6 +109,19 @@
     </div>
     {% endif %}
     
+    <!-- Notifiche Allenamenti -->
+    {% if notifiche_utente %}
+    <div id="notifications-container" class="mb-4">
+        {% for n in notifiche_utente %}
+        <div class="alert alert-info alert-dismissible fade show shadow-sm border-info" role="alert" id="notifica-{{ n.id }}">
+            <i class="bi bi-calendar-check-fill me-2"></i>
+            {% if n.link %}<a href="{{ n.link }}" class="alert-link text-decoration-none">{{ n.messaggio }}</a>{% else %}{{ n.messaggio }}{% endif %}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" onclick="segnaLetta({{ n.id }})"></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    
     <h2 class="fw-bold mb-4">Dashboard Personale</h2>
     <div class="row g-4">
         <div class="col-lg-4">
@@ -966,6 +979,11 @@
             pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
         };
         html2pdf().set(opt).from(element).save();
+    }
+
+    // Funzione per segnare notifica come letta
+    function segnaLetta(id) {
+        fetch(`/notifica-letta/${id}/`, {method: 'POST', headers: {'X-CSRFToken': '{{ csrf_token }}'}});
     }
 </script>
 {% endblock %}

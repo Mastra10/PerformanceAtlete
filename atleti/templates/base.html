@@ -99,6 +99,8 @@
                     <li class="nav-item"><a class="nav-link {% if request.resolver_match.url_name == 'gare_atleta' %}active{% endif %}" href="{% url 'gare_atleta' %}"><i class="bi bi-trophy"></i> Gare</a></li>
                     {% endif %}
                     
+                    <li class="nav-item"><a class="nav-link {% if 'allenamenti' in request.path %}active{% endif %}" href="{% url 'lista_allenamenti' %}"><i class="bi bi-calendar-event"></i> Allenamenti</a></li>
+                    
                     {% if user.is_staff or perms.atleti.access_confronto %}
                     <li class="nav-item">
     <a class="nav-link" href="{% url 'confronto_attivita' %}">

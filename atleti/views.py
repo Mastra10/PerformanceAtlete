@@ -17,6 +17,8 @@ from django.contrib.auth.models import User
 import csv
 from django_apscheduler.models import DjangoJobExecution, DjangoJob
 from .models import TaskSettings
+from .models import Allenamento, Partecipazione, CommentoAllenamento, Notifica
+from .forms import AllenamentoForm, CommentoForm
 from django.core.management import call_command
 from django.contrib import messages
 from datetime import timedelta
@@ -25,6 +27,7 @@ from django.contrib.auth import login
 import os
 from django.core.exceptions import MultipleObjectsReturned
 from django.utils.safestring import mark_safe
+from django.urls import reverse
 
 def _get_dashboard_context(user):
     """Helper per generare il contesto della dashboard per un dato utente"""
@@ -252,6 +255,9 @@ def _get_dashboard_context(user):
     if trends.get('fc_media', 0) > 5:
         allarmi.append({'tipo': 'warning', 'titolo': 'Deriva Cardiaca', 'msg': f"La tua FC media è salita del {trends['fc_media']}% recentemente a parità di passo. Possibile accumulo di fatica o stress."})
 
+    # Recupero Notifiche non lette
+    notifiche = Notifica.objects.filter(utente=user, letta=False).order_by('-data_creazione')
+
     return {
         'totale_km': totale_km,
         'dislivello_totale': int(dislivello_totale),
@@ -291,6 +297,7 @@ def _get_dashboard_context(user):
         'warning_peso': warning_peso,
         'warning_token': warning_token,
         'allarmi': allarmi,
+        'notifiche_utente': notifiche,
     }
 
 # 1. Questa mostra la pagina (NON cancellarla!)
@@ -1736,3 +1743,185 @@ def statistiche_log(request):
         'daily_data': json.dumps(daily_data),
         'daily_unique_data': json.dumps(daily_unique_data),
     })
+
+# --- GESTIONE ALLENAMENTI ---
+
+@login_required
+def lista_allenamenti(request):
+    """Lista allenamenti futuri visibili all'utente"""
+    now = timezone.now()
+    # Logica visibilità: Pubblici OR (Privati AND Utente tra gli invitati) OR Creati dall'utente
+    qs = Allenamento.objects.filter(
+        Q(visibilita='Pubblico') | 
+        Q(invitati=request.user) | 
+        Q(creatore=request.user)
+    ).filter(data_orario__gte=now).distinct().order_by('data_orario')
+    
+    return render(request, 'atleti/allenamenti_list.html', {'allenamenti': qs})
+
+@login_required
+def crea_allenamento(request):
+    if request.method == 'POST':
+        form = AllenamentoForm(request.POST, request.FILES)
+        if form.is_valid():
+            allenamento = form.save(commit=False)
+            allenamento.creatore = request.user
+            
+            # --- AUTO-FILL DA GPX ---
+            if allenamento.file_gpx:
+                try:
+                    import gpxpy
+                    # Assicuriamoci di leggere il file dall'inizio
+                    if hasattr(allenamento.file_gpx, 'seek'):
+                        allenamento.file_gpx.seek(0)
+                    
+                    gpx = gpxpy.parse(allenamento.file_gpx)
+                    
+                    # Calcolo Distanza (m -> km)
+                    dist_m = gpx.length_2d()
+                    if dist_m > 0:
+                        allenamento.distanza_km = round(dist_m / 1000, 2)
+                    
+                    # Calcolo Dislivello
+                    uphill, downhill = gpx.get_uphill_downhill()
+                    if uphill > 0:
+                        allenamento.dislivello = int(uphill)
+                except ImportError:
+                    messages.warning(request, "Libreria 'gpxpy' non installata. Impossibile estrarre dati dal GPX.")
+                except Exception as e:
+                    messages.warning(request, f"Errore lettura GPX: {e}")
+            # ------------------------
+            
+            # Fallback se i campi sono vuoti e non c'è GPX (o errore GPX)
+            if allenamento.distanza_km is None: allenamento.distanza_km = 0.0
+            if allenamento.dislivello is None: allenamento.dislivello = 0
+            
+            allenamento.save()
+            form.save_m2m() # Salva gli invitati
+            
+            # --- CREAZIONE NOTIFICHE ---
+            messaggio = f"Nuovo allenamento di gruppo: {allenamento.titolo} ({allenamento.data_orario.strftime('%d/%m')}) organizzato da {request.user.first_name}."
+            link_url = reverse('dettaglio_allenamento', args=[allenamento.pk])
+            
+            destinatari = []
+            if allenamento.visibilita == 'Pubblico':
+                # Tutti tranne il creatore
+                destinatari = User.objects.exclude(id=request.user.id)
+            else:
+                # Solo gli invitati
+                destinatari = allenamento.invitati.all()
+            
+            notifiche_objs = [
+                Notifica(utente=u, messaggio=messaggio, link=link_url, tipo='info')
+                for u in destinatari
+            ]
+            Notifica.objects.bulk_create(notifiche_objs)
+            # ---------------------------
+
+            messages.success(request, "Allenamento creato con successo!")
+            return redirect('lista_allenamenti')
+    else:
+        form = AllenamentoForm()
+    return render(request, 'atleti/allenamento_form.html', {'form': form})
+
+@login_required
+def dettaglio_allenamento(request, pk):
+    allenamento = get_object_or_404(Allenamento, pk=pk)
+    
+    # Gestione Commenti
+    if request.method == 'POST' and 'commento' in request.POST:
+        c_form = CommentoForm(request.POST)
+        if c_form.is_valid():
+            comm = c_form.save(commit=False)
+            comm.allenamento = allenamento
+            comm.autore = request.user
+            comm.save()
+            return redirect('dettaglio_allenamento', pk=pk)
+    
+    # Gestione Adesione
+    if request.method == 'POST' and 'join' in request.POST:
+        part, created = Partecipazione.objects.get_or_create(allenamento=allenamento, atleta=request.user)
+        if created:
+            part.check_risk() # Calcola rischio
+            part.save()
+            messages.success(request, "Richiesta inviata!")
+        return redirect('dettaglio_allenamento', pk=pk)
+
+    partecipazione_utente = Partecipazione.objects.filter(allenamento=allenamento, atleta=request.user).first()
+    partecipanti = Partecipazione.objects.filter(allenamento=allenamento).select_related('atleta', 'atleta__profiloatleta')
+    commenti = allenamento.commenti.all().order_by('data')
+    
+    return render(request, 'atleti/allenamento_detail.html', {
+        'allenamento': allenamento,
+        'partecipazione_utente': partecipazione_utente,
+        'partecipanti': partecipanti,
+        'commenti': commenti,
+        'commento_form': CommentoForm()
+    })
+
+@login_required
+def gestisci_partecipazione(request, pk, action):
+    """Approva o Rifiuta una partecipazione (Solo Creatore)"""
+    partecipazione = get_object_or_404(Partecipazione, pk=pk)
+    
+    if request.user != partecipazione.allenamento.creatore:
+        messages.error(request, "Non sei autorizzato.")
+        return redirect('dettaglio_allenamento', pk=partecipazione.allenamento.pk)
+        
+    if action == 'approve':
+        partecipazione.stato = 'Approvata'
+        partecipazione.save()
+    elif action == 'reject':
+        motivo = request.POST.get('motivo', 'Non specificato')
+        partecipazione.stato = 'Rifiutata'
+        partecipazione.motivo_rifiuto = motivo
+        partecipazione.save()
+        
+    return redirect('dettaglio_allenamento', pk=partecipazione.allenamento.pk)
+
+@login_required
+def modifica_allenamento(request, pk):
+    allenamento = get_object_or_404(Allenamento, pk=pk)
+    if request.user != allenamento.creatore:
+        messages.error(request, "Non sei autorizzato a modificare questo allenamento.")
+        return redirect('dettaglio_allenamento', pk=pk)
+
+    if request.method == 'POST':
+        form = AllenamentoForm(request.POST, request.FILES, instance=allenamento)
+        if form.is_valid():
+            obj = form.save(commit=False)
+            # Se c'è un nuovo file GPX, ricalcoliamo i dati
+            if 'file_gpx' in request.FILES:
+                try:
+                    import gpxpy
+                    if hasattr(obj.file_gpx, 'seek'): obj.file_gpx.seek(0)
+                    gpx = gpxpy.parse(obj.file_gpx)
+                    if gpx.length_2d() > 0: obj.distanza_km = round(gpx.length_2d() / 1000, 2)
+                    uphill, _ = gpx.get_uphill_downhill()
+                    if uphill > 0: obj.dislivello = int(uphill)
+                except Exception:
+                    pass # Ignoriamo errori GPX in modifica
+            obj.save()
+            form.save_m2m()
+            messages.success(request, "Allenamento aggiornato!")
+            return redirect('dettaglio_allenamento', pk=pk)
+    else:
+        form = AllenamentoForm(instance=allenamento)
+    return render(request, 'atleti/allenamento_form.html', {'form': form, 'is_edit': True})
+
+@login_required
+def elimina_allenamento(request, pk):
+    allenamento = get_object_or_404(Allenamento, pk=pk)
+    if request.user == allenamento.creatore:
+        allenamento.delete()
+        messages.success(request, "Allenamento eliminato.")
+    return redirect('lista_allenamenti')
+
+@login_required
+def segna_notifica_letta(request, pk):
+    if request.method == 'POST':
+        notifica = get_object_or_404(Notifica, pk=pk, utente=request.user)
+        notifica.letta = True
+        notifica.save()
+        return JsonResponse({'success': True})
+    return JsonResponse({'error': 'Invalid method'}, status=400)

@@ -214,3 +214,102 @@ class Scarpa(models.Model):
     @property
     def distanza_km(self):
         return round(self.distanza / 1000, 1)
+
+class Allenamento(models.Model):
+    TIPO_CHOICES = [('Trail', 'Trail Running'), ('Strada', 'Corsa su Strada')]
+    VISIBILITA_CHOICES = [('Pubblico', 'Pubblico (Tutti)'), ('Privato', 'Privato (Solo Invitati)')]
+
+    creatore = models.ForeignKey(User, on_delete=models.CASCADE, related_name='allenamenti_creati')
+    titolo = models.CharField(max_length=200)
+    descrizione = models.TextField(blank=True)
+    data_orario = models.DateTimeField()
+    distanza_km = models.FloatField()
+    dislivello = models.IntegerField(default=0, help_text="Dislivello positivo in metri")
+    tipo = models.CharField(max_length=10, choices=TIPO_CHOICES, default='Strada')
+    tempo_stimato = models.DurationField(help_text="Tempo previsto (HH:MM:SS)")
+    file_gpx = models.FileField(upload_to='gpx_track/', null=True, blank=True)
+    visibilita = models.CharField(max_length=10, choices=VISIBILITA_CHOICES, default='Pubblico')
+    invitati = models.ManyToManyField(User, related_name='inviti_allenamento', blank=True)
+    data_creazione = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name_plural = "Allenamenti"
+        ordering = ['-data_orario']
+
+    def __str__(self):
+        return f"{self.titolo} ({self.data_orario.date()})"
+
+class Partecipazione(models.Model):
+    STATO_CHOICES = [
+        ('Richiesta', 'In Attesa'),
+        ('Approvata', 'Approvata'),
+        ('Rifiutata', 'Rifiutata')
+    ]
+
+    allenamento = models.ForeignKey(Allenamento, on_delete=models.CASCADE, related_name='partecipanti')
+    atleta = models.ForeignKey(User, on_delete=models.CASCADE)
+    stato = models.CharField(max_length=10, choices=STATO_CHOICES, default='Richiesta')
+    motivo_rifiuto = models.TextField(blank=True, null=True)
+    
+    # Analisi Rischio
+    is_at_risk = models.BooleanField(default=False)
+    risk_reason = models.CharField(max_length=255, blank=True, null=True)
+    data_richiesta = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('allenamento', 'atleta')
+
+    def check_risk(self):
+        """Confronta il passo richiesto con il VO2max dell'atleta"""
+        profilo = getattr(self.atleta, 'profiloatleta', None)
+        if not profilo or not profilo.vo2max_stima_statistica:
+            self.is_at_risk = True
+            self.risk_reason = "Dati VO2max atleta mancanti."
+            return
+
+        # Calcolo VO2 richiesto per l'allenamento
+        # Convertiamo tutto in minuti
+        durata_min = self.allenamento.tempo_stimato.total_seconds() / 60
+        if durata_min <= 0: return
+        
+        # Distanza equivalente (Sforzo): 100m D+ = 1km piano (regola base trail)
+        dist_eq_km = self.allenamento.distanza_km + (self.allenamento.dislivello / 100)
+        velocita_req_m_min = (dist_eq_km * 1000) / durata_min
+        
+        # Formula inversa approssimata ACSM: VO2 = (0.2 * v) + 3.5
+        # Aggiungiamo un buffer del 10% per il terreno se Trail
+        factor = 1.10 if self.allenamento.tipo == 'Trail' else 1.0
+        vo2_req = ((0.2 * velocita_req_m_min) + 3.5) * factor
+        
+        # Soglia di rischio: Se il VO2 richiesto supera l'80% del VO2max dell'atleta
+        soglia_sostenibile = profilo.vo2max_stima_statistica * 0.80
+        
+        if vo2_req > soglia_sostenibile:
+            self.is_at_risk = True
+            self.risk_reason = f"Intensità stimata troppo alta ({int(vo2_req)} ml/kg/min richiesti vs {int(soglia_sostenibile)} sostenibili)."
+        else:
+            self.is_at_risk = False
+            self.risk_reason = ""
+
+class CommentoAllenamento(models.Model):
+    allenamento = models.ForeignKey(Allenamento, on_delete=models.CASCADE, related_name='commenti')
+    autore = models.ForeignKey(User, on_delete=models.CASCADE)
+    testo = models.TextField()
+    data = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Commento di {self.autore} su {self.allenamento}"
+
+class Notifica(models.Model):
+    utente = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifiche')
+    messaggio = models.CharField(max_length=255)
+    link = models.CharField(max_length=200, blank=True, null=True)
+    letta = models.BooleanField(default=False)
+    data_creazione = models.DateTimeField(auto_now_add=True)
+    tipo = models.CharField(max_length=20, default='info') # info, warning, success
+
+    class Meta:
+        ordering = ['-data_creazione']
+
+    def __str__(self):
+        return f"Notifica per {self.utente}: {self.messaggio}"

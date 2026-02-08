@@ -1,0 +1,257 @@
+{% extends 'base.html' %}
+
+{% block extra_css %}
+<!-- OpenLayers CSS -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v9.2.4/ol.css">
+<style>
+    #map { height: 400px; width: 100%; background-color: #f8f9fa; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="mb-3">
+        <a href="{% url 'lista_allenamenti' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i>Torna agli Allenamenti</a>
+    </div>
+
+    <div class="row">
+        <!-- Dettagli Allenamento -->
+        <div class="col-lg-8">
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h2 class="fw-bold d-inline-block me-2">{{ allenamento.titolo }}</h2>
+                            {% if request.user == allenamento.creatore %}
+                            <div class="d-inline-block">
+                                <a href="{% url 'modifica_allenamento' allenamento.pk %}" class="btn btn-sm btn-outline-primary" title="Modifica"><i class="bi bi-pencil"></i></a>
+                                <a href="{% url 'elimina_allenamento' allenamento.pk %}" class="btn btn-sm btn-outline-danger" title="Elimina" onclick="return confirm('Sei sicuro di voler eliminare questo allenamento?');"><i class="bi bi-trash"></i></a>
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% if allenamento.file_gpx %}
+                        <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#mapModal">
+                            <i class="bi bi-map me-2"></i>Vedi Traccia
+                        </button>
+                        {% endif %}
+                    </div>
+                    <p class="text-muted">{{ allenamento.descrizione }}</p>
+                    
+                    <div class="row g-3 mt-2">
+                        <div class="col-md-3"><strong>Data:</strong><br>{{ allenamento.data_orario|date:"d/m/Y H:i" }}</div>
+                        <div class="col-md-3"><strong>Tipo:</strong><br>{{ allenamento.tipo }}</div>
+                        <div class="col-md-3"><strong>Distanza:</strong><br>{{ allenamento.distanza_km }} km</div>
+                        <div class="col-md-3"><strong>Dislivello:</strong><br>{{ allenamento.dislivello }} m D+</div>
+                    </div>
+
+                    <hr>
+                    
+                    <!-- Azione Utente -->
+                    {% if not partecipazione_utente %}
+                        <form method="POST">
+                            {% csrf_token %}
+                            <button type="submit" name="join" class="btn btn-success w-100">Richiedi di Partecipare</button>
+                        </form>
+                    {% else %}
+                        <div class="alert {% if partecipazione_utente.stato == 'Approvata' %}alert-success{% elif partecipazione_utente.stato == 'Rifiutata' %}alert-danger{% else %}alert-warning{% endif %}">
+                            Stato richiesta: <strong>{{ partecipazione_utente.stato }}</strong>
+                            {% if partecipazione_utente.motivo_rifiuto %}
+                            <br><small>Motivo: {{ partecipazione_utente.motivo_rifiuto }}</small>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Commenti -->
+            <div class="card shadow-sm">
+                <div class="card-header bg-light fw-bold">Domande & Commenti</div>
+                <div class="card-body">
+                    {% for c in commenti %}
+                    <div class="mb-3 border-bottom pb-2">
+                        <div class="d-flex justify-content-between">
+                            <strong>{{ c.autore.first_name }}</strong>
+                            <small class="text-muted">{{ c.data|timesince }} fa</small>
+                        </div>
+                        <p class="mb-0">{{ c.testo }}</p>
+                    </div>
+                    {% endfor %}
+                    
+                    <form method="POST" class="mt-3">
+                        {% csrf_token %}
+                        {{ commento_form.testo }}
+                        <button type="submit" name="commento" class="btn btn-sm btn-dark mt-2">Invia</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar Partecipanti (Visibile al creatore) -->
+        <div class="col-lg-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white fw-bold">Partecipanti</div>
+                <ul class="list-group list-group-flush">
+                    {% for p in partecipanti %}
+                    <li class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>{{ p.atleta.first_name }} {{ p.atleta.last_name }}</strong>
+                                <div class="small text-muted">VO2max: {{ p.atleta.profiloatleta.vo2max_stima_statistica|default:"N/A" }}</div>
+                                {% if p.is_at_risk %}
+                                <span class="badge bg-danger" title="{{ p.risk_reason }}"><i class="bi bi-exclamation-triangle"></i> Rischio Alto</span>
+                                {% endif %}
+                            </div>
+                            <span class="badge {% if p.stato == 'Approvata' %}bg-success{% elif p.stato == 'Rifiutata' %}bg-danger{% else %}bg-warning{% endif %}">
+                                {{ p.stato }}
+                            </span>
+                        </div>
+                        
+                        <!-- Azioni Creatore -->
+                        {% if request.user == allenamento.creatore and p.stato == 'Richiesta' %}
+                        <div class="mt-2 d-flex gap-2">
+                            <a href="{% url 'gestisci_partecipazione' p.pk 'approve' %}" class="btn btn-sm btn-outline-success flex-fill"><i class="bi bi-check"></i></a>
+                            <button class="btn btn-sm btn-outline-danger flex-fill" data-bs-toggle="collapse" data-bs-target="#reject{{ p.pk }}"><i class="bi bi-x"></i></button>
+                        </div>
+                        <div class="collapse mt-2" id="reject{{ p.pk }}">
+                            <form action="{% url 'gestisci_partecipazione' p.pk 'reject' %}" method="POST">
+                                {% csrf_token %}
+                                <input type="text" name="motivo" class="form-control form-control-sm mb-1" placeholder="Motivo rifiuto..." required>
+                                <button type="submit" class="btn btn-sm btn-danger w-100">Conferma Rifiuto</button>
+                            </form>
+                        </div>
+                        {% endif %}
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Mappa GPX -->
+<div class="modal fade" id="mapModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h5 class="modal-title m-0">Traccia Percorso</h5>
+                    <small class="text-muted">{{ allenamento.distanza_km }} km • {{ allenamento.dislivello }} m D+</small>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div id="map" class="d-flex align-items-center justify-content-center text-muted" style="height: 400px; width: 100%;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- OpenLayers JS -->
+<script src="https://cdn.jsdelivr.net/npm/ol@v9.2.4/dist/ol.js"></script>
+<script>
+    let map;
+    
+    function initMap() {
+        console.log("initMap: Avvio funzione...");
+        const mapTarget = document.getElementById('map');
+        if (!mapTarget) {
+            console.error("initMap: Elemento #map non trovato!");
+            return;
+        }
+
+        // Se la mappa esiste già, forziamo l'aggiornamento delle dimensioni e usciamo
+        if (map) {
+            console.log("initMap: Mappa esistente, aggiorno dimensioni.");
+            map.updateSize();
+            // Doppio check dopo un istante per sicurezza
+            setTimeout(() => map.updateSize(), 200);
+            return;
+        }
+        
+        console.log("initMap: Inizializzazione OpenLayers...");
+        mapTarget.innerHTML = ''; // Rimuove testo placeholder
+        
+        // Inizializza OpenLayers
+        map = new ol.Map({
+            target: 'map',
+            layers: [
+                new ol.layer.Tile({
+                    source: new ol.source.OSM()
+                })
+            ],
+            view: new ol.View({
+                center: ol.proj.fromLonLat([12.4964, 41.9028]), // Roma default
+                zoom: 5
+            })
+        });
+
+        {% if allenamento.file_gpx %}
+        const gpxUrl = "{{ allenamento.file_gpx.url }}";
+        console.log("initMap: Caricamento GPX da:", gpxUrl);
+        
+        // Stile per la traccia (Blu Barilla)
+        const style = {
+            'Point': new ol.style.Style({
+                image: new ol.style.Circle({
+                    fill: new ol.style.Fill({ color: 'rgba(255,0,0,0.5)' }),
+                    radius: 5,
+                    stroke: new ol.style.Stroke({ color: '#f00', width: 1 })
+                })
+            }),
+            'LineString': new ol.style.Style({
+                stroke: new ol.style.Stroke({ color: '#003366', width: 4 })
+            }),
+            'MultiLineString': new ol.style.Style({
+                stroke: new ol.style.Stroke({ color: '#003366', width: 4 })
+            })
+        };
+
+        const vectorSource = new ol.source.Vector({
+            url: gpxUrl,
+            format: new ol.format.GPX()
+        });
+
+        const vectorLayer = new ol.layer.Vector({
+            source: vectorSource,
+            style: function (feature) {
+                return style[feature.getGeometry().getType()];
+            }
+        });
+
+        map.addLayer(vectorLayer);
+
+        // Zoom automatico sulla traccia quando caricata
+        vectorSource.once('change', function() {
+            const state = vectorSource.getState();
+            console.log("initMap: Stato GPX ->", state);
+            
+            if (state === 'ready') {
+                const extent = vectorSource.getExtent();
+                // Padding per non avere la traccia attaccata ai bordi
+                map.getView().fit(extent, { padding: [50, 50, 50, 50], duration: 1000 });
+            } else if (state === 'error') {
+                console.error("initMap: Errore caricamento GPX.");
+                alert("Impossibile caricare la traccia GPX. Verifica che il file esista sul server.");
+            }
+        });
+        {% else %}
+        console.log("initMap: Nessun file GPX presente.");
+        {% endif %}
+    }
+
+    // Listener specifico di Bootstrap: avvia la mappa solo quando il modale è APERTO
+    const mapModalEl = document.getElementById('mapModal');
+    if (mapModalEl) {
+        mapModalEl.addEventListener('shown.bs.modal', function () {
+            console.log("Modal aperto: avvio initMap.");
+            initMap();
+            // Forza updateSize dopo che il modale è sicuramente visibile
+            setTimeout(() => {
+                if (map) map.updateSize();
+            }, 200);
+        });
+    }
+</script>
+{% endblock %}

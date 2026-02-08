@@ -196,3 +196,6 @@ else:
     SECURE_HSTS_SECONDS = 0
     #CSRF_COOKIE_SECURE = False
     SECURE_PROXY_SSL_HEADER = None
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')

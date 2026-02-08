@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="fw-bold m-0"><i class="bi bi-calendar-event me-2"></i>Allenamenti di Gruppo</h2>
+    <a href="{% url 'crea_allenamento' %}" class="btn btn-primary"><i class="bi bi-plus-lg me-2"></i>Crea Nuovo</a>
+</div>
+
+<div class="row g-4">
+    {% for a in allenamenti %}
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100 shadow-sm border-0">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <span class="badge {% if a.tipo == 'Trail' %}bg-success{% else %}bg-primary{% endif %}">
+                    {% if a.tipo == 'Trail' %}
+                        <i class="bi bi-tree-fill me-1"></i>
+                    {% else %}
+                        <i class="bi bi-geo-alt-fill me-1"></i>
+                    {% endif %}
+                    {{ a.tipo }}
+                </span>
+                <small class="text-muted">{{ a.visibilita }}</small>
+            </div>
+            <div class="card-body">
+                <h5 class="card-title fw-bold">{{ a.titolo }}</h5>
+                <p class="card-text text-muted small mb-3">
+                    <i class="bi bi-calendar me-1"></i> {{ a.data_orario|date:"d M Y, H:i" }}<br>
+                    <i class="bi bi-person me-1"></i> Org: {{ a.creatore.first_name }}
+                </p>
+                
+                <div class="d-flex justify-content-between text-center mb-3">
+                    <div class="bg-light rounded p-2 flex-fill me-1">
+                        <div class="fw-bold">{{ a.distanza_km }} km</div>
+                        <div class="small text-muted">Dist.</div>
+                    </div>
+                    <div class="bg-light rounded p-2 flex-fill me-1">
+                        <div class="fw-bold">{{ a.dislivello }} m</div>
+                        <div class="small text-muted">D+</div>
+                    </div>
+                    <div class="bg-light rounded p-2 flex-fill">
+                        <div class="fw-bold">{{ a.tempo_stimato }}</div>
+                        <div class="small text-muted">Tempo</div>
+                    </div>
+                </div>
+                
+                <div class="d-flex gap-2">
+                    <a href="{% url 'dettaglio_allenamento' a.pk %}" class="btn btn-outline-dark flex-grow-1">Dettagli</a>
+                    {% if request.user == a.creatore %}
+                    <div class="dropdown">
+                        <button class="btn btn-light border" type="button" data-bs-toggle="dropdown"><i class="bi bi-three-dots-vertical"></i></button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{% url 'modifica_allenamento' a.pk %}"><i class="bi bi-pencil me-2"></i>Modifica</a></li>
+                            <li><a class="dropdown-item text-danger" href="{% url 'elimina_allenamento' a.pk %}" onclick="return confirm('Eliminare allenamento?');"><i class="bi bi-trash me-2"></i>Elimina</a></li>
+                        </ul>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12 text-center py-5">
+        <p class="text-muted">Nessun allenamento in programma. Creane uno tu!</p>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}
