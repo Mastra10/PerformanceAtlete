@@ -112,20 +112,26 @@
 </div>
 
 <div class="card shadow-sm">
+    <div class="card-header bg-white p-3 border-bottom-0">
+        <div class="input-group">
+            <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+            <input type="text" id="searchInput" class="form-control border-start-0 bg-light" placeholder="Cerca atleta..." onkeyup="filterTable()">
+        </div>
+    </div>
     <div class="card-body p-0">
         <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
+            <table class="table table-hover align-middle mb-0" id="atletiTable">
                 <thead class="table-light">
                     <tr>
-                        <th class="ps-4">Atleta</th>
-                        <th class="text-center bg-light border-start border-end">KM Week</th>
-                        <th class="text-center bg-light border-end">D+ Week</th>
-                        <th class="text-center">VO2max (Stat)</th>
-                        <th class="text-center">VO2max (Strada)</th>
-                        <th class="text-center">ITRA</th>
-                        <th class="text-center">UTMB</th>
-                        <th class="text-center">FC Max</th>
-                        <th class="text-center">Peso</th>
+                        <th class="ps-4" onclick="sortTable(0, 'str')" style="cursor: pointer;">Atleta <i class="bi bi-sort-alpha-down text-muted small ms-1"></i></th>
+                        <th class="text-center bg-light border-start border-end" onclick="sortTable(1, 'num')" style="cursor: pointer;">KM Week <i class="bi bi-arrow-down-up text-muted small ms-1"></i></th>
+                        <th class="text-center bg-light border-end" onclick="sortTable(2, 'num')" style="cursor: pointer;">D+ Week <i class="bi bi-arrow-down-up text-muted small ms-1"></i></th>
+                        <th class="text-center" onclick="sortTable(3, 'num')" style="cursor: pointer;">VO2max (Stat) <i class="bi bi-arrow-down-up text-muted small ms-1"></i></th>
+                        <th class="text-center" onclick="sortTable(4, 'num')" style="cursor: pointer;">VO2max (Strada) <i class="bi bi-arrow-down-up text-muted small ms-1"></i></th>
+                        <th class="text-center" onclick="sortTable(5, 'num')" style="cursor: pointer;">ITRA <i class="bi bi-arrow-down-up text-muted small ms-1"></i></th>
+                        <th class="text-center" onclick="sortTable(6, 'num')" style="cursor: pointer;">UTMB <i class="bi bi-arrow-down-up text-muted small ms-1"></i></th>
+                        <th class="text-center" onclick="sortTable(7, 'num')" style="cursor: pointer;">FC Max <i class="bi bi-arrow-down-up text-muted small ms-1"></i></th>
+                        <th class="text-center" onclick="sortTable(8, 'num')" style="cursor: pointer;">Peso <i class="bi bi-arrow-down-up text-muted small ms-1"></i></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -178,4 +184,72 @@
         </div>
     </div>
 </div>
+
+<script>
+function filterTable() {
+    var input, filter, table, tr, td, i, txtValue;
+    input = document.getElementById("searchInput");
+    filter = input.value.toUpperCase();
+    table = document.getElementById("atletiTable");
+    tr = table.getElementsByTagName("tr");
+    for (i = 1; i < tr.length; i++) {
+        td = tr[i].getElementsByTagName("td")[0]; // Cerca solo nella colonna Nome
+        if (td) {
+            txtValue = td.textContent || td.innerText;
+            if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                tr[i].style.display = "";
+            } else {
+                tr[i].style.display = "none";
+            }
+        }
+    }
+}
+
+function sortTable(n, type) {
+    var table, rows, switching, i, x, y, shouldSwitch, dir, switchcount = 0;
+    table = document.getElementById("atletiTable");
+    switching = true;
+    dir = "desc"; // Default descending per numeri (più logico per classifiche)
+    if (type == 'str') dir = "asc"; // Default ascending per nomi
+    
+    while (switching) {
+        switching = false;
+        rows = table.rows;
+        for (i = 1; i < (rows.length - 1); i++) {
+            shouldSwitch = false;
+            x = rows[i].getElementsByTagName("TD")[n];
+            y = rows[i + 1].getElementsByTagName("TD")[n];
+            
+            var xVal = x.innerText.toLowerCase().replace(/[^0-9.-]/g, '');
+            var yVal = y.innerText.toLowerCase().replace(/[^0-9.-]/g, '');
+            
+            if (type == 'num') {
+                var xNum = parseFloat(xVal);
+                var yNum = parseFloat(yVal);
+                xVal = isNaN(xNum) ? -999999 : xNum;
+                yVal = isNaN(yNum) ? -999999 : yNum;
+            } else {
+                xVal = x.innerText.toLowerCase();
+                yVal = y.innerText.toLowerCase();
+            }
+
+            if (dir == "asc") {
+                if (xVal > yVal) { shouldSwitch = true; break; }
+            } else if (dir == "desc") {
+                if (xVal < yVal) { shouldSwitch = true; break; }
+            }
+        }
+        if (shouldSwitch) {
+            rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+            switching = true;
+            switchcount++;
+        } else {
+            if (switchcount == 0 && ((type == 'num' && dir == "desc") || (type == 'str' && dir == "asc"))) {
+                dir = (dir == "asc") ? "desc" : "asc";
+                switching = true;
+            }
+        }
+    }
+}
+</script>
 {% endblock %}
