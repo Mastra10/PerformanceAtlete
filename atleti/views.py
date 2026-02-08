@@ -321,15 +321,6 @@ def home(request):
             context = _get_dashboard_context(request.user)
             if context.get('warning_token'):
                 messages.warning(request, context['warning_token'])
-            # Link temporaneo per rendere visibile la nuova pagina
-            messages.info(request, mark_safe('📊 <strong>Novità:</strong> Prova il nuovo strumento di <a href="/confronto/" class="alert-link">Confronto Atleti</a>!'))
-            
-            # Avviso in evidenza per aggiornamento permessi scarpe
-            messages.warning(request, mark_safe(
-                '<h5>👟 Nuove Funzionalità Disponibili!</h5>'
-                '<p class="mb-2">Per scaricare le tue <strong>Scarpe</strong> e l\'attrezzatura, è necessario aggiornare i permessi di collegamento.</p>'
-                '<a href="/impostazioni/" class="btn btn-sm btn-outline-dark">Vai a Impostazioni > Scollega e Ricollega Strava</a>'
-            ))
             return render(request, 'atleti/home.html', context)
         return render(request, 'atleti/home.html')
     except MultipleObjectsReturned:
@@ -462,30 +453,59 @@ def impostazioni(request):
             profilo.save()
             return redirect('home')
         except ValueError:
-            pass
+            messages.error(request, "Errore formato dati: controlla di aver inserito numeri validi (usa il punto per i decimali).")
     return render(request, 'atleti/impostazioni.html', {'profilo': profilo, 'strava_connected': strava_connected})
 
+@login_required
 def aggiorna_dati_profilo(request):
-    """Forza l'aggiornamento dei dati anagrafici (Peso, Nome) da Strava/SocialAccount senza sync attività"""
+    """Forza l'aggiornamento dei dati anagrafici (Peso, Nome) da Strava tramite API"""
     profilo, _ = ProfiloAtleta.objects.get_or_create(user=request.user)
-    social_acc = SocialAccount.objects.filter(user=request.user, provider='strava').first()
     
-    if social_acc and social_acc.extra_data:
-        # 1. Prova a prendere il peso dai dati di login salvati (spesso più completi dell'API)
-        weight = social_acc.extra_data.get('weight')
-        if weight:
-            profilo.peso = weight
-            profilo.save()
-            print(f"DEBUG: Profilo aggiornato manualmente da SocialAccount. Peso: {weight}", flush=True)
-        
-        # Recuperiamo anche l'immagine profilo
-        img_url = social_acc.extra_data.get('profile')
-        if img_url:
-            profilo.immagine_profilo = img_url
+    social_acc = SocialAccount.objects.filter(user=request.user, provider='strava').first()
+    if not social_acc:
+        messages.error(request, "Nessun account Strava collegato.")
+        return redirect('impostazioni')
+
+    token_obj = SocialToken.objects.filter(account=social_acc).first()
+    if not token_obj:
+        messages.error(request, "Token Strava non trovato.")
+        return redirect('impostazioni')
+
+    # Refresh Token per essere sicuri
+    access_token = refresh_strava_token(token_obj)
+    if not access_token:
+        messages.error(request, "Token scaduto. Ricollega Strava.")
+        return redirect('impostazioni')
+    
+    # Chiamata API Diretta
+    headers = {'Authorization': f'Bearer {access_token}'}
+    try:
+        res = requests.get("https://www.strava.com/api/v3/athlete", headers=headers, timeout=10)
+        if res.status_code == 200:
+            data = res.json()
+            
+            # Aggiornamento Peso
+            weight = data.get('weight')
+            if weight is not None:
+                profilo.peso = weight
+                messages.success(request, f"Peso aggiornato da Strava: {weight} kg")
+            else:
+                messages.warning(request, "Peso non disponibile su Strava. Verifica di aver concesso i permessi 'profile:read_all'.")
+            
+            # Aggiornamento Immagine
+            img = data.get('profile')
+            if img:
+                profilo.immagine_profilo = img
+            
             profilo.save()
             
-        # Aggiorna anche nome/cognome se presenti
-        # (omesso per brevità, il peso è la priorità)
+            # Aggiorniamo anche i dati locali di allauth per il futuro
+            social_acc.extra_data = data
+            social_acc.save()
+        else:
+            messages.error(request, f"Errore API Strava: {res.status_code}")
+    except Exception as e:
+        messages.error(request, f"Errore connessione: {e}")
             
     return redirect('impostazioni')
 
@@ -523,6 +543,7 @@ def hide_home_notice(request):
 def sincronizza_strava(request):
     LogSistema.objects.create(livello='INFO', azione='Sync Manuale', utente=request.user, messaggio="Avvio sincronizzazione...")
     only_shoes = request.GET.get('only_shoes') == 'true'
+    force_full = request.GET.get('force_full') == 'true'
     cache_key = f"sync_progress_{request.user.id}"
     cache.set(cache_key, {'status': 'Connessione a Strava...', 'progress': 5}, timeout=300)
     
@@ -559,19 +580,6 @@ def sincronizza_strava(request):
     # Aggiorniamo il profilo atleta
     profilo, _ = ProfiloAtleta.objects.get_or_create(user=request.user)
 
-    # Recuperiamo il peso dai dati di login (extra_data) che spesso sono più completi dell'API limitata
-    if social_acc.extra_data and social_acc.extra_data.get('weight'):
-        weight_extra = social_acc.extra_data.get('weight')
-        if not profilo.peso_manuale:
-            profilo.peso = weight_extra
-        else:
-            pass
-        
-        # Recuperiamo immagine da SocialAccount come fallback/init
-        img_extra = social_acc.extra_data.get('profile')
-        if img_extra:
-            profilo.immagine_profilo = img_extra
-
     if athlete_res.status_code == 200:
         athlete_data = athlete_res.json()
         # DEBUG: Verifichiamo se Strava ci manda le scarpe
@@ -579,8 +587,11 @@ def sincronizza_strava(request):
 
         # Aggiorniamo il peso SOLO se Strava ce lo fornisce (evita sovrascrittura con 70kg)
         strava_weight = athlete_data.get('weight')
-        if strava_weight and not profilo.peso_manuale:
+        if strava_weight is not None and not profilo.peso_manuale:
             profilo.peso = strava_weight
+            print(f"DEBUG STRAVA: Peso aggiornato a {strava_weight}kg", flush=True)
+        elif strava_weight is None:
+            print("DEBUG STRAVA: Peso non presente nella risposta API (verificare permessi 'profile:read_all')", flush=True)
         
         # Aggiorniamo immagine profilo dall'API (più recente)
         strava_img = athlete_data.get('profile')
@@ -629,11 +640,14 @@ def sincronizza_strava(request):
     last_activity = Attivita.objects.filter(atleta=profilo).order_by('-data').first()
     timestamp_checkpoint = None
     
-    if last_activity:
+    # FIX: Usiamo il checkpoint solo se abbiamo completato con successo almeno una sync in passato (e non è richiesto force_full).
+    # Se data_ultima_sincronizzazione è None, significa che la prima sync è fallita o è parziale,
+    # quindi forziamo un riscaricamento completo (senza 'after') per recuperare lo storico mancante.
+    if last_activity and profilo.data_ultima_sincronizzazione and not force_full:
         # Aggiungiamo 1 secondo per non riscaricare l'ultima attività
         timestamp_checkpoint = int(last_activity.data.timestamp()) + 1
     else:
-        LogSistema.objects.create(livello='INFO', azione='Sync Manuale', utente=request.user, messaggio="Avvio primo download completo (storico).")
+        LogSistema.objects.create(livello='INFO', azione='Sync Manuale', utente=request.user, messaggio="Avvio download completo (storico/recovery).")
 
     url_activities = "https://www.strava.com/api/v3/athlete/activities"
     
