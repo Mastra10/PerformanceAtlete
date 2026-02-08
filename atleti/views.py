@@ -1829,10 +1829,6 @@ def crea_allenamento(request):
 def dettaglio_allenamento(request, pk):
     allenamento = get_object_or_404(Allenamento, pk=pk)
     
-    # Controllo Visibilità: Se non pubblico e utente anonimo -> Login
-    if not request.user.is_authenticated and allenamento.visibilita != 'Pubblico':
-        return redirect(f"/accounts/login/?next={request.path}")
-
     # Gestione Commenti
     if request.user.is_authenticated and request.method == 'POST' and 'commento' in request.POST:
         c_form = CommentoForm(request.POST)
