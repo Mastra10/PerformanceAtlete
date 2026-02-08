@@ -893,22 +893,47 @@ def riepilogo_atleti(request):
         return redirect('home')
     
     LogSistema.objects.create(livello='INFO', azione='Page View', utente=request.user, messaggio="Visita Riepilogo Atleti")
-    # Aggiungiamo l'annotazione per l'ultima attività
-    atleti = ProfiloAtleta.objects.select_related('user').exclude(user__username='mastra').annotate(
-        ultima_corsa=Max('sessioni__data')
+    
+    # Calcolo inizio settimana (Lunedì)
+    today = timezone.now()
+    start_week = today - timedelta(days=today.weekday())
+    start_week = start_week.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # Aggiungiamo l'annotazione per l'ultima attività e i totali settimanali
+    atleti_qs = ProfiloAtleta.objects.select_related('user').exclude(user__username='mastra').annotate(
+        ultima_corsa=Max('sessioni__data'),
+        km_week_raw=Sum('sessioni__distanza', filter=Q(sessioni__data__gte=start_week)),
+        dplus_week_raw=Sum('sessioni__dislivello', filter=Q(sessioni__data__gte=start_week))
     ).order_by('-vo2max_stima_statistica')
     
-    # Offuscamento dati sensibili per chi non vuole condividerli (tranne per Staff)
-    if not request.user.is_staff:
-        for atleta in atleti:
-            if not atleta.condividi_metriche:
+    atleti = []
+    for a in atleti_qs:
+        # Calcolo valori puliti
+        a.km_week = round((a.km_week_raw or 0) / 1000, 1)
+        a.dplus_week = int(a.dplus_week_raw or 0)
+        
+        # Offuscamento dati sensibili per chi non vuole condividerli (tranne per Staff)
+        if not request.user.is_staff:
+            if not a.condividi_metriche:
                 # Sovrascriviamo i valori sull'oggetto in memoria (non nel DB)
-                atleta.vo2max_stima_statistica = None # Apparirà come "None" o vuoto nel template
-                atleta.vo2max_strada = None
-                atleta.indice_itra = 0
-                atleta.indice_utmb = 0
+                a.vo2max_stima_statistica = None 
+                a.vo2max_strada = None
+                a.indice_itra = 0
+                a.indice_utmb = 0
+        atleti.append(a)
     
-    return render(request, 'atleti/riepilogo_atleti.html', {'atleti': atleti})
+    # Dati per i grafici (solo chi ha fatto attività questa settimana)
+    active_atleti = [a for a in atleti if a.km_week > 0 or a.dplus_week > 0]
+    
+    max_km = max([a.km_week for a in active_atleti]) if active_atleti else 1
+    max_dplus = max([a.dplus_week for a in active_atleti]) if active_atleti else 1
+
+    return render(request, 'atleti/riepilogo_atleti.html', {
+        'atleti': atleti,
+        'active_atleti': active_atleti,
+        'max_km': max_km,
+        'max_dplus': max_dplus
+    })
 
 def gare_atleta(request):
     """Visualizza solo le attività taggate come Gara su Strava"""

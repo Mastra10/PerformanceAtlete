@@ -6,6 +6,72 @@
     <span class="badge bg-primary rounded-pill">{{ atleti.count }} Atleti Registrati</span>
 </div>
 
+<!-- Grafici Settimanali -->
+<div class="row g-4 mb-4">
+    <!-- Grafico KM (Barre Orizzontali con Avatar) -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-success text-white fw-bold">
+                <i class="bi bi-speedometer2 me-2"></i>Volume Settimanale (KM)
+            </div>
+            <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                {% for a in active_atleti|dictsortreversed:"km_week" %}
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between small mb-1">
+                        <span class="fw-bold">{{ a.user.first_name }} {{ a.user.last_name|slice:":1" }}.</span>
+                        <span>{{ a.km_week }} km</span>
+                    </div>
+                    <div class="progress" style="height: 20px; position: relative; overflow: visible; background-color: #f0f2f5;">
+                        <div class="progress-bar bg-success" role="progressbar" style="width: {% widthratio a.km_week max_km 100 %}%;"></div>
+                        <!-- Avatar alla fine della barra -->
+                        {% if a.immagine_profilo %}
+                        <img src="{{ a.immagine_profilo }}" class="rounded-circle border border-2 border-white shadow-sm" style="width: 28px; height: 28px; position: absolute; left: {% widthratio a.km_week max_km 100 %}%; top: -4px; transform: translateX(-50%); object-fit: cover;">
+                        {% else %}
+                        <div class="rounded-circle border border-2 border-white shadow-sm bg-secondary text-white d-flex align-items-center justify-content-center" style="width: 28px; height: 28px; position: absolute; left: {% widthratio a.km_week max_km 100 %}%; top: -4px; transform: translateX(-50%); font-size: 0.7rem;">{{ a.user.first_name|slice:":1" }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% empty %}
+                <p class="text-muted text-center my-4">Nessuna attività registrata questa settimana.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Grafico D+ (Slope con Omini) -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-warning text-dark fw-bold">
+                <i class="bi bi-graph-up-arrow me-2"></i>Scalatori (D+ Week)
+            </div>
+            <div class="card-body position-relative" style="height: 400px; background: linear-gradient(to top right, #fff3cd 0%, #ffffff 60%); overflow: hidden;">
+                <!-- Linea Pendio -->
+                <div style="position: absolute; bottom: 0; left: 0; width: 100%; height: 100%;">
+                    <svg width="100%" height="100%" style="position: absolute; bottom: 0; left: 0;">
+                        <line x1="0" y1="100%" x2="100%" y2="0" style="stroke:#ffc107;stroke-width:3;stroke-dasharray:5,5" />
+                    </svg>
+                </div>
+                
+                {% for a in active_atleti %}
+                    {% if a.dplus_week > 0 %}
+                    <div class="position-absolute text-center" style="left: {% widthratio a.dplus_week max_dplus 90 %}%; bottom: {% widthratio a.dplus_week max_dplus 90 %}%; transform: translate(-50%, 50%); z-index: 10; transition: all 0.5s;">
+                        {% if a.immagine_profilo %}
+                        <img src="{{ a.immagine_profilo }}" class="rounded-circle border border-warning shadow-sm bg-white" style="width: 32px; height: 32px; object-fit: cover;" data-bs-toggle="tooltip" title="{{ a.user.first_name }}: {{ a.dplus_week }}m">
+                        {% else %}
+                        <div class="rounded-circle border border-warning shadow-sm bg-secondary text-white d-flex align-items-center justify-content-center mx-auto" style="width: 32px; height: 32px;" data-bs-toggle="tooltip" title="{{ a.user.first_name }}: {{ a.dplus_week }}m">{{ a.user.first_name|slice:":1" }}</div>
+                        {% endif %}
+                        <div class="badge bg-white text-dark border shadow-sm mt-1" style="font-size: 0.65rem;">{{ a.dplus_week }}m</div>
+                    </div>
+                    {% endif %}
+                {% endfor %}
+                
+                <div class="position-absolute bottom-0 start-0 p-2 small text-muted fw-bold">0m</div>
+                <div class="position-absolute top-0 end-0 p-2 small text-muted fw-bold">{{ max_dplus }}m</div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="card shadow-sm">
     <div class="card-body p-0">
         <div class="table-responsive">
@@ -13,6 +79,8 @@
                 <thead class="table-light">
                     <tr>
                         <th class="ps-4">Atleta</th>
+                        <th class="text-center bg-light border-start border-end">KM Week</th>
+                        <th class="text-center bg-light border-end">D+ Week</th>
                         <th class="text-center">VO2max (Stat)</th>
                         <th class="text-center">VO2max (Strada)</th>
                         <th class="text-center">ITRA</th>
@@ -45,6 +113,12 @@
                                     {% endif %}
                                 </div>
                             </div>
+                        </td>
+                        <td class="text-center fw-bold bg-light border-start border-end">
+                            {% if atleta.km_week > 0 %}{{ atleta.km_week }}{% else %}<span class="text-muted">-</span>{% endif %}
+                        </td>
+                        <td class="text-center fw-bold bg-light border-end">
+                            {% if atleta.dplus_week > 0 %}{{ atleta.dplus_week }}m{% else %}<span class="text-muted">-</span>{% endif %}
                         </td>
                         <td class="text-center fw-bold text-danger">{{ atleta.vo2max_stima_statistica|default:"--" }}</td>
                         <td class="text-center fw-bold text-primary">{{ atleta.vo2max_strada|default:"--" }}</td>
