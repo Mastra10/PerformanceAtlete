@@ -1,5 +1,12 @@
 {% extends 'base.html' %}
 
+{% block extra_css %}
+<style>
+    /* Evita che le card e i blocchi di testo si spezzino tra le pagine */
+    .card, .accordion-item, .alert { page-break-inside: avoid; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container" id="guide-content">
     <div class="d-flex justify-content-between align-items-center mb-4">
@@ -211,7 +218,7 @@
             image: { type: 'jpeg', quality: 0.98 },
             html2canvas: { scale: 2, useCORS: true, scrollY: 0 },
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-            pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+            pagebreak: { mode: ['css', 'legacy'] }
         };
         
         // Nascondi il bottone durante la generazione per non stamparlo
