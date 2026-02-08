@@ -903,7 +903,8 @@ def riepilogo_atleti(request):
     atleti_qs = ProfiloAtleta.objects.select_related('user').exclude(user__username='mastra').annotate(
         ultima_corsa=Max('sessioni__data'),
         km_week_raw=Sum('sessioni__distanza', filter=Q(sessioni__data__gte=start_week)),
-        dplus_week_raw=Sum('sessioni__dislivello', filter=Q(sessioni__data__gte=start_week))
+        dplus_week_raw=Sum('sessioni__dislivello', filter=Q(sessioni__data__gte=start_week)),
+        fc_avg_week=Avg('sessioni__fc_media', filter=Q(sessioni__data__gte=start_week))
     ).order_by('-vo2max_stima_statistica')
     
     atleti = []
@@ -930,21 +931,45 @@ def riepilogo_atleti(request):
     
     # --- CALCOLO PODIO VIRTUALE ---
     for a in active_atleti:
-        # Punteggio: 1 punto per km + 1.5 punti per ogni 100m D+ (Premia la fatica in salita)
-        score = a.km_week + (a.dplus_week / 100 * 1.5)
-        a.punteggio_podio = round(score, 1)
+        # 1. Calcolo Km Sforzo (Volume + Dislivello)
+        # 100m D+ equivalgono a circa 1km piano in termini di costo energetico
+        km_sforzo = a.km_week + (a.dplus_week / 100)
+        
+        # 2. Fattore Intensità (Basato su FC Riserva)
+        intensity_multiplier = 1.0
+        intensity_label = "Fondo"
+        
+        if a.fc_avg_week and a.fc_massima_teorica and a.fc_riposo:
+            hrr = a.fc_massima_teorica - a.fc_riposo
+            if hrr > 0:
+                # % Riserva Cardiaca media settimanale
+                intensity_pct = (a.fc_avg_week - a.fc_riposo) / hrr
+                
+                if intensity_pct >= 0.85:
+                    intensity_multiplier = 1.5
+                    intensity_label = "Alta Intensità (Z4/Z5)"
+                elif intensity_pct >= 0.75:
+                    intensity_multiplier = 1.3
+                    intensity_label = "Medio/Soglia (Z3/Z4)"
+                elif intensity_pct >= 0.60:
+                    intensity_multiplier = 1.1
+                    intensity_label = "Fondo Aerobico (Z2)"
+                else:
+                    intensity_multiplier = 0.95
+                    intensity_label = "Recupero (Z1)"
+        
+        # Punteggio Finale
+        a.punteggio_podio = round(km_sforzo * intensity_multiplier, 1)
         
         # Generazione Motivazione Dinamica
-        if a.dplus_week > 0 and (a.dplus_week / max(a.km_week, 1)) > 25:
-            a.motivazione_podio = f"Scalatore puro! 🐐 Ha accumulato {a.dplus_week}m D+ su soli {a.km_week}km."
-        elif a.km_week > 60:
-            a.motivazione_podio = f"Macinatore di km! 🏃‍♂️ Volume impressionante di {a.km_week}km."
+        if intensity_multiplier >= 1.3:
+            a.motivazione_podio = f"Qualità & Quantità! 🚀 {a.km_week}km a {intensity_label}."
         elif a.dplus_week > 1000:
-             a.motivazione_podio = f"Dislivello Monster: {a.dplus_week}m D+ portati a casa."
-        elif score > 40:
-            a.motivazione_podio = f"Prestazione solida e bilanciata: {a.km_week}km con {a.dplus_week}m D+."
+             a.motivazione_podio = f"Scalatore puro! 🐐 {a.dplus_week}m D+ portati a casa."
+        elif a.km_week > 50:
+            a.motivazione_podio = f"Macinatore di km! 🏃‍♂️ {a.km_week}km di volume solido."
         else:
-            a.motivazione_podio = f"Buon allenamento settimanale: {a.km_week}km e {a.dplus_week}m D+."
+            a.motivazione_podio = f"Settimana bilanciata: {a.km_week}km con {a.dplus_week}m D+."
 
     # Ordiniamo per punteggio e prendiamo i primi 3
     podio = sorted(active_atleti, key=lambda x: x.punteggio_podio, reverse=True)[:3]
