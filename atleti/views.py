@@ -28,6 +28,7 @@ import os
 from django.core.exceptions import MultipleObjectsReturned
 from django.utils.safestring import mark_safe
 from django.urls import reverse
+from zoneinfo import ZoneInfo
 
 def _get_dashboard_context(user):
     """Helper per generare il contesto della dashboard per un dato utente"""
@@ -1764,6 +1765,7 @@ def lista_allenamenti(request):
 @login_required
 def crea_allenamento(request):
     if request.method == 'POST':
+        timezone.activate(ZoneInfo("Europe/Rome")) # FIX Timezone: Interpreta l'input come orario italiano
         form = AllenamentoForm(request.POST, request.FILES)
         if form.is_valid():
             allenamento = form.save(commit=False)
@@ -1893,6 +1895,7 @@ def modifica_allenamento(request, pk):
         return redirect('dettaglio_allenamento', pk=pk)
 
     if request.method == 'POST':
+        timezone.activate(ZoneInfo("Europe/Rome")) # FIX Timezone
         form = AllenamentoForm(request.POST, request.FILES, instance=allenamento)
         if form.is_valid():
             obj = form.save(commit=False)
@@ -1931,3 +1934,30 @@ def segna_notifica_letta(request, pk):
         notifica.save()
         return JsonResponse({'success': True})
     return JsonResponse({'error': 'Invalid method'}, status=400)
+
+def download_allenamento_ics(request, pk):
+    """Genera un file .ics per aggiungere l'allenamento al calendario"""
+    allenamento = get_object_or_404(Allenamento, pk=pk)
+    
+    dt_start = allenamento.data_orario
+    dt_end = dt_start + allenamento.tempo_stimato
+    
+    def format_ics_dt(dt):
+        return dt.astimezone(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+        
+    ics_content = f"""BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Mastra Monitor//Allenamenti//IT
+BEGIN:VEVENT
+UID:allenamento-{allenamento.id}@mastramonitor
+DTSTAMP:{format_ics_dt(timezone.now())}
+DTSTART:{format_ics_dt(dt_start)}
+DTEND:{format_ics_dt(dt_end)}
+SUMMARY:🏃 {allenamento.titolo}
+DESCRIPTION:{allenamento.descrizione or 'Allenamento di gruppo'} \\n\\nDistanza: {allenamento.distanza_km}km\\nDislivello: {allenamento.dislivello}m D+
+END:VEVENT
+END:VCALENDAR"""
+
+    response = HttpResponse(ics_content, content_type='text/calendar')
+    response['Content-Disposition'] = f'attachment; filename="allenamento_{allenamento.id}.ics"'
+    return response

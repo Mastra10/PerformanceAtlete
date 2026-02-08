@@ -76,6 +76,9 @@
                         </ul>
                     </div>
                     {% endif %}
+                    <a href="{% url 'download_allenamento_ics' a.pk %}" class="btn btn-outline-primary flex-shrink-0" title="Aggiungi al Calendario">
+                        <i class="bi bi-calendar-plus"></i>
+                    </a>
                     <button class="btn btn-success text-white flex-shrink-0" onclick="shareWorkout('{{ a.titolo|escapejs }}', '{{ a.data_orario|date:"d/m H:i" }}', '{{ a.distanza_km }}', '{{ a.dislivello }}', '{{ a.num_confermati }}', '{% url 'dettaglio_allenamento' a.pk %}', '{% if a.file_gpx %}{{ a.file_gpx.url }}{% endif %}')" title="Condividi su WhatsApp">
                         <i class="bi bi-whatsapp"></i>
                     </button>
