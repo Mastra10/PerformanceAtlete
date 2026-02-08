@@ -28,6 +28,9 @@
                                 <a href="{% url 'elimina_allenamento' allenamento.pk %}" class="btn btn-sm btn-outline-danger" title="Elimina" onclick="return confirm('Sei sicuro di voler eliminare questo allenamento?');"><i class="bi bi-trash"></i></a>
                             </div>
                             {% endif %}
+                            <button class="btn btn-sm btn-success ms-1" onclick="shareWorkout()" title="Condividi su WhatsApp">
+                                <i class="bi bi-whatsapp"></i>
+                            </button>
                         </div>
                         {% if allenamento.file_gpx %}
                         <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#mapModal">
@@ -252,6 +255,44 @@
                 if (map) map.updateSize();
             }, 200);
         });
+    }
+
+    async function shareWorkout() {
+        const title = "{{ allenamento.titolo|escapejs }}";
+        const text = "Ciao! Guarda questo allenamento di gruppo: {{ allenamento.titolo|escapejs }} ({{ allenamento.distanza_km }}km, {{ allenamento.dislivello }}m D+).";
+        const url = window.location.href;
+        
+        {% if allenamento.file_gpx %}
+        const gpxUrl = "{{ allenamento.file_gpx.url }}";
+        
+        // Tentativo condivisione file (Mobile)
+        if (navigator.share && navigator.canShare) {
+            try {
+                // Fetch del file per creare un oggetto File
+                const response = await fetch(gpxUrl);
+                const blob = await response.blob();
+                const file = new File([blob], "{{ allenamento.titolo|slugify }}.gpx", { type: "application/gpx+xml" });
+                
+                const shareData = {
+                    title: title,
+                    text: text + "\n" + url,
+                    files: [file]
+                };
+
+                if (navigator.canShare(shareData)) {
+                    await navigator.share(shareData);
+                    return;
+                }
+            } catch (e) {
+                if (e.name !== 'AbortError') console.warn("Web Share API file share failed, falling back to text.", e);
+                else return; // User cancelled
+            }
+        }
+        {% endif %}
+
+        // Fallback: WhatsApp Link (Solo testo)
+        const waText = encodeURIComponent(`${text}\n\nLink: ${url}`);
+        window.open(`https://wa.me/?text=${waText}`, '_blank');
     }
 </script>
 {% endblock %}
