@@ -1755,7 +1755,7 @@ def lista_allenamenti(request):
         Q(visibilita='Pubblico') | 
         Q(invitati=request.user) | 
         Q(creatore=request.user)
-    ).filter(data_orario__gte=now).distinct().order_by('data_orario')
+    ).filter(data_orario__gte=now).distinct().order_by('data_orario').prefetch_related('partecipanti__atleta__profiloatleta')
     
     return render(request, 'atleti/allenamenti_list.html', {'allenamenti': qs})
 

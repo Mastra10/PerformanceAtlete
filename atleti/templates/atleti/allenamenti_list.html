@@ -43,6 +43,23 @@
                     </div>
                 </div>
                 
+                <!-- Avatar Partecipanti -->
+                <div class="mb-3 d-flex align-items-center" style="min-height: 32px;">
+                    <div class="d-flex ps-2">
+                        {% for p in a.partecipanti.all %}
+                            {% if p.stato == 'Approvata' %}
+                                {% if p.atleta.profiloatleta.immagine_profilo %}
+                                <img src="{{ p.atleta.profiloatleta.immagine_profilo }}" class="rounded-circle border border-2 border-white shadow-sm" width="32" height="32" style="object-fit: cover; margin-left: -10px;" data-bs-toggle="tooltip" title="{{ p.atleta.first_name }} {{ p.atleta.last_name }}">
+                                {% else %}
+                                <div class="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center border border-2 border-white shadow-sm" style="width: 32px; height: 32px; margin-left: -10px; font-size: 0.8rem;" data-bs-toggle="tooltip" title="{{ p.atleta.first_name }} {{ p.atleta.last_name }}">
+                                    {{ p.atleta.first_name|slice:":1" }}
+                                </div>
+                                {% endif %}
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+                
                 <div class="d-flex gap-2">
                     <a href="{% url 'dettaglio_allenamento' a.pk %}" class="btn btn-outline-dark flex-grow-1">Dettagli</a>
                     {% if request.user == a.creatore %}
@@ -64,4 +81,12 @@
     </div>
     {% endfor %}
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Inizializzazione Tooltip per i nomi dei partecipanti
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) { return new bootstrap.Tooltip(tooltipTriggerEl) })
+</script>
 {% endblock %}

@@ -665,22 +665,24 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title"><i class="bi bi-stars me-2"></i>Novità: Riepilogo Atleti 2.0</h5>
+                <h5 class="modal-title"><i class="bi bi-stars me-2"></i>Novità: Allenamenti & Classifiche</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <div class="text-center mb-3">
                     <i class="bi bi-trophy display-1 text-warning"></i>
                 </div>
-                <h5 class="fw-bold text-center mb-3">Nuove Classifiche & Podio!</h5>
-                <p>Abbiamo aggiornato la pagina <strong>Riepilogo Atleti</strong> con nuove funzionalità:</p>
+                <h5 class="fw-bold text-center mb-3">Nuove Funzionalità!</h5>
+                <p>Abbiamo introdotto gli <strong>Allenamenti di Gruppo</strong> e aggiornato il <strong>Riepilogo Atleti</strong>:</p>
                 <ul class="list-group list-group-flush text-start small mb-3">
+                    <li class="list-group-item"><i class="bi bi-check-circle-fill text-success me-2"></i><strong>Allenamenti di Gruppo:</strong> Crea eventi, carica tracce GPX e invita i compagni.</li>
                     <li class="list-group-item"><i class="bi bi-check-circle-fill text-success me-2"></i><strong>Podio Virtuale:</strong> Scopri i Top 3 della settimana basati su Km e Sforzo.</li>
                     <li class="list-group-item"><i class="bi bi-check-circle-fill text-success me-2"></i><strong>Grafici Visuali:</strong> Barre di progresso per i Km e grafico "scalatori" per il dislivello.</li>
                     <li class="list-group-item"><i class="bi bi-check-circle-fill text-success me-2"></i><strong>Colonne Settimanali:</strong> Nuove colonne "KM Week" e "D+ Week" nella tabella.</li>
                     <li class="list-group-item"><i class="bi bi-check-circle-fill text-success me-2"></i><strong>Ordinamento:</strong> Clicca sulle intestazioni per ordinare la classifica.</li>
                 </ul>
-                <div class="d-grid">
+                <div class="d-grid gap-2">
+                    <a href="{% url 'lista_allenamenti' %}" class="btn btn-primary">Vai agli Allenamenti</a>
                     <a href="{% url 'riepilogo_atleti' %}" class="btn btn-outline-primary">Vai al Riepilogo</a>
                 </div>
             </div>
