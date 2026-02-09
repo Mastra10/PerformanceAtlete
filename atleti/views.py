@@ -1310,22 +1310,25 @@ def scheduler_logs(request):
     # Creiamo una lista di tuple (id, nome, oggetto_setting)
     tasks_list = [(tid, name, settings_map.get(tid)) for tid, name in TaskSettings.TASK_CHOICES]
     
-    # Controllo diagnostico: Se non ci sono job, lo scheduler non è partito o non ha inizializzato il DB
-    if not jobs.exists():
-        messages.warning(request, "⚠️ ATTENZIONE: Nessun Job trovato nel database. Assicurati che il container 'scheduler' sia avviato (docker compose up -d scheduler).")
-    
-    # Leggi il file di log raw (Console Output)
+    # Lettura Log File (Ultime 100 righe)
     log_content = ""
     log_path = '/code/scheduler.log'
-    if os.path.exists(log_path):
-        with open(log_path, 'r') as f:
-            # Leggi le ultime 200 righe per non intasare la pagina
-            lines = f.readlines()
-            log_content = "".join(lines[-200:])
-    else:
-        log_content = "File di log non ancora generato. Riavvia lo scheduler per crearlo."
-        
-    return render(request, 'atleti/scheduler_logs.html', {'logs': logs, 'jobs': jobs, 'tasks': tasks_list, 'now': timezone.now(), 'log_content': log_content})
+    try:
+        if os.path.exists(log_path):
+            with open(log_path, 'r') as f:
+                lines = f.readlines()
+                log_content = "".join(lines[-100:])
+        else:
+            log_content = "File di log non trovato."
+    except Exception as e:
+        log_content = f"Errore lettura log: {e}"
+
+    return render(request, 'atleti/scheduler_logs.html', {
+        'logs': logs, 
+        'tasks': tasks_list, 
+        'now': timezone.now(),
+        'log_content': log_content
+    })
 
 def run_task_manually(request, task_id):
     """Richiede l'esecuzione manuale di un task impostando il flag nel DB"""
@@ -1349,16 +1352,9 @@ def scheduler_logs_update(request):
     if not request.user.is_staff:
         return JsonResponse({'error': 'Unauthorized'}, status=403)
 
-    # 1. Log Console
+    # 1. Log Console (Rimosso per semplificazione)
     log_content = ""
-    log_path = '/code/scheduler.log'
-    if os.path.exists(log_path):
-        with open(log_path, 'r') as f:
-            lines = f.readlines()
-            log_content = "".join(lines[-200:])
-    else:
-        log_content = "File di log non ancora generato..."
-
+    
     # 2. Storico Esecuzioni
     logs = DjangoJobExecution.objects.exclude(job__id='system_heartbeat').order_by('-run_time')[:50]
     

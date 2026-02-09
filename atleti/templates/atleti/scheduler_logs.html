@@ -3,13 +3,8 @@
 {% block content %}
 <div class="container py-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="fw-bold"><i class="bi bi-clock-history me-2"></i>Log Schedulatore</h2>
-        <div>
-            <a href="/admin/atleti/tasksettings/" class="btn btn-warning">
-                <i class="bi bi-gear-fill me-1"></i>Configura Frequenze
-            </a>
-            <a href="{% url 'home' %}" class="btn btn-outline-secondary ms-2">Torna alla Dashboard</a>
-        </div>
+        <h2 class="fw-bold"><i class="bi bi-hdd-rack me-2"></i>Gestione Task Scheduler</h2>
+        <a href="{% url 'home' %}" class="btn btn-outline-secondary">Torna alla Dashboard</a>
     </div>
 
     {% if messages %}
@@ -27,87 +22,47 @@
             <i class="bi bi-play-circle me-2"></i>Esegui Task Manualmente
         </div>
         <div class="card-body">
+            <p class="text-muted small mb-3">Clicca su un task per avviarlo. Lo stato cambierà in "In Coda" e verrà eseguito dallo scheduler entro 10 secondi.</p>
             <div class="row g-3">
                 {% for task_id, task_name, setting in tasks %}
-                <div class="col-md-3 col-sm-6">
+                <div class="col-md-4 col-sm-6">
                     {% if setting.manual_trigger %}
-                        <a href="{% url 'reset_task_trigger' task_id %}" id="btn-task-{{ task_id }}" data-task-name="{{ task_name }}" class="btn btn-warning w-100 h-100 d-flex align-items-center justify-content-center gap-2" title="Clicca per annullare">
-                    {% else %}
-                        <a href="{% url 'run_task_manually' task_id %}" id="btn-task-{{ task_id }}" data-task-name="{{ task_name }}" class="btn btn-outline-primary w-100 h-100 d-flex align-items-center justify-content-center gap-2">
-                    {% endif %}
-                        {% if setting.manual_trigger %}
+                        <a href="{% url 'reset_task_trigger' task_id %}" class="btn btn-warning w-100 py-3 d-flex align-items-center justify-content-center gap-2 shadow-sm" title="Clicca per annullare">
                             <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                            In Coda...
-                        {% else %}
-                            <i class="bi bi-lightning-fill"></i>
-                            {{ task_name }}
-                        {% endif %}
-                    </a>
+                            <div>
+                                <strong>{{ task_name }}</strong><br>
+                                <small>In Coda...</small>
+                            </div>
+                        </a>
+                    {% else %}
+                        <a href="{% url 'run_task_manually' task_id %}" class="btn btn-outline-primary w-100 py-3 d-flex align-items-center justify-content-center gap-2 shadow-sm">
+                            <i class="bi bi-lightning-fill fs-4"></i>
+                            <div class="text-start">
+                                <strong>{{ task_name }}</strong><br>
+                                <small class="text-muted">Avvia ora</small>
+                            </div>
+                        </a>
+                    {% endif %}
                 </div>
                 {% endfor %}
             </div>
         </div>
     </div>
 
-    <!-- Log Console (Nuovo) -->
+    <!-- Log Console -->
     <div class="card shadow-sm mb-4">
         <div class="card-header bg-dark text-white fw-bold">
-            <i class="bi bi-terminal me-2"></i>Console Output (Live Log)
+            <i class="bi bi-terminal me-2"></i>Output Scheduler (Ultime righe)
         </div>
         <div class="card-body bg-dark p-0">
-            <pre id="console-log-content" class="m-0 p-3 text-white-50" style="font-family: monospace; font-size: 0.85rem; max-height: 300px; overflow-y: auto;">{{ log_content }}</pre>
-        </div>
-    </div>
-
-    <!-- Tabella Stato Job (Nuova) -->
-    <div class="card shadow-sm mb-4">
-        <div class="card-header bg-light fw-bold">
-            <i class="bi bi-calendar-check me-2"></i>Stato Job Pianificati
-        </div>
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Task ID</th>
-                            <th>Prossima Esecuzione</th>
-                            <th>Stato</th>
-                        </tr>
-                    </thead>
-                    <tbody id="jobs-table-body">
-                        {% for job in jobs %}
-                        <tr>
-                            <td class="fw-bold font-monospace">{{ job.id }}</td>
-                            <td>
-                                {% if job.next_run_time %}
-                                    <span class="{% if job.next_run_time < now %}text-danger fw-bold{% else %}text-primary{% endif %}">
-                                        {{ job.next_run_time|date:"d/m/Y H:i:s" }}
-                                    </span>
-                                    {% if job.next_run_time < now %}<i class="bi bi-exclamation-circle-fill text-danger ms-1" title="In ritardo! Scheduler forse fermo?"></i>{% endif %}
-                                {% else %}
-                                    <span class="text-muted">In pausa</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if job.next_run_time %}
-                                    <span class="badge bg-info text-dark">Attivo</span>
-                                {% else %}
-                                    <span class="badge bg-secondary">Pausa</span>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr><td colspan="3" class="text-center">Nessun job configurato.</td></tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+            <pre class="m-0 p-3 text-white-50" style="font-family: monospace; font-size: 0.85rem; max-height: 300px; overflow-y: auto;">{{ log_content }}</pre>
         </div>
     </div>
 
     <div class="card shadow-sm">
-        <div class="card-header bg-light fw-bold">
-            <i class="bi bi-clock-history me-2"></i>Storico Esecuzioni
+        <div class="card-header bg-light fw-bold d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-clock-history me-2"></i>Ultimi Task Eseguiti</span>
+            <button onclick="window.location.reload()" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-clockwise"></i> Aggiorna</button>
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
@@ -115,32 +70,32 @@
                     <thead class="table-light">
                         <tr>
                             <th>Stato</th>
-                            <th>Task ID</th>
+                            <th>Task</th>
                             <th>Eseguito il</th>
-                            <th>Durata (s)</th>
-                            <th>Dettagli</th>
+                            <th>Durata</th>
+                            <th>Info</th>
                         </tr>
                     </thead>
-                    <tbody id="history-table-body">
+                    <tbody>
                         {% for log in logs %}
                         <tr>
                             <td>
                                 {% if log.status == "Executed" %}
-                                    <span class="badge bg-success">Successo</span>
+                                    <span class="badge bg-success">OK</span>
                                 {% elif log.status == "Error" %}
                                     <span class="badge bg-danger">Errore</span>
                                 {% else %}
                                     <span class="badge bg-secondary">{{ log.status }}</span>
                                 {% endif %}
                             </td>
-                            <td class="fw-bold font-monospace">{{ log.job.id }}</td>
+                            <td class="fw-bold text-dark">{{ log.job.id }}</td>
                             <td>{{ log.run_time|date:"d/m/Y H:i:s" }}</td>
-                            <td>{{ log.duration|floatformat:2 }}</td>
-                            <td class="small text-muted">
+                            <td>{{ log.duration|floatformat:1 }}s</td>
+                            <td class="small text-muted text-truncate" style="max-width: 200px;">
                                 {% if log.exception %}
-                                    <span class="text-danger">{{ log.exception|truncatechars:80 }}</span>
+                                    <span class="text-danger" title="{{ log.exception }}">{{ log.exception }}</span>
                                 {% else %}
-                                    OK
+                                    Completato
                                 {% endif %}
                             </td>
                         </tr>
@@ -157,55 +112,15 @@
 
 {% block extra_js %}
 <script>
-    function updateLogs() {
-        fetch("{% url 'scheduler_logs_update' %}")
-            .then(response => response.json())
-            .then(data => {
-                // 1. Aggiorna Console Log
-                const consoleEl = document.getElementById('console-log-content');
-                // Aggiorna solo se il contenuto è cambiato per evitare sfarfallii
-                if (consoleEl.innerHTML !== data.log_content) {
-                    const isScrolledToBottom = consoleEl.scrollHeight - consoleEl.clientHeight <= consoleEl.scrollTop + 1;
-                    consoleEl.innerHTML = data.log_content;
-                    // Scrolla in basso solo se l'utente era già in fondo
-                    if (isScrolledToBottom) {
-                        consoleEl.scrollTop = consoleEl.scrollHeight;
-                    }
-                }
-
-                // 2. Aggiorna Tabelle
-                document.getElementById('history-table-body').innerHTML = data.logs_html;
-                document.getElementById('jobs-table-body').innerHTML = data.jobs_html;
-
-                // 3. Aggiorna Stato Bottoni
-                for (const [taskId, isTriggered] of Object.entries(data.manual_triggers)) {
-                    const btn = document.getElementById(`btn-task-${taskId}`);
-                    if (btn) {
-                        const taskName = btn.getAttribute('data-task-name');
-                        if (isTriggered) {
-                            btn.href = `/reset-task/${taskId}/`;
-                            btn.className = "btn btn-warning w-100 h-100 d-flex align-items-center justify-content-center gap-2";
-                            btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> In Coda...';
-                        } else {
-                            btn.href = `/run-task/${taskId}/`;
-                            btn.className = "btn btn-outline-primary w-100 h-100 d-flex align-items-center justify-content-center gap-2";
-                            btn.innerHTML = `<i class="bi bi-lightning-fill"></i> ${taskName}`;
-                        }
-                    }
-                }
-            })
-            .catch(error => console.error('Errore aggiornamento log:', error));
+    // Scroll automatico log verso il basso
+    var logContainer = document.querySelector('pre');
+    if(logContainer) {
+        logContainer.scrollTop = logContainer.scrollHeight;
     }
 
-    // Aggiorna ogni 3 secondi
-    setInterval(updateLogs, 3000);
-
-    // Scroll automatico della console log verso il basso
-    document.addEventListener("DOMContentLoaded", function() {
-        var logContainer = document.getElementById('console-log-content');
-        if(logContainer) {
-            logContainer.scrollTop = logContainer.scrollHeight;
-        }
-    });
+    // Refresh automatico semplice ogni 5 secondi per vedere l'aggiornamento dello stato
+    setTimeout(function(){
+       window.location.reload();
+    }, 5000);
 </script>
 {% endblock %}
