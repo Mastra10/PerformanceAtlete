@@ -6,8 +6,7 @@ import traceback
 from django.core.management.base import BaseCommand
 from atleti.models import ProfiloAtleta
 from django.utils import timezone
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
+import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
@@ -22,7 +21,7 @@ class Command(BaseCommand):
         logger.info("--- AVVIO TASK AGGIORNAMENTO INDICI ---")
         
         # Configurazione Chromium
-        chrome_options = webdriver.ChromeOptions()
+        chrome_options = uc.ChromeOptions()
         chrome_options.binary_location = "/usr/bin/chromium" 
         
         chrome_options.add_argument('--headless=new') 
@@ -32,18 +31,13 @@ class Command(BaseCommand):
         chrome_options.add_argument('--window-size=1920,1080')
         chrome_options.add_argument('--disable-extensions')
         
-        # User Agent per evitare blocchi
-        chrome_options.add_argument("user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36")
-        chrome_options.add_argument("--disable-blink-features=AutomationControlled")
-        chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
-        chrome_options.add_experimental_option('useAutomationExtension', False)
-        
         try:
-            service = Service("/usr/bin/chromedriver")
-            driver = webdriver.Chrome(service=service, options=chrome_options)
-            logger.info("✅ Driver Chromium avviato correttamente.")
+            # Usa undetected_chromedriver: scarica automaticamente il driver corretto per la versione di Chrome installata
+            # version_main=None lascia che UC rilevi la versione dal binario del browser
+            driver = uc.Chrome(options=chrome_options, browser_executable_path="/usr/bin/chromium", version_main=None)
+            logger.info("✅ Driver UC avviato correttamente.")
         except Exception as e:
-            logger.error(f"Errore critico avvio Driver: {e}")
+            logger.error(f"Errore critico avvio Driver (UC): {e}")
             return
 
         atleti = ProfiloAtleta.objects.all()
