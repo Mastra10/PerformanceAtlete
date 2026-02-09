@@ -1587,17 +1587,17 @@ def statistiche_dispositivi(request):
     qs = Attivita.objects.filter(dispositivo__isnull=False).exclude(dispositivo='')
     
     # 1. Statistiche Raw per Modello
-    raw_stats = qs.values('dispositivo').annotate(count=Count('id')).order_by('-count')
+    raw_stats = qs.values('dispositivo').annotate(count=Count('atleta', distinct=True)).order_by('-count')
     
     brand_counts = {}
     model_counts = []
     
-    total_activities = 0
+    total_devices = 0
     
     for item in raw_stats:
         dev_name = item['dispositivo']
         count = item['count']
-        total_activities += count
+        total_devices += count
         
         brand, _ = normalizza_dispositivo(dev_name)
         
@@ -1613,7 +1613,7 @@ def statistiche_dispositivi(request):
     return render(request, 'atleti/dispositivi.html', {
         'brands': sorted_brands,
         'models': model_counts[:30], # Top 30 modelli
-        'total_activities': total_activities
+        'total_activities': total_devices
     })
 
 @login_required
