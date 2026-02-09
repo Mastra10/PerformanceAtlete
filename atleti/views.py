@@ -28,7 +28,8 @@ import os
 from django.core.exceptions import MultipleObjectsReturned
 from django.utils.safestring import mark_safe
 from django.urls import reverse
-from django.utils.dateparse import parse_datetime
+from django.utils.dateparse import parse_datetime, parse_duration
+from django.views.decorators.csrf import csrf_exempt
 from zoneinfo import ZoneInfo
 
 def _get_dashboard_context(user):
@@ -1930,3 +1931,202 @@ END:VCALENDAR"""
     response = HttpResponse(ics_content, content_type='text/calendar')
     response['Content-Disposition'] = f'attachment; filename="allenamento_{allenamento.id}.ics"'
     return response
+
+# --- API PER APP MOBILE ---
+
+def api_get_dashboard(request):
+    """API per restituire i dati della dashboard in formato JSON"""
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Autenticazione richiesta'}, status=401)
+    
+    try:
+        context = _get_dashboard_context(request.user)
+        profilo = context['profilo']
+        
+        # Serializzazione Profilo
+        profilo_data = {
+            'nome': request.user.first_name,
+            'cognome': request.user.last_name,
+            'peso': profilo.peso,
+            'fc_max': profilo.fc_massima_teorica,
+            'fc_riposo': profilo.fc_riposo,
+            'vo2max_statistico': profilo.vo2max_stima_statistica,
+            'vo2max_strada': profilo.vo2max_strada,
+            'itra_index': profilo.indice_itra,
+            'utmb_index': profilo.indice_utmb,
+            'immagine': profilo.immagine_profilo,
+        }
+        
+        # Serializzazione Attività Recenti
+        attivita_data = []
+        for act in context['attivita_recenti']:
+            attivita_data.append({
+                'id': act.id,
+                'nome': act.nome,
+                'data': act.data.isoformat(),
+                'distanza_km': act.distanza_km,
+                'dislivello': act.dislivello,
+                'tempo': act.durata_formattata,
+                'tipo': act.tipo_attivita,
+                'vo2max': act.vo2max_stimato,
+                'fc_media': act.fc_media,
+                'passo': act.passo_medio,
+                'vam': act.vam,
+                'potenza': act.potenza_media
+            })
+            
+        # Serializzazione Allarmi
+        allarmi_data = context['allarmi']
+        
+        # Serializzazione Notifiche
+        notifiche_data = []
+        for n in context['notifiche_utente']:
+            notifiche_data.append({
+                'id': n.id,
+                'messaggio': n.messaggio,
+                'link': n.link,
+                'letta': n.letta,
+                'data': n.data_creazione.isoformat(),
+                'tipo': n.tipo
+            })
+
+        response_data = {
+            'stats': {
+                'totale_km': context['totale_km'],
+                'dislivello_totale': context['dislivello_totale'],
+                'dislivello_settimanale': context['dislivello_settimanale'],
+                'annuale_km': context['annuale_km'],
+                'dislivello_annuale': context['dislivello_annuale'],
+                'avg_weekly_km': context['avg_weekly_km'],
+                'avg_weekly_elev': context['avg_weekly_elev'],
+                'vam_media': context['vam_media'],
+                'potenza_media': context['potenza_media'],
+                'fc_media_recent': context['fc_media_recent'],
+                'passo_media_recent': context['passo_media_recent'],
+            },
+            'levels': {
+                'vo2max': context['livello_vo2max'],
+                'vo2max_strada': context['livello_vo2max_strada'],
+                'vam': context['livello_vam'],
+                'potenza': context['livello_potenza'],
+                'itra': context['livello_itra'],
+                'utmb': context['livello_utmb'],
+                'efficienza': context['livello_efficienza']
+            },
+            'thresholds': {
+                'aerobica': context['soglia_aerobica'],
+                'anaerobica': context['soglia_anaerobica']
+            },
+            'trends': context['trends'],
+            'profilo': profilo_data,
+            'attivita_recenti': attivita_data,
+            'allarmi': allarmi_data,
+            'notifiche': notifiche_data,
+        }
+        
+        return JsonResponse(response_data)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+def api_list_workouts(request):
+    """API per listare gli allenamenti futuri"""
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Autenticazione richiesta'}, status=401)
+        
+    now = timezone.now()
+    qs = Allenamento.objects.filter(
+        Q(visibilita='Pubblico') | 
+        Q(invitati=request.user) | 
+        Q(creatore=request.user)
+    ).filter(data_orario__gte=now).distinct().order_by('data_orario')
+    
+    data = []
+    for a in qs:
+        partecipanti_count = a.partecipanti.filter(stato='Approvata').count()
+        is_participant = a.partecipanti.filter(atleta=request.user).exists()
+        
+        data.append({
+            'id': a.id,
+            'titolo': a.titolo,
+            'descrizione': a.descrizione,
+            'data': a.data_orario.isoformat(),
+            'distanza_km': a.distanza_km,
+            'dislivello': a.dislivello,
+            'tipo': a.tipo,
+            'creatore': f"{a.creatore.first_name} {a.creatore.last_name}",
+            'partecipanti_count': partecipanti_count,
+            'is_participant': is_participant,
+            'visibilita': a.visibilita
+        })
+        
+    return JsonResponse({'allenamenti': data})
+
+@csrf_exempt
+def api_create_workout(request):
+    """API per creare un nuovo allenamento"""
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Autenticazione richiesta'}, status=401)
+        
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Metodo non consentito'}, status=405)
+        
+    try:
+        data = json.loads(request.body)
+        
+        # Validazione campi obbligatori
+        required_fields = ['titolo', 'data_orario', 'distanza_km', 'dislivello', 'tempo_stimato']
+        for field in required_fields:
+            if field not in data:
+                return JsonResponse({'error': f'Campo mancante: {field}'}, status=400)
+        
+        # Parsing Data
+        dt = parse_datetime(data['data_orario'])
+        if not dt:
+            return JsonResponse({'error': 'Formato data non valido (usa ISO 8601)'}, status=400)
+        if timezone.is_naive(dt):
+            dt = timezone.make_aware(dt, ZoneInfo("Europe/Rome"))
+            
+        # Parsing Durata
+        duration = parse_duration(data['tempo_stimato']) # Es. "01:30:00"
+        if not duration:
+             return JsonResponse({'error': 'Formato durata non valido (HH:MM:SS)'}, status=400)
+
+        allenamento = Allenamento.objects.create(
+            creatore=request.user,
+            titolo=data['titolo'],
+            descrizione=data.get('descrizione', ''),
+            data_orario=dt,
+            distanza_km=float(data['distanza_km']),
+            dislivello=int(data['dislivello']),
+            tipo=data.get('tipo', 'Strada'),
+            tempo_stimato=duration,
+            visibilita=data.get('visibilita', 'Pubblico')
+        )
+        
+        # Aggiungi creatore come partecipante
+        Partecipazione.objects.create(
+            allenamento=allenamento,
+            atleta=request.user,
+            stato='Approvata'
+        )
+        
+        # Creazione Notifiche
+        messaggio = f"Nuovo allenamento di gruppo: {allenamento.titolo} ({allenamento.data_orario.strftime('%d/%m')}) organizzato da {request.user.first_name}."
+        link_url = reverse('dettaglio_allenamento', args=[allenamento.pk])
+        
+        destinatari = []
+        if allenamento.visibilita == 'Pubblico':
+            destinatari = User.objects.exclude(id=request.user.id)
+        
+        notifiche_objs = [
+            Notifica(utente=u, messaggio=messaggio, link=link_url, tipo='info')
+            for u in destinatari
+        ]
+        Notifica.objects.bulk_create(notifiche_objs)
+        
+        return JsonResponse({'success': True, 'id': allenamento.id, 'message': 'Allenamento creato con successo'})
+        
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'JSON non valido'}, status=400)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
