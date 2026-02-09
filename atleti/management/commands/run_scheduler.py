@@ -35,24 +35,21 @@ class Command(BaseCommand):
         file_handler.setFormatter(logging.Formatter('%(asctime)s [%(levelname)s] %(message)s', '%Y-%m-%d %H:%M:%S'))
         
         # --- FILTRO ANTI-SPAM ---
-        # class HeartbeatFilter(logging.Filter):
-        #     def filter(self, record):
-        #         msg = record.getMessage()
-        #         if "task_heartbeat" in msg:
-        #             # Nascondiamo solo i log di routine (INFO), ma mostriamo gli ERRORI
-        #             if "Running job" in msg or "executed successfully" in msg:
-        #                 return False
-        #         return True
+        class HeartbeatFilter(logging.Filter):
+            def filter(self, record):
+                msg = record.getMessage()
+                if "task_heartbeat" in msg:
+                    # Nascondiamo solo i log di routine (INFO), ma mostriamo gli ERRORI
+                    if "Running job" in msg or "executed successfully" in msg:
+                        return False
+                return True
 
-        # f = HeartbeatFilter()
-        # file_handler.addFilter(f)
+        f = HeartbeatFilter()
+        file_handler.addFilter(f)
 
-        # # Applichiamo il filtro a TUTTI i handler del root logger (inclusa la console di Docker)
-        # root_logger = logging.getLogger('')
-        # for h in root_logger.handlers:
-        #     h.addFilter(f)
         root_logger = logging.getLogger('')
         root_logger.addHandler(file_handler)
+        logger.info("--- SISTEMA LOG ATTIVO: Scheduler Avviato ---")
         
         scheduler = BlockingScheduler(timezone=settings.TIME_ZONE)
         scheduler.add_jobstore(DjangoJobStore(), "default")

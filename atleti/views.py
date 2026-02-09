@@ -1316,7 +1316,7 @@ def scheduler_logs(request):
     log_path = '/code/scheduler.log'
     try:
         if os.path.exists(log_path):
-            with open(log_path, 'r') as f:
+            with open(log_path, 'r', encoding='utf-8', errors='replace') as f:
                 lines = f.readlines()
                 log_content = "".join(lines[-100:])
         else:
