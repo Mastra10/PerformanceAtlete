@@ -141,7 +141,7 @@
                 {% if allarmi or has_unread_messages %}
                 <div class="position-absolute top-0 end-0 p-3 d-flex gap-2">
                     {% if has_unread_messages %}
-                    <button type="button" class="btn btn-light position-relative rounded-circle shadow-sm border" onclick="document.getElementById('notifications-container').scrollIntoView({behavior: 'smooth'});" title="Nuovi messaggi nelle discussioni">
+                    <button type="button" class="btn btn-light position-relative rounded-circle shadow-sm border" data-bs-toggle="modal" data-bs-target="#messagesModal" title="Nuovi messaggi nelle discussioni">
                         <i class="bi bi-envelope-paper-fill text-warning"></i>
                         <span class="position-absolute top-0 start-100 translate-middle p-2 bg-danger border border-light rounded-circle">
                             <span class="visually-hidden">Nuovi messaggi</span>
@@ -754,6 +754,38 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Chiudi</button>
                 <button type="button" class="btn btn-danger" onclick="scaricaPDFPersonale()"><i class="bi bi-file-earmark-pdf me-2"></i>Scarica PDF</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Anteprima Messaggi -->
+<div class="modal fade" id="messagesModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title fw-bold"><i class="bi bi-envelope-paper me-2"></i>Messaggi non letti</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body bg-light">
+                {% for n in notifiche_utente %}
+                    {% if n.tipo == 'message' %}
+                    <div class="card mb-2 shadow-sm border-0" id="modal-msg-{{ n.id }}">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between">
+                                <h6 class="card-subtitle mb-2 text-muted small">{{ n.data_creazione|timesince }} fa</h6>
+                                <button type="button" class="btn-close btn-sm" aria-label="Close" onclick="segnaLetta({{ n.id }}); document.getElementById('modal-msg-{{ n.id }}').remove();"></button>
+                            </div>
+                            <p class="card-text mb-2 fw-bold">{{ n.messaggio }}</p>
+                            {% if n.link %}
+                            <a href="{{ n.link }}" class="btn btn-sm btn-primary w-100" onclick="segnaLetta({{ n.id }})">
+                                <i class="bi bi-eye me-1"></i>Vedi Discussione
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                {% endfor %}
             </div>
         </div>
     </div>
