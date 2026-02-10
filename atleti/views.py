@@ -261,6 +261,9 @@ def _get_dashboard_context(user):
     # Recupero Notifiche non lette
     notifiche = Notifica.objects.filter(utente=user, letta=False).order_by('-data_creazione')
 
+    # Check per icona messaggi (conversazioni/risposte)
+    has_unread_messages = notifiche.filter(tipo='message').exists()
+
     return {
         'totale_km': totale_km,
         'dislivello_totale': int(dislivello_totale),
@@ -301,6 +304,7 @@ def _get_dashboard_context(user):
         'warning_token': warning_token,
         'allarmi': allarmi,
         'notifiche_utente': notifiche,
+        'has_unread_messages': has_unread_messages,
     }
 
 # 1. Questa mostra la pagina (NON cancellarla!)
@@ -1797,6 +1801,26 @@ def dettaglio_allenamento(request, pk):
             comm.allenamento = allenamento
             comm.autore = request.user
             comm.save()
+            
+            # --- NOTIFICHE COMMENTI (SCAMBIO INFORMAZIONI) ---
+            # Identifica interessati: Creatore + chi ha già commentato (escluso chi scrive ora)
+            recipient_ids = set()
+            if allenamento.creatore != request.user:
+                recipient_ids.add(allenamento.creatore.id)
+            
+            # Aggiungi altri partecipanti alla discussione
+            prev_authors = allenamento.commenti.exclude(autore=request.user).values_list('autore_id', flat=True)
+            recipient_ids.update(prev_authors)
+            
+            if recipient_ids:
+                recipients = User.objects.filter(id__in=recipient_ids)
+                msg = f"Nuova risposta in: {allenamento.titolo}"
+                link = reverse('dettaglio_allenamento', args=[pk])
+                
+                notifiche_objs = [Notifica(utente=u, messaggio=msg, link=link, tipo='message') for u in recipients]
+                Notifica.objects.bulk_create(notifiche_objs)
+            # -------------------------------------------------
+
             return redirect('dettaglio_allenamento', pk=pk)
     
     # Gestione Adesione
@@ -1805,6 +1829,16 @@ def dettaglio_allenamento(request, pk):
         if created:
             part.check_risk() # Calcola rischio
             part.save()
+            
+            # --- NOTIFICA ORGANIZZATORE ---
+            if allenamento.creatore != request.user:
+                Notifica.objects.create(
+                    utente=allenamento.creatore,
+                    messaggio=f"{request.user.first_name} vuole partecipare a: {allenamento.titolo}",
+                    link=reverse('dettaglio_allenamento', args=[pk]),
+                    tipo='info'
+                )
+            
             messages.success(request, "Richiesta inviata!")
         return redirect('dettaglio_allenamento', pk=pk)
 
@@ -1931,6 +1965,22 @@ END:VCALENDAR"""
     response = HttpResponse(ics_content, content_type='text/calendar')
     response['Content-Disposition'] = f'attachment; filename="allenamento_{allenamento.id}.ics"'
     return response
+
+def download_allenamento_gpx(request, pk):
+    """Scarica il file GPX dell'allenamento se presente"""
+    allenamento = get_object_or_404(Allenamento, pk=pk)
+    
+    if not allenamento.file_gpx:
+        messages.error(request, "Nessun file GPX caricato per questo allenamento.")
+        return redirect('dettaglio_allenamento', pk=pk)
+        
+    try:
+        response = HttpResponse(allenamento.file_gpx.open('rb'), content_type='application/gpx+xml')
+        response['Content-Disposition'] = f'attachment; filename="{os.path.basename(allenamento.file_gpx.name)}"'
+        return response
+    except FileNotFoundError:
+        messages.error(request, "File GPX non trovato sul server.")
+        return redirect('dettaglio_allenamento', pk=pk)
 
 # --- API PER APP MOBILE ---
 
