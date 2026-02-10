@@ -42,9 +42,12 @@
                             </button>
                         </div>
                         {% if allenamento.file_gpx %}
-                        <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#mapModal">
-                            <i class="bi bi-map me-2"></i>Vedi Traccia
-                        </button>
+                        <div class="btn-group">
+                            <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#mapModal">
+                                <i class="bi bi-map me-2"></i>Vedi Traccia
+                            </button>
+                            <a href="{% url 'download_allenamento_gpx' allenamento.pk %}" class="btn btn-outline-primary" title="Scarica GPX"><i class="bi bi-download"></i></a>
+                        </div>
                         {% endif %}
                     </div>
                     <p class="text-muted">{{ allenamento.descrizione }}</p>

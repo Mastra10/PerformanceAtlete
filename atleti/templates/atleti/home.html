@@ -137,9 +137,19 @@
                     </button>
                 </div>
 
-                <!-- Campanello Notifiche Allarmi -->
-                {% if allarmi %}
-                <div class="position-absolute top-0 end-0 p-3">
+                <!-- Notifiche (Messaggi + Allarmi) -->
+                {% if allarmi or has_unread_messages %}
+                <div class="position-absolute top-0 end-0 p-3 d-flex gap-2">
+                    {% if has_unread_messages %}
+                    <button type="button" class="btn btn-light position-relative rounded-circle shadow-sm border" onclick="document.getElementById('notifications-container').scrollIntoView({behavior: 'smooth'});" title="Nuovi messaggi nelle discussioni">
+                        <i class="bi bi-envelope-paper-fill text-warning"></i>
+                        <span class="position-absolute top-0 start-100 translate-middle p-2 bg-danger border border-light rounded-circle">
+                            <span class="visually-hidden">Nuovi messaggi</span>
+                        </span>
+                    </button>
+                    {% endif %}
+
+                    {% if allarmi %}
                     <button type="button" class="btn btn-light position-relative rounded-circle shadow-sm border" data-bs-toggle="modal" data-bs-target="#alarmsModal">
                         <i class="bi bi-bell-fill text-danger shake-animation"></i>
                         <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-light">
@@ -147,6 +157,7 @@
                             <span class="visually-hidden">allarmi</span>
                         </span>
                     </button>
+                    {% endif %}
                 </div>
                 {% endif %}
 

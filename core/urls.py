@@ -67,6 +67,7 @@ urlpatterns = [
     path('allenamenti/elimina/<int:pk>/', views.elimina_allenamento, name='elimina_allenamento'),
     path('notifica-letta/<int:pk>/', views.segna_notifica_letta, name='segna_notifica_letta'),
     path('allenamenti/ics/<int:pk>/', views.download_allenamento_ics, name='download_allenamento_ics'),
+    path('allenamenti/gpx/<int:pk>/', views.download_allenamento_gpx, name='download_allenamento_gpx'),
 ]
 
 
