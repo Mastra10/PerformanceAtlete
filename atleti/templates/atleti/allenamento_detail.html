@@ -97,10 +97,41 @@
                     {% endfor %}
                     
                     {% if request.user.is_authenticated %}
-                    <form method="POST" class="mt-3">
+                    <form method="POST" class="mt-3 position-relative">
                         {% csrf_token %}
-                        {{ commento_form.testo }}
-                        <button type="submit" name="commento" class="btn btn-sm btn-dark mt-2">Invia</button>
+                        <div class="mb-2">
+                            {{ commento_form.testo }}
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="emojiBtn" title="Aggiungi Emoji">
+                                <i class="bi bi-emoji-smile"></i>
+                            </button>
+                            <button type="submit" name="commento" class="btn btn-sm btn-dark">Invia</button>
+                        </div>
+                        
+                        <!-- Emoji Picker -->
+                        <div id="emojiPicker" class="card shadow-sm position-absolute p-2 d-none" style="bottom: 45px; left: 0; z-index: 1000; width: 240px;">
+                            <div class="d-flex flex-wrap gap-2 justify-content-center">
+                                <span class="emoji-item" role="button" style="font-size: 1.2rem; cursor: pointer;">👍</span>
+                                <span class="emoji-item" role="button" style="font-size: 1.2rem; cursor: pointer;">🔥</span>
+                                <span class="emoji-item" role="button" style="font-size: 1.2rem; cursor: pointer;">🏃</span>
+                                <span class="emoji-item" role="button" style="font-size: 1.2rem; cursor: pointer;">🏔️</span>
+                                <span class="emoji-item" role="button" style="font-size: 1.2rem; cursor: pointer;">💪</span>
+                                <span class="emoji-item" role="button" style="font-size: 1.2rem; cursor: pointer;">👏</span>
+                                <span class="emoji-item" role="button" style="font-size: 1.2rem; cursor: pointer;">🚀</span>
+                                <span class="emoji-item" role="button" style="font-size: 1.2rem; cursor: pointer;">🥵</span>
+                                <span class="emoji-item" role="button" style="font-size: 1.2rem; cursor: pointer;">🎉</span>
+                                <span class="emoji-item" role="button" style="font-size: 1.2rem; cursor: pointer;">👟</span>
+                                <span class="emoji-item" role="button" style="font-size: 1.2rem; cursor: pointer;">🥇</span>
+                                <span class="emoji-item" role="button" style="font-size: 1.2rem; cursor: pointer;">🥈</span>
+                                <span class="emoji-item" role="button" style="font-size: 1.2rem; cursor: pointer;">🥉</span>
+                                <span class="emoji-item" role="button" style="font-size: 1.2rem; cursor: pointer;">🍺</span>
+                                <span class="emoji-item" role="button" style="font-size: 1.2rem; cursor: pointer;">🍕</span>
+                                <span class="emoji-item" role="button" style="font-size: 1.2rem; cursor: pointer;">😎</span>
+                                <span class="emoji-item" role="button" style="font-size: 1.2rem; cursor: pointer;">🤩</span>
+                                <span class="emoji-item" role="button" style="font-size: 1.2rem; cursor: pointer;">🔝</span>
+                            </div>
+                        </div>
                     </form>
                     {% endif %}
                 </div>
@@ -314,6 +345,41 @@
         const waText = encodeURIComponent(`${text}\n\nLink: ${url}`);
         window.open(`https://wa.me/?text=${waText}`, '_blank');
     }
+
+    // Gestione Emoji Picker
+    document.addEventListener('DOMContentLoaded', function() {
+        const emojiBtn = document.getElementById('emojiBtn');
+        const emojiPicker = document.getElementById('emojiPicker');
+        // Cerchiamo la textarea all'interno del form dei commenti
+        const textarea = document.querySelector('form textarea[name="testo"]');
+
+        if (emojiBtn && emojiPicker && textarea) {
+            emojiBtn.addEventListener('click', function(e) {
+                e.stopPropagation(); // Evita che il click chiuda subito il picker
+                emojiPicker.classList.toggle('d-none');
+            });
+
+            document.querySelectorAll('.emoji-item').forEach(item => {
+                item.addEventListener('click', function() {
+                    const emoji = this.textContent;
+                    const start = textarea.selectionStart;
+                    const end = textarea.selectionEnd;
+                    const text = textarea.value;
+                    
+                    textarea.value = text.substring(0, start) + emoji + text.substring(end);
+                    textarea.selectionStart = textarea.selectionEnd = start + emoji.length;
+                    textarea.focus();
+                });
+            });
+
+            // Chiudi picker se si clicca fuori
+            document.addEventListener('click', function(event) {
+                if (!emojiPicker.contains(event.target) && !emojiBtn.contains(event.target)) {
+                    emojiPicker.classList.add('d-none');
+                }
+            });
+        }
+    });
 </script>
 {% endblock %}
 
