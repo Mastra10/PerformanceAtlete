@@ -279,19 +279,17 @@
 
         map.addLayer(vectorLayer);
 
-        // Zoom automatico sulla traccia quando caricata
-        vectorSource.once('change', function() {
-            const state = vectorSource.getState();
-            console.log("initMap: Stato GPX ->", state);
-            
-            if (state === 'ready') {
-                const extent = vectorSource.getExtent();
-                // Padding per non avere la traccia attaccata ai bordi
+        // FIX: Gestione robusta dello zoom sulla traccia
+        const fitTrack = () => {
+            const extent = vectorSource.getExtent();
+            if (!ol.extent.isEmpty(extent)) {
                 map.getView().fit(extent, { padding: [50, 50, 50, 50], duration: 1000 });
-            } else if (state === 'error') {
-                console.error("initMap: Errore caricamento GPX.");
-                alert("Impossibile caricare la traccia GPX. Verifica che il file esista sul server.");
             }
+        };
+
+        vectorSource.on('featuresloadend', fitTrack);
+        vectorSource.once('change', function() {
+            if (vectorSource.getState() === 'ready') fitTrack();
         });
         {% else %}
         console.log("initMap: Nessun file GPX presente.");
