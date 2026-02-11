@@ -207,6 +207,10 @@
     
     function initMap() {
         console.log("initMap: Avvio funzione...");
+        if (typeof ol === 'undefined') {
+            console.error("OpenLayers non caricato correttamente.");
+            return;
+        }
         const mapTarget = document.getElementById('map');
         if (!mapTarget) {
             console.error("initMap: Elemento #map non trovato!");
@@ -268,7 +272,8 @@
         const vectorLayer = new ol.layer.Vector({
             source: vectorSource,
             style: function (feature) {
-                return style[feature.getGeometry().getType()];
+                const type = feature.getGeometry().getType();
+                return style[type] || style['MultiLineString'];
             }
         });
 
