@@ -975,8 +975,8 @@ def riepilogo_atleti(request):
         team_members_ids = active_team.membri.values_list('id', flat=True)
         atleti = [a for a in atleti if a.user.id in team_members_ids]
         active_atleti = [a for a in active_atleti if a.user.id in team_members_ids]
-        # Il podio va ricalcolato sul team? Per ora filtriamo solo la visualizzazione
-        podio = [p for p in podio if p.user.id in team_members_ids]
+        # Ricalcoliamo il podio locale per il team (Top 3 tra i membri attivi del gruppo)
+        podio = sorted(active_atleti, key=lambda x: x.punteggio_podio, reverse=True)[:3]
 
     # 2. Offuscamento dati sensibili
     if not request.user.is_staff:
