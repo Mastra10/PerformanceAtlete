@@ -1,5 +1,5 @@
 from django import forms
-from .models import Allenamento, CommentoAllenamento, Partecipazione
+from .models import Allenamento, CommentoAllenamento, Partecipazione, Team
 from django.contrib.auth.models import User
 
 class AllenamentoForm(forms.ModelForm):
@@ -33,3 +33,19 @@ class CommentoForm(forms.ModelForm):
         widgets = {
             'testo': forms.Textarea(attrs={'rows': 2, 'class': 'form-control', 'placeholder': 'Scrivi una domanda o un commento...'})
         }
+
+class TeamForm(forms.ModelForm):
+    class Meta:
+        model = Team
+        fields = ['nome', 'descrizione', 'immagine']
+        widgets = {
+            'nome': forms.TextInput(attrs={'class': 'form-control'}),
+            'descrizione': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
+        }
+
+class InvitoTeamForm(forms.Form):
+    utente = forms.ModelChoiceField(
+        queryset=User.objects.all(),
+        widget=forms.Select(attrs={'class': 'form-control'}),
+        label="Seleziona Utente da Invitare"
+    )

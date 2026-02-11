@@ -1,0 +1,106 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-gear-fill me-2"></i>Gestione Gruppo: {{ team.nome }}</h2>
+        <a href="{% url 'home' %}" class="btn btn-outline-secondary">Torna alla Dashboard</a>
+    </div>
+
+    <div class="row g-4">
+        <!-- Colonna Sinistra: Invita e Membri -->
+        <div class="col-md-8">
+            <!-- Card Invito -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="m-0"><i class="bi bi-person-plus-fill me-2"></i>Aggiungi Membri</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" class="d-flex flex-column gap-2">
+                        {% csrf_token %}
+                        <input type="text" id="userSearch" class="form-control form-control-sm mb-1" placeholder="Filtra utenti..." onkeyup="filterUsers()">
+                        <div class="flex-grow-1" id="userSelectContainer">
+                            {{ form.utente }}
+                        </div>
+                        <button type="submit" class="btn btn-primary">Invia Invito</button>
+                    </form>
+                    <small class="text-muted mt-2 d-block">L'utente riceverà una notifica per accettare l'invito.</small>
+                </div>
+            </div>
+
+            <!-- Lista Membri -->
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h5 class="m-0"><i class="bi bi-people-fill me-2"></i>Membri del Gruppo ({{ membri.count }})</h5>
+                </div>
+                <ul class="list-group list-group-flush">
+                    {% for membro in membri %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>{{ membro.first_name }} {{ membro.last_name }}</strong>
+                            <span class="text-muted small">@{{ membro.username }}</span>
+                            {% if membro == team.creatore %}
+                                <span class="badge bg-warning text-dark ms-2">Creatore</span>
+                            {% endif %}
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+
+        <!-- Colonna Destra: Richieste e Azioni Pericolose -->
+        <div class="col-md-4">
+            <!-- Richieste di Adesione -->
+            {% if richieste_adesione %}
+            <div class="card shadow-sm mb-4 border-warning">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="m-0"><i class="bi bi-exclamation-circle me-2"></i>Richieste in Attesa</h5>
+                </div>
+                <ul class="list-group list-group-flush">
+                    {% for req in richieste_adesione %}
+                    <li class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <strong>{{ req.utente.first_name }}</strong>
+                            <small class="text-muted">{{ req.data_richiesta|date:"d/m" }}</small>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <a href="{% url 'gestisci_adesione_team' req.id 'accetta' %}" class="btn btn-sm btn-success flex-fill">Accetta</a>
+                            <a href="{% url 'gestisci_adesione_team' req.id 'rifiuta' %}" class="btn btn-sm btn-outline-danger flex-fill">Rifiuta</a>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
+            <!-- Elimina Gruppo -->
+            <div class="card shadow-sm border-danger">
+                <div class="card-body text-center">
+                    <h5 class="text-danger fw-bold">Zona Pericolosa</h5>
+                    <p class="small text-muted">Eliminando il gruppo, tutti i dati associati verranno persi.</p>
+                    <a href="{% url 'elimina_team' team.id %}" class="btn btn-danger w-100" onclick="return confirm('SEI SICURO? Questa azione è irreversibile e cancellerà il gruppo e tutti gli allenamenti associati.')">Elimina Gruppo</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function filterUsers() {
+    var input = document.getElementById("userSearch");
+    var filter = input.value.toUpperCase();
+    var select = document.querySelector("#userSelectContainer select");
+    var options = select.getElementsByTagName("option");
+    
+    for (var i = 0; i < options.length; i++) {
+        var txtValue = options[i].textContent || options[i].innerText;
+        if (txtValue.toUpperCase().indexOf(filter) > -1) {
+            options[i].style.display = "";
+        } else {
+            options[i].style.display = "none";
+        }
+    }
+}
+</script>
+{% endblock %}

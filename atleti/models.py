@@ -41,6 +41,7 @@ class ProfiloAtleta(models.Model):
     data_ultimo_ricalcolo_statistiche = models.DateTimeField(null=True, blank=True, verbose_name="Ultimo Ricalcolo Statistiche")
     # Preferenza per nascondere l'avviso temporaneo nella home (persistente per utente)
     hide_home_notice = models.BooleanField(default=False, verbose_name="Nascondi avviso home")
+    team_preferito = models.ForeignKey('Team', on_delete=models.SET_NULL, null=True, blank=True, related_name='utenti_preferiti')
 
     class Meta:
         permissions = [
@@ -54,6 +55,31 @@ class ProfiloAtleta(models.Model):
 
     def __str__(self):
         return f"Profilo di {self.user.username}"
+
+class Team(models.Model):
+    nome = models.CharField(max_length=100, unique=True)
+    descrizione = models.TextField(blank=True)
+    immagine = models.ImageField(upload_to='team_images/', null=True, blank=True)
+    creatore = models.ForeignKey(User, on_delete=models.CASCADE, related_name='team_creati')
+    membri = models.ManyToManyField(User, related_name='teams_appartenenza', blank=True)
+    data_creazione = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.nome
+
+class RichiestaAdesioneTeam(models.Model):
+    STATO_CHOICES = [('In Attesa', 'In Attesa'), ('Approvata', 'Approvata'), ('Rifiutata', 'Rifiutata')]
+    TIPO_CHOICES = [('Adesione', 'Richiesta Utente'), ('Invito', 'Invito Creatore')]
+    
+    team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name='richieste_adesione')
+    utente = models.ForeignKey(User, on_delete=models.CASCADE)
+    stato = models.CharField(max_length=20, choices=STATO_CHOICES, default='In Attesa')
+    tipo = models.CharField(max_length=10, choices=TIPO_CHOICES, default='Adesione')
+    data_richiesta = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('team', 'utente')
+
 
 class Attivita(models.Model):
     atleta = models.ForeignKey(ProfiloAtleta, on_delete=models.CASCADE, related_name='sessioni')
@@ -259,7 +285,11 @@ class Scarpa(models.Model):
 
 class Allenamento(models.Model):
     TIPO_CHOICES = [('Trail', 'Trail Running'), ('Strada', 'Corsa su Strada')]
-    VISIBILITA_CHOICES = [('Pubblico', 'Pubblico (Tutti)'), ('Privato', 'Privato (Solo Invitati)')]
+    VISIBILITA_CHOICES = [
+        ('Pubblico', 'Pubblico (Tutti)'), 
+        ('Privato', 'Privato (Solo Invitati)'),
+        ('Gruppo', 'Solo Gruppo')
+    ]
 
     creatore = models.ForeignKey(User, on_delete=models.CASCADE, related_name='allenamenti_creati')
     titolo = models.CharField(max_length=200)
@@ -272,6 +302,7 @@ class Allenamento(models.Model):
     file_gpx = models.FileField(upload_to='gpx_track/', null=True, blank=True)
     visibilita = models.CharField(max_length=10, choices=VISIBILITA_CHOICES, default='Pubblico')
     invitati = models.ManyToManyField(User, related_name='inviti_allenamento', blank=True)
+    team = models.ForeignKey(Team, on_delete=models.CASCADE, null=True, blank=True, related_name='allenamenti')
     data_creazione = models.DateTimeField(auto_now_add=True)
 
     class Meta:

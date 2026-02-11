@@ -17,8 +17,8 @@ from django.contrib.auth.models import User
 import csv
 from django_apscheduler.models import DjangoJobExecution, DjangoJob
 from .models import TaskSettings
-from .models import Allenamento, Partecipazione, CommentoAllenamento, Notifica
-from .forms import AllenamentoForm, CommentoForm
+from .models import Allenamento, Partecipazione, CommentoAllenamento, Notifica, Team, RichiestaAdesioneTeam
+from .forms import AllenamentoForm, CommentoForm, TeamForm, InvitoTeamForm
 from django.core.management import call_command
 from django.contrib import messages
 from datetime import timedelta
@@ -31,6 +31,23 @@ from django.urls import reverse
 from django.utils.dateparse import parse_datetime, parse_duration
 from django.views.decorators.csrf import csrf_exempt
 from zoneinfo import ZoneInfo
+
+def _get_active_team(request):
+    """Helper per recuperare il team attivo dalla sessione"""
+    team_id = request.session.get('active_team_id')
+    if team_id:
+        try:
+            return Team.objects.get(pk=team_id)
+        except Team.DoesNotExist:
+            return None
+    return None
+
+def _get_navbar_context(request):
+    """Helper per popolare i dati della navbar (Team selector)"""
+    active_team = _get_active_team(request)
+    all_teams = Team.objects.all().order_by('nome')
+    # Aggiungiamo info se l'utente è membro per gestire il popup lato frontend
+    return {'active_team': active_team, 'all_teams': all_teams}
 
 def _get_dashboard_context(user):
     """Helper per generare il contesto della dashboard per un dato utente"""
@@ -319,11 +336,17 @@ def home(request):
             
         status = cache.get(f"sync_progress_{request.user.id}", {'status': 'In attesa...', 'progress': 0})
         return JsonResponse(status)
-
+    
+    # Gestione Default Team al login se non settato
+    if request.user.is_authenticated and 'active_team_id' not in request.session:
+        if hasattr(request.user, 'profiloatleta') and request.user.profiloatleta.team_preferito:
+            request.session['active_team_id'] = request.user.profiloatleta.team_preferito.id
+            
     try:
         if request.user.is_authenticated:
             LogSistema.objects.create(livello='INFO', azione='Page View', utente=request.user, messaggio="Visita Dashboard")
             context = _get_dashboard_context(request.user)
+            context.update(_get_navbar_context(request))
             if context.get('warning_token'):
                 messages.warning(request, context['warning_token'])
             return render(request, 'atleti/home.html', context)
@@ -348,6 +371,7 @@ def dashboard_atleta(request, username):
     # 3. L'utente ha reso la dashboard pubblica
     if request.user == target_user or request.user.is_staff or profilo.dashboard_pubblica:
         context = _get_dashboard_context(target_user)
+        context.update(_get_navbar_context(request))
         return render(request, 'atleti/home.html', context)
     else:
         return render(request, 'atleti/home.html', {
@@ -436,6 +460,7 @@ def impostazioni(request):
             importa_attivita_private = request.POST.get('importa_attivita_private') == 'on'
             condividi_metriche = request.POST.get('condividi_metriche') == 'on'
             escludi_statistiche_coach = request.POST.get('escludi_statistiche_coach') == 'on'
+            team_preferito_id = request.POST.get('team_preferito')
             
             profilo.peso = peso
             profilo.mostra_peso = mostra_peso
@@ -448,6 +473,11 @@ def impostazioni(request):
             profilo.fc_max = fc_max
             profilo.fc_massima_teorica = fc_max
             
+            if team_preferito_id:
+                profilo.team_preferito_id = team_preferito_id
+            else:
+                profilo.team_preferito = None
+
             # Gestione checkbox manuale
             if request.POST.get('fc_max_manuale') == 'on':
                 profilo.fc_max_manuale = True
@@ -461,7 +491,10 @@ def impostazioni(request):
             return redirect('home')
         except ValueError:
             messages.error(request, "Errore formato dati: controlla di aver inserito numeri validi (usa il punto per i decimali).")
-    return render(request, 'atleti/impostazioni.html', {'profilo': profilo, 'strava_connected': strava_connected})
+    
+    # Passiamo i team per la select
+    teams = Team.objects.filter(membri=request.user)
+    return render(request, 'atleti/impostazioni.html', {'profilo': profilo, 'strava_connected': strava_connected, 'teams': teams})
 
 @login_required
 def aggiorna_dati_profilo(request):
@@ -835,6 +868,7 @@ def grafici_atleta(request):
         'data_vam': json.dumps(data_vam),
         'data_pace': json.dumps(data_pace),
     }
+    context.update(_get_navbar_context(request))
     return render(request, 'atleti/grafici.html', context)
 
 def elimina_attivita_anomale(request):
@@ -934,6 +968,16 @@ def riepilogo_atleti(request):
     # 1. Recupero Dati e Podio (Logica spostata in utils)
     atleti, active_atleti, podio = get_atleti_con_statistiche_settimanali()
     
+    # FILTRO TEAM
+    active_team = _get_active_team(request)
+    if active_team:
+        # Filtriamo solo gli atleti che sono membri del team attivo
+        team_members_ids = active_team.membri.values_list('id', flat=True)
+        atleti = [a for a in atleti if a.user.id in team_members_ids]
+        active_atleti = [a for a in active_atleti if a.user.id in team_members_ids]
+        # Il podio va ricalcolato sul team? Per ora filtriamo solo la visualizzazione
+        podio = [p for p in podio if p.user.id in team_members_ids]
+
     # 2. Offuscamento dati sensibili
     if not request.user.is_staff:
         for a in atleti:
@@ -957,13 +1001,15 @@ def riepilogo_atleti(request):
             if ai_comments and p.user.username in ai_comments:
                 p.motivazione_podio = ai_comments[p.user.username]
 
-    return render(request, 'atleti/riepilogo_atleti.html', {
+    context = {
         'atleti': atleti,
         'active_atleti': active_atleti,
         'max_km': max_km,
         'max_dplus': max_dplus,
         'podio': podio
-    })
+    }
+    context.update(_get_navbar_context(request))
+    return render(request, 'atleti/riepilogo_atleti.html', context)
 
 def gare_atleta(request):
     """Visualizza solo le attività taggate come Gara su Strava"""
@@ -1043,7 +1089,7 @@ def gare_atleta(request):
         elif p <= 30: pos_buckets['Top 30'] += 1
         else: pos_buckets['Oltre 30'] += 1
 
-    return render(request, 'atleti/gare.html', {
+    context = {
         'gare': gare,
         'stats': stats,
         'chart_labels': json.dumps(chart_labels),
@@ -1052,7 +1098,9 @@ def gare_atleta(request):
         'pie_labels': json.dumps(list(pos_buckets.keys())),
         'pie_data': json.dumps(list(pos_buckets.values())),
         'has_races': gare.exists(), # Flag esplicito per mostrare i grafici
-    })
+    }
+    context.update(_get_navbar_context(request))
+    return render(request, 'atleti/gare.html', context)
 
 def analisi_gare_ai(request):
     """API per generare l'analisi AI delle gare"""
@@ -1069,7 +1117,7 @@ def guida_utente(request):
         LogSistema.objects.create(livello='INFO', azione='Page View', utente=request.user, messaggio="Visita Guida Utente")
     return render(request, 'atleti/guida.html')
 
-def _get_coach_dashboard_context(week_offset):
+def _get_coach_dashboard_context(week_offset, active_team=None):
     """Helper per calcolare i dati della dashboard coach per una specifica settimana"""
     today = timezone.now()
     current_week_start = today - timedelta(days=today.weekday())
@@ -1082,6 +1130,11 @@ def _get_coach_dashboard_context(week_offset):
     # Base QuerySets (Escludiamo Mastra e chi ha la privacy attiva)
     base_qs = ProfiloAtleta.objects.exclude(user__username='mastra').exclude(escludi_statistiche_coach=True)
     activity_base_qs = Attivita.objects.exclude(atleta__user__username='mastra').exclude(atleta__escludi_statistiche_coach=True)
+
+    # FILTRO TEAM
+    if active_team:
+        base_qs = base_qs.filter(user__in=active_team.membri.all())
+        activity_base_qs = activity_base_qs.filter(atleta__user__in=active_team.membri.all())
 
     # 1. Distribuzione VO2max (Pie Chart)
     vo2_ranges = {
@@ -1283,7 +1336,9 @@ def dashboard_coach(request):
     if week_offset > 0: week_offset = 0
 
     LogSistema.objects.create(livello='INFO', azione='Page View', utente=request.user, messaggio="Visita Dashboard Coach")
-    context = _get_coach_dashboard_context(week_offset)
+    active_team = _get_active_team(request)
+    context = _get_coach_dashboard_context(week_offset, active_team)
+    context.update(_get_navbar_context(request))
     return render(request, 'atleti/dashboard_coach.html', context)
 
 def analisi_coach_gemini(request):
@@ -1296,7 +1351,8 @@ def analisi_coach_gemini(request):
     except ValueError:
         week_offset = 0
         
-    context = _get_coach_dashboard_context(week_offset)
+    active_team = _get_active_team(request)
+    context = _get_coach_dashboard_context(week_offset, active_team)
     analisi_testo = analizza_squadra_coach(context)
     
     return JsonResponse({'analisi': analisi_testo})
@@ -1455,7 +1511,13 @@ def confronto_attivita(request):
     context = {}
     
     # Carichiamo tutti gli atleti per le select iniziali
-    context['atleti'] = ProfiloAtleta.objects.select_related('user').all().order_by('user__first_name')
+    qs_atleti = ProfiloAtleta.objects.select_related('user').all().order_by('user__first_name')
+    
+    active_team = _get_active_team(request)
+    if active_team:
+        qs_atleti = qs_atleti.filter(user__in=active_team.membri.all())
+
+    context['atleti'] = qs_atleti
 
     if act1_id and act2_id:
         act1 = get_object_or_404(Attivita, id=act1_id)
@@ -1487,6 +1549,7 @@ def confronto_attivita(request):
             'show_comparison': True
         })
 
+    context.update(_get_navbar_context(request))
     return render(request, 'atleti/confronto.html', context)
 
 def attrezzatura_scarpe(request):
@@ -1520,6 +1583,11 @@ def attrezzatura_scarpe(request):
     
     # Filtriamo scarpe con almeno 50km per evitare rumore statistico
     qs_scarpe = Scarpa.objects.filter(distanza__gt=50000)
+    
+    # FILTRO TEAM
+    active_team = _get_active_team(request)
+    if active_team:
+        qs_scarpe = qs_scarpe.filter(atleta__user__in=active_team.membri.all())
     
     # Loghi Brands (URL statici per evitare scraping complesso)
     logos = BRAND_LOGOS
@@ -1569,12 +1637,14 @@ def attrezzatura_scarpe(request):
         s.logo_url = logos.get(s.brand)
         retired_shoes.append(s)
     
-    return render(request, 'atleti/attrezzatura.html', {
+    context = {
         'brands_stats': brands_stats,
         'models_stats': models_stats,
         'user_shoes': user_shoes,
         'retired_shoes': retired_shoes
-    })
+    }
+    context.update(_get_navbar_context(request))
+    return render(request, 'atleti/attrezzatura.html', context)
 
 def statistiche_dispositivi(request):
     """Pagina statistiche sui dispositivi GPS utilizzati"""
@@ -1589,6 +1659,11 @@ def statistiche_dispositivi(request):
     # Recuperiamo tutte le attività che hanno un dispositivo registrato
     # Escludiamo Zwift virtuale se vogliamo solo hardware fisico, ma per ora teniamo tutto
     qs = Attivita.objects.filter(dispositivo__isnull=False).exclude(dispositivo='')
+    
+    # FILTRO TEAM
+    active_team = _get_active_team(request)
+    if active_team:
+        qs = qs.filter(atleta__user__in=active_team.membri.all())
     
     # 1. Statistiche Raw per Modello
     raw_stats = qs.values('dispositivo').annotate(count=Count('atleta', distinct=True)).order_by('-count')
@@ -1614,11 +1689,13 @@ def statistiche_dispositivi(request):
     # Ordina Brand per popolarità
     sorted_brands = sorted(brand_counts.items(), key=lambda x: x[1], reverse=True)
     
-    return render(request, 'atleti/dispositivi.html', {
+    context = {
         'brands': sorted_brands,
         'models': model_counts[:30], # Top 30 modelli
         'total_activities': total_devices
-    })
+    }
+    context.update(_get_navbar_context(request))
+    return render(request, 'atleti/dispositivi.html', context)
 
 @login_required
 def statistiche_log(request):
@@ -1701,20 +1778,39 @@ def lista_allenamenti(request):
     """Lista allenamenti futuri visibili all'utente"""
     timezone.activate(ZoneInfo("Europe/Rome")) # Assicura visualizzazione orari corretta
     now = timezone.now()
-    # Logica visibilità: Pubblici OR (Privati AND Utente tra gli invitati) OR Creati dall'utente
-    qs = Allenamento.objects.filter(
-        Q(visibilita='Pubblico') | 
-        Q(invitati=request.user) | 
-        Q(creatore=request.user)
-    ).filter(data_orario__gte=now).distinct().annotate(
+    
+    # FILTRO TEAM
+    active_team = _get_active_team(request)
+    
+    qs = Allenamento.objects.filter(data_orario__gte=now)
+
+    if active_team:
+        # Se siamo in un gruppo, vediamo SOLO gli allenamenti di quel gruppo
+        qs = qs.filter(team=active_team)
+    else:
+        # Se siamo nel Master (Tutti), vediamo:
+        # 1. Allenamenti Pubblici (di qualsiasi gruppo)
+        # 2. Allenamenti Privati dove siamo invitati
+        # 3. Allenamenti creati da noi
+        # NOTA: Escludiamo esplicitamente quelli con visibilità 'Gruppo' per tenerli segregati
+        qs = qs.filter(
+            Q(visibilita='Pubblico') | 
+            Q(invitati=request.user) | 
+            Q(creatore=request.user)
+        ).exclude(visibilita='Gruppo').distinct()
+
+    qs = qs.annotate(
         num_confermati=Count('partecipanti', filter=Q(partecipanti__stato='Approvata'))
     ).order_by('data_orario').prefetch_related('partecipanti__atleta__profiloatleta')
     
-    return render(request, 'atleti/allenamenti_list.html', {'allenamenti': qs})
+    context = {'allenamenti': qs}
+    context.update(_get_navbar_context(request))
+    return render(request, 'atleti/allenamenti_list.html', context)
 
 @login_required
 def crea_allenamento(request):
     timezone.activate(ZoneInfo("Europe/Rome")) # Attiva fuso orario per GET (form) e POST (salvataggio)
+    active_team = _get_active_team(request)
     if request.method == 'POST':
         form = AllenamentoForm(request.POST, request.FILES)
         if form.is_valid():
@@ -1761,6 +1857,10 @@ def crea_allenamento(request):
             if allenamento.distanza_km is None: allenamento.distanza_km = 0.0
             if allenamento.dislivello is None: allenamento.dislivello = 0
             
+            # Assegna al team attivo se presente
+            if active_team:
+                allenamento.team = active_team
+
             allenamento.save()
             form.save_m2m() # Salva gli invitati
             
@@ -1772,6 +1872,9 @@ def crea_allenamento(request):
             if allenamento.visibilita == 'Pubblico':
                 # Tutti tranne il creatore
                 destinatari = User.objects.exclude(id=request.user.id)
+            elif allenamento.visibilita == 'Gruppo' and active_team:
+                # Tutti i membri del gruppo tranne il creatore
+                destinatari = active_team.membri.exclude(id=request.user.id)
             else:
                 # Solo gli invitati
                 destinatari = allenamento.invitati.all()
@@ -1982,6 +2085,171 @@ def download_allenamento_gpx(request, pk):
         messages.error(request, "File GPX non trovato sul server.")
         return redirect('dettaglio_allenamento', pk=pk)
 
+# --- GESTIONE TEAM ---
+
+@login_required
+def crea_team(request):
+    if request.method == 'POST':
+        form = TeamForm(request.POST, request.FILES)
+        if form.is_valid():
+            team = form.save(commit=False)
+            team.creatore = request.user
+            team.save()
+            team.membri.add(request.user) # Il creatore è membro automatico
+            messages.success(request, f"Gruppo '{team.nome}' creato con successo!")
+            return redirect('home')
+    else:
+        form = TeamForm()
+    return render(request, 'atleti/team_form.html', {'form': form})
+
+@login_required
+def gestisci_team(request, team_id):
+    team = get_object_or_404(Team, pk=team_id)
+    if request.user != team.creatore:
+        messages.error(request, "Non sei il creatore di questo gruppo.")
+        return redirect('home')
+
+    if request.method == 'POST':
+        form = InvitoTeamForm(request.POST)
+        if form.is_valid():
+            utente_invitato = form.cleaned_data['utente']
+            if utente_invitato in team.membri.all():
+                messages.warning(request, f"{utente_invitato.first_name} è già nel gruppo.")
+            elif RichiestaAdesioneTeam.objects.filter(team=team, utente=utente_invitato, tipo='Invito', stato='In Attesa').exists():
+                messages.warning(request, "Invito già inviato.")
+            else:
+                # Crea invito
+                RichiestaAdesioneTeam.objects.create(
+                    team=team, 
+                    utente=utente_invitato, 
+                    tipo='Invito', 
+                    stato='In Attesa'
+                )
+                # Notifica all'utente
+                Notifica.objects.create(
+                    utente=utente_invitato,
+                    messaggio=f"{request.user.first_name} ti ha invitato nel gruppo '{team.nome}'",
+                    link=reverse('home'), # L'utente vedrà la notifica e potrà accettare dalla home o lista notifiche
+                    tipo='info'
+                )
+                messages.success(request, f"Invito inviato a {utente_invitato.first_name}.")
+    else:
+        form = InvitoTeamForm()
+
+    # Lista membri e richieste in sospeso
+    membri = team.membri.all()
+    richieste_adesione = RichiestaAdesioneTeam.objects.filter(team=team, tipo='Adesione', stato='In Attesa')
+    inviti_pendenti = RichiestaAdesioneTeam.objects.filter(team=team, tipo='Invito', stato='In Attesa')
+
+    return render(request, 'atleti/gestione_team.html', {
+        'team': team, 
+        'form': form, 
+        'membri': membri,
+        'richieste_adesione': richieste_adesione,
+        'inviti_pendenti': inviti_pendenti
+    })
+
+@login_required
+def elimina_team(request, team_id):
+    team = get_object_or_404(Team, pk=team_id)
+    if request.user != team.creatore:
+        messages.error(request, "Non autorizzato.")
+        return redirect('home')
+    
+    nome_team = team.nome
+    team.delete()
+    
+    if request.session.get('active_team_id') == team_id:
+        del request.session['active_team_id']
+        
+    messages.success(request, f"Gruppo '{nome_team}' eliminato.")
+    return redirect('home')
+
+@login_required
+def switch_team(request, team_id):
+    """Cambia il contesto del gruppo attivo"""
+    if team_id == 0:
+        # Gruppo Master (Tutti)
+        if 'active_team_id' in request.session:
+            del request.session['active_team_id']
+        messages.info(request, "Visualizzazione: Gruppo Master (Tutti)")
+    else:
+        team = get_object_or_404(Team, pk=team_id)
+        # Controllo se l'utente è membro
+        if request.user in team.membri.all():
+            request.session['active_team_id'] = team.id
+            messages.success(request, f"Visualizzazione: {team.nome}")
+        else:
+            messages.error(request, "Non sei membro di questo gruppo. Richiedi l'accesso.")
+    
+    return redirect(request.META.get('HTTP_REFERER', 'home'))
+
+@login_required
+def richiedi_adesione_team(request, team_id):
+    team = get_object_or_404(Team, pk=team_id)
+    
+    # Verifica se esiste già richiesta
+    if RichiestaAdesioneTeam.objects.filter(team=team, utente=request.user).exists():
+        messages.warning(request, "Hai già inviato una richiesta per questo gruppo.")
+    else:
+        RichiestaAdesioneTeam.objects.create(team=team, utente=request.user, tipo='Adesione')
+        
+        # Notifica al creatore
+        Notifica.objects.create(
+            utente=team.creatore,
+            messaggio=f"{request.user.first_name} chiede di entrare nel gruppo '{team.nome}'",
+            link=reverse('home'), # Idealmente una pagina gestione richieste, per ora home
+            tipo='info'
+        )
+        messages.success(request, "Richiesta inviata al creatore del gruppo.")
+        
+    return redirect(request.META.get('HTTP_REFERER', 'home'))
+
+@login_required
+def gestisci_adesione_team(request, richiesta_id, azione):
+    """Il CREATORE accetta/rifiuta la richiesta di un utente"""
+    richiesta = get_object_or_404(RichiestaAdesioneTeam, pk=richiesta_id)
+    
+    if request.user != richiesta.team.creatore:
+        messages.error(request, "Non autorizzato.")
+        return redirect('home')
+        
+    if azione == 'accetta':
+        richiesta.stato = 'Approvata'
+        richiesta.save()
+        richiesta.team.membri.add(richiesta.utente)
+        Notifica.objects.create(utente=richiesta.utente, messaggio=f"Benvenuto! Sei stato aggiunto al gruppo '{richiesta.team.nome}'", tipo='success')
+        messages.success(request, f"{richiesta.utente.first_name} aggiunto al gruppo.")
+    elif azione == 'rifiuta':
+        richiesta.stato = 'Rifiutata'
+        richiesta.save()
+        messages.info(request, "Richiesta rifiutata.")
+        
+    return redirect('home')
+
+@login_required
+def gestisci_invito_utente(request, richiesta_id, azione):
+    """L'UTENTE accetta/rifiuta l'invito del creatore"""
+    richiesta = get_object_or_404(RichiestaAdesioneTeam, pk=richiesta_id)
+    
+    if request.user != richiesta.utente:
+        messages.error(request, "Non autorizzato.")
+        return redirect('home')
+        
+    if azione == 'accetta':
+        richiesta.stato = 'Approvata'
+        richiesta.save()
+        richiesta.team.membri.add(request.user)
+        messages.success(request, f"Benvenuto nel gruppo '{richiesta.team.nome}'!")
+        # Switch automatico al nuovo gruppo
+        request.session['active_team_id'] = richiesta.team.id
+    elif azione == 'rifiuta':
+        richiesta.stato = 'Rifiutata'
+        richiesta.save()
+        messages.info(request, "Invito rifiutato.")
+        
+    return redirect('home')
+
 # --- API PER APP MOBILE ---
 
 def api_get_dashboard(request):
@@ -2038,6 +2306,19 @@ def api_get_dashboard(request):
                 'letta': n.letta,
                 'data': n.data_creazione.isoformat(),
                 'tipo': n.tipo
+            })
+
+        # Aggiungiamo inviti pendenti ai team nella risposta API o Dashboard
+        inviti_team = RichiestaAdesioneTeam.objects.filter(utente=request.user, tipo='Invito', stato='In Attesa')
+        for inv in inviti_team:
+            # Li mostriamo come notifiche speciali
+            notifiche_data.insert(0, {
+                'id': f"inv_{inv.id}",
+                'messaggio': f"Invito Gruppo: {inv.team.nome}. Accetti?",
+                'link': f"/team/invito/{inv.id}/accetta/", # Semplificazione per API
+                'letta': False,
+                'data': inv.data_richiesta.isoformat(),
+                'tipo': 'action_required'
             })
 
         response_data = {

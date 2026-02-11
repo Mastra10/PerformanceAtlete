@@ -68,6 +68,15 @@ urlpatterns = [
     path('notifica-letta/<int:pk>/', views.segna_notifica_letta, name='segna_notifica_letta'),
     path('allenamenti/ics/<int:pk>/', views.download_allenamento_ics, name='download_allenamento_ics'),
     path('allenamenti/gpx/<int:pk>/', views.download_allenamento_gpx, name='download_allenamento_gpx'),
+
+    # --- TEAM / GRUPPI ---
+    path('team/crea/', views.crea_team, name='crea_team'),
+    path('team/gestisci/<int:team_id>/', views.gestisci_team, name='gestisci_team'),
+    path('team/elimina/<int:team_id>/', views.elimina_team, name='elimina_team'),
+    path('team/switch/<int:team_id>/', views.switch_team, name='switch_team'),
+    path('team/richiedi/<int:team_id>/', views.richiedi_adesione_team, name='richiedi_adesione_team'),
+    path('team/invito/<int:richiesta_id>/<str:azione>/', views.gestisci_invito_utente, name='gestisci_invito_utente'),
+    path('team/gestisci/<int:richiesta_id>/<str:azione>/', views.gestisci_adesione_team, name='gestisci_adesione_team'),
 ]
 
 
