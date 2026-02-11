@@ -244,7 +244,11 @@
         });
 
         {% if allenamento.file_gpx %}
-        const gpxUrl = "{{ allenamento.file_gpx.url }}";
+        let gpxUrl = "{{ allenamento.file_gpx.url }}";
+        // FIX: Gestione Mixed Content. Se siamo in HTTPS ma il file è HTTP, forziamo HTTPS.
+        if (window.location.protocol === 'https:' && gpxUrl.startsWith('http:')) {
+            gpxUrl = gpxUrl.replace('http:', 'https:');
+        }
         console.log("initMap: Caricamento GPX da:", gpxUrl);
         
         // Stile per la traccia (Blu Barilla)
@@ -286,6 +290,13 @@
                 map.getView().fit(extent, { padding: [50, 50, 50, 50], duration: 1000 });
             }
         };
+
+        // Debug: Intercetta errori di caricamento (es. 404 o CORS)
+        vectorSource.on('featuresloaderror', function(e) {
+            console.error("initMap: Errore caricamento GPX", e);
+            // Tenta una fetch manuale per mostrare l'errore esatto in console
+            fetch(gpxUrl).then(r => { if(!r.ok) console.error("Stato HTTP:", r.status); });
+        });
 
         vectorSource.on('featuresloadend', fitTrack);
         vectorSource.once('change', function() {
