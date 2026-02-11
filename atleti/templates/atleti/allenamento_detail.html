@@ -244,11 +244,8 @@
         });
 
         {% if allenamento.file_gpx %}
-        let gpxUrl = "{{ allenamento.file_gpx.url }}";
-        // FIX: Gestione Mixed Content. Se siamo in HTTPS ma il file è HTTP, forziamo HTTPS.
-        if (window.location.protocol === 'https:' && gpxUrl.startsWith('http:')) {
-            gpxUrl = gpxUrl.replace('http:', 'https:');
-        }
+        // Usa la view Django per servire il file (bypassando problemi di Nginx/Permessi 404 su file statici)
+        const gpxUrl = "{% url 'download_allenamento_gpx' allenamento.pk %}";
         console.log("initMap: Caricamento GPX da:", gpxUrl);
         
         // Stile per la traccia (Blu Barilla)
@@ -296,6 +293,15 @@
             console.error("initMap: Errore caricamento GPX", e);
             // Tenta una fetch manuale per mostrare l'errore esatto in console
             fetch(gpxUrl).then(r => { if(!r.ok) console.error("Stato HTTP:", r.status); });
+            // Mostra errore visibile all'utente nel div della mappa
+            const mapDiv = document.getElementById('map');
+            mapDiv.innerHTML = `
+                <div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted bg-light border rounded">
+                    <i class="bi bi-file-earmark-x display-4 mb-2 text-danger"></i>
+                    <h5 class="fw-bold text-danger">Traccia non disponibile</h5>
+                    <p class="small mb-0">Il file GPX non è stato trovato sul server.</p>
+                </div>
+            `;
         });
 
         vectorSource.on('featuresloadend', fitTrack);
