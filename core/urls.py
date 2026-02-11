@@ -77,6 +77,7 @@ urlpatterns = [
     path('team/richiedi/<int:team_id>/', views.richiedi_adesione_team, name='richiedi_adesione_team'),
     path('team/invito/<int:richiesta_id>/<str:azione>/', views.gestisci_invito_utente, name='gestisci_invito_utente'),
     path('team/gestisci/<int:richiesta_id>/<str:azione>/', views.gestisci_adesione_team, name='gestisci_adesione_team'),
+    path('team/image/<int:team_id>/', views.serve_team_image, name='serve_team_image'),
 ]
 
 

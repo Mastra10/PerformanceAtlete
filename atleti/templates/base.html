@@ -105,7 +105,7 @@
                                            href="#" onclick="checkTeamAccess(event, {{ t.id }}, '{{ t.nome|escapejs }}', {% if user in t.membri.all %}true{% else %}false{% endif %})">
                                            <span>
                                                {% if t.immagine %}
-                                               <img src="{{ t.immagine.url }}" class="rounded-circle me-1" width="20" height="20" style="object-fit: cover;" onerror="this.outerHTML='<i class=\'bi bi-people me-2\'></i>'">
+                                               <img src="{% url 'serve_team_image' t.id %}" class="rounded-circle me-1" width="20" height="20" style="object-fit: cover;" onerror="this.outerHTML='<i class=\'bi bi-people me-2\'></i>'">
                                                {% else %}
                                                <i class="bi bi-people me-2"></i>
                                                {% endif %}

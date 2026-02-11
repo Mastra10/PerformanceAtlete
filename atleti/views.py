@@ -1,6 +1,6 @@
 import requests
 from django.shortcuts import render, redirect, get_object_or_404
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse, JsonResponse, FileResponse, Http404
 from django.contrib.auth.decorators import login_required
 from allauth.socialaccount.models import SocialToken ,SocialAccount
 from django.core.cache import cache
@@ -2249,6 +2249,18 @@ def gestisci_invito_utente(request, richiesta_id, azione):
         messages.info(request, "Invito rifiutato.")
         
     return redirect('home')
+
+@login_required
+def serve_team_image(request, team_id):
+    """Serve l'immagine del team tramite Django per evitare problemi di permessi Nginx"""
+    team = get_object_or_404(Team, pk=team_id)
+    if not team.immagine:
+        raise Http404("Nessuna immagine")
+    
+    try:
+        return FileResponse(team.immagine.open('rb'))
+    except FileNotFoundError:
+        raise Http404("File non trovato")
 
 # --- API PER APP MOBILE ---
 
