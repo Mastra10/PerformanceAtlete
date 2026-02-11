@@ -24,15 +24,67 @@
 </div>
 
 <script>
-    // Validazione dimensione file lato client per evitare errore 413 Nginx
+    // Compressione automatica immagini lato client per evitare errore 413 Nginx
     document.addEventListener("DOMContentLoaded", function() {
         const fileInput = document.querySelector('input[type="file"]');
+        
         if (fileInput) {
-            fileInput.addEventListener('change', function() {
-                const maxSizeMB = 10; // Deve corrispondere al client_max_body_size di Nginx
-                if (this.files[0] && this.files[0].size > maxSizeMB * 1024 * 1024) {
-                    alert("Il file è troppo grande! Il limite massimo è di " + maxSizeMB + "MB.");
-                    this.value = ""; // Reset del campo
+            fileInput.addEventListener('change', function(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                // Se l'immagine è > 1MB, la comprimiamo automaticamente
+                if (file.size > 1024 * 1024) {
+                    const reader = new FileReader();
+                    reader.readAsDataURL(file);
+                    
+                    reader.onload = function(e) {
+                        const img = new Image();
+                        img.src = e.target.result;
+                        
+                        img.onload = function() {
+                            const canvas = document.createElement('canvas');
+                            let width = img.width;
+                            let height = img.height;
+                            
+                            // Max dimensioni (es. 1200px)
+                            const MAX_DIM = 1200;
+                            
+                            if (width > height) {
+                                if (width > MAX_DIM) {
+                                    height *= MAX_DIM / width;
+                                    width = MAX_DIM;
+                                }
+                            } else {
+                                if (height > MAX_DIM) {
+                                    width *= MAX_DIM / height;
+                                    height = MAX_DIM;
+                                }
+                            }
+                            
+                            canvas.width = width;
+                            canvas.height = height;
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(img, 0, 0, width, height);
+                            
+                            // Compressione JPEG al 70%
+                            canvas.toBlob(function(blob) {
+                                if (blob) {
+                                    const compressedFile = new File([blob], file.name, {
+                                        type: 'image/jpeg',
+                                        lastModified: Date.now()
+                                    });
+                                    
+                                    // Sostituisci il file nell'input
+                                    const dataTransfer = new DataTransfer();
+                                    dataTransfer.items.add(compressedFile);
+                                    fileInput.files = dataTransfer.files;
+                                    
+                                    console.log(`Immagine compressa: ${(compressedFile.size / 1024 / 1024).toFixed(2)} MB`);
+                                }
+                            }, 'image/jpeg', 0.7);
+                        };
+                    };
                 }
             });
         }
