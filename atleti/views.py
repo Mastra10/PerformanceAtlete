@@ -1965,13 +1965,18 @@ def dettaglio_allenamento(request, pk):
         part = Partecipazione.objects.filter(allenamento=allenamento, atleta=request.user).first()
         if part and part.stato in ['Richiesta', 'Approvata']:
             motivo = request.POST.get('motivo_rinuncia')
-            if motivo:
-                part.stato = 'Rinuncia'
-                part.motivo_rinuncia = motivo
-                part.save()
-                messages.warning(request, "Hai rinunciato all'allenamento.")
-            else:
-                messages.error(request, "Devi indicare una motivazione per rinunciare.")
+            part.stato = 'Rinuncia'
+            part.motivo_rinuncia = motivo if motivo else "Rinuncia volontaria"
+            part.save()
+            
+            if allenamento.creatore != request.user:
+                Notifica.objects.create(
+                    utente=allenamento.creatore,
+                    messaggio=f"{request.user.first_name} ha rinunciato a: {allenamento.titolo}",
+                    link=reverse('dettaglio_allenamento', args=[pk]),
+                    tipo='warning'
+                )
+            messages.warning(request, "Hai rinunciato all'allenamento.")
         return redirect('dettaglio_allenamento', pk=pk)
 
     partecipazione_utente = None
