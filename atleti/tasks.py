@@ -122,7 +122,10 @@ def task_calcola_feedback():
             feedback_processato=False
         )
         
-        target_date = allenamento.data_orario.date()
+        # Finestra temporale: da 2 ore prima a 4 ore dopo l'orario previsto
+        start_window = allenamento.data_orario - timezone.timedelta(hours=2)
+        end_window = allenamento.data_orario + timezone.timedelta(hours=4)
+        
         target_dist = allenamento.distanza_km * 1000 # in metri
         target_elev = allenamento.dislivello
         
@@ -131,15 +134,12 @@ def task_calcola_feedback():
         tol_elev = 0.20
         
         min_dist = target_dist * (1 - tol_dist)
-        max_dist = target_dist * (1 + tol_dist)
         
         # Per il dislivello, se è piatto (<100m), la tolleranza percentuale sballa, usiamo fisso
         if target_elev < 100:
             min_elev = 0
-            max_elev = 200
         else:
             min_elev = target_elev * (1 - tol_elev)
-            max_elev = target_elev * (1 + tol_elev)
 
         for p in partecipazioni:
             profilo = getattr(p.atleta, 'profiloatleta', None)
@@ -148,11 +148,9 @@ def task_calcola_feedback():
             # Cerca attività corrispondente
             match = Attivita.objects.filter(
                 atleta=profilo,
-                data__date=target_date,
+                data__range=(start_window, end_window),
                 distanza__gte=min_dist,
-                distanza__lte=max_dist,
                 dislivello__gte=min_elev,
-                dislivello__lte=max_elev
             ).exists()
             
             if match:

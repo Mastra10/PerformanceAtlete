@@ -6,6 +6,30 @@
     <a href="{% url 'crea_allenamento' %}" class="btn btn-primary"><i class="bi bi-plus-lg me-2"></i>Crea Nuovo</a>
 </div>
 
+<!-- Statistiche Partecipazione -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm bg-white">
+            <div class="card-body py-3">
+                <div class="row text-center align-items-center">
+                    <div class="col-4 border-end">
+                        <h3 class="fw-bold text-primary mb-0">{{ stats.partecipanti }}</h3>
+                        <small class="text-muted text-uppercase fw-bold" style="font-size: 0.7rem;">Partecipazioni Totali</small>
+                    </div>
+                    <div class="col-4 border-end">
+                        <h3 class="fw-bold text-success mb-0">{{ stats.feedback_pos }}</h3>
+                        <small class="text-muted text-uppercase fw-bold" style="font-size: 0.7rem;">Feedback Positivi</small>
+                    </div>
+                    <div class="col-4">
+                        <h3 class="fw-bold text-danger mb-0">{{ stats.feedback_neg }}</h3>
+                        <small class="text-muted text-uppercase fw-bold" style="font-size: 0.7rem;">Feedback Negativi</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="row g-4">
     {% for a in allenamenti %}
     <div class="col-md-6 col-lg-4">

@@ -326,13 +326,15 @@ class Partecipazione(models.Model):
     STATO_CHOICES = [
         ('Richiesta', 'In Attesa'),
         ('Approvata', 'Approvata'),
-        ('Rifiutata', 'Rifiutata')
+        ('Rifiutata', 'Rifiutata'),
+        ('Rinuncia', 'Rinuncia')
     ]
 
     allenamento = models.ForeignKey(Allenamento, on_delete=models.CASCADE, related_name='partecipanti')
     atleta = models.ForeignKey(User, on_delete=models.CASCADE)
     stato = models.CharField(max_length=10, choices=STATO_CHOICES, default='Richiesta')
     motivo_rifiuto = models.TextField(blank=True, null=True)
+    motivo_rinuncia = models.TextField(blank=True, null=True)
     
     # Analisi Rischio
     is_at_risk = models.BooleanField(default=False)
@@ -377,6 +379,14 @@ class Partecipazione(models.Model):
         else:
             self.is_at_risk = False
             self.risk_reason = ""
+            
+        # Check Feedback (Affidabilità)
+        if profilo.punteggio_feedback != 0:
+            fb_msg = f"Feedback: {profilo.punteggio_feedback}"
+            if self.risk_reason:
+                self.risk_reason += f" | {fb_msg}"
+            else:
+                self.risk_reason = fb_msg
 
 class CommentoAllenamento(models.Model):
     allenamento = models.ForeignKey(Allenamento, on_delete=models.CASCADE, related_name='commenti')

@@ -1803,7 +1803,14 @@ def lista_allenamenti(request):
         num_confermati=Count('partecipanti', filter=Q(partecipanti__stato='Approvata'))
     ).order_by('data_orario').prefetch_related('partecipanti__atleta__profiloatleta')
     
-    context = {'allenamenti': qs}
+    # Statistiche Partecipazione Globali
+    stats = {
+        'partecipanti': Partecipazione.objects.filter(stato='Approvata').count(),
+        'feedback_pos': Partecipazione.objects.filter(esito_feedback='Presente').count(),
+        'feedback_neg': Partecipazione.objects.filter(esito_feedback='Assente').count(),
+    }
+    
+    context = {'allenamenti': qs, 'stats': stats}
     context.update(_get_navbar_context(request))
     return render(request, 'atleti/allenamenti_list.html', context)
 
@@ -1862,6 +1869,14 @@ def crea_allenamento(request):
                 allenamento.team = active_team
 
             allenamento.save()
+            
+            # Aggiungi creatore come partecipante confermato (così appare nella lista)
+            Partecipazione.objects.create(
+                allenamento=allenamento,
+                atleta=request.user,
+                stato='Approvata'
+            )
+            
             form.save_m2m() # Salva gli invitati
             
             # --- CREAZIONE NOTIFICHE ---
@@ -1943,6 +1958,20 @@ def dettaglio_allenamento(request, pk):
                 )
             
             messages.success(request, "Richiesta inviata!")
+        return redirect('dettaglio_allenamento', pk=pk)
+        
+    # Gestione Rinuncia (Togliersi dall'allenamento)
+    if request.user.is_authenticated and request.method == 'POST' and 'rinuncia' in request.POST:
+        part = Partecipazione.objects.filter(allenamento=allenamento, atleta=request.user).first()
+        if part and part.stato in ['Richiesta', 'Approvata']:
+            motivo = request.POST.get('motivo_rinuncia')
+            if motivo:
+                part.stato = 'Rinuncia'
+                part.motivo_rinuncia = motivo
+                part.save()
+                messages.warning(request, "Hai rinunciato all'allenamento.")
+            else:
+                messages.error(request, "Devi indicare una motivazione per rinunciare.")
         return redirect('dettaglio_allenamento', pk=pk)
 
     partecipazione_utente = None
