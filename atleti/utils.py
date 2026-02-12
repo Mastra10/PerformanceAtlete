@@ -299,31 +299,42 @@ def calcola_metrica_vo2max(attivita, profilo):
             # 2. Formula ACSM per corsa in piano (0.2 * v + 3.5)
             vo2_attivita = (0.2 * velocita_m_min) + 3.5
         
-        # 5. Calcolo VO2max
-        # Metodo 1: Prestazione (VO2 attività / % Riserva Cardiaca)
-        # Se HR_rest scende, %HRR sale, quindi questo valore scende (corretto matematicamente per la singola seduta)
-        karvonen_percent = (fc_media - hr_rest) / (hr_max - hr_rest)
+        # 5. Calcolo VO2max (Nuovo Algoritmo 2026)
         
-        if karvonen_percent < 0.60 or durata_secondi < 1200:
-            print("Sforzo < 65% o Durata < 20min, calcolo ignorato.", flush=True)
+        # --- 2. PROIEZIONE AL MASSIMALE ---
+        # Sostituiamo Karvonen con la % semplice della FC Max per essere più conservativi
+        percent_fc_max = fc_media / hr_max
+        
+        # Filtro validità (Sforzo minimo 60% FC Max e durata > 20 min)
+        if percent_fc_max < 0.60 or durata_secondi < 1200:
+            print("Sforzo < 60% FC Max o Durata < 20min, calcolo ignorato.", flush=True)
             return None
             
-        vo2_performance = vo2_attivita / karvonen_percent
+        vo2_performance = vo2_attivita / percent_fc_max
 
-        # --- FATTORE DI EFFICIENZA (Solo Strada) ---
+        # --- 3. FATTORE DI EFFICIENZA (Passo Lento) ---
         # Se il passo è più lento di 5:15 min/km (315 s/km = ~190.5 m/min), riduciamo del 10%
-        # perché a ritmi lenti la meccanica è meno efficiente e la formula lineare sovrastima.
         if not is_trail and velocita_m_min < 190.5:
             vo2_performance *= 0.90
             print(f"Penalità Efficienza 10% applicata (Passo > 5:15)", flush=True)
 
-        # Metodo 2: Fisiologia Pura (Uth-Sørensen-Overgaard-Pedersen)
-        # VO2max = 15 * (HRmax / HRrest). Questo SALE se HRrest scende.
-        vo2_fisiologico = 15.3 * (hr_max / hr_rest)
-        
-        # Mix Ponderato: 70% Prestazione Reale (quello che hai fatto), 30% Potenziale Fisiologico (chi sei)
-        # Questo stabilizza il dato e fa sì che se HRrest scende, il bonus fisiologico compensi il calcolo Karvonen.
-        vo2max_stima_trail_strada = (vo2_performance * 0.70) + (vo2_fisiologico * 0.30)
+        # --- 4. CORREZIONE DEBITO AEROBICO (Stile Garmin/Firstbeat) ---
+        # Se lo sforzo è > 70% della FC Max e l'atleta non è Elite (ITRA < 650)
+        itra_index = profilo.indice_itra
+        if percent_fc_max > 0.70 and (not itra_index or itra_index < 650):
+            vo2_performance *= 0.92
+            print(f"Penalità Debito Aerobico 8% applicata (Sforzo > 70% FC Max)", flush=True)
+
+        # --- 5. TETTO MASSIMO (Ancoraggio ITRA) ---
+        # Usiamo l'indice ITRA come "realtà aumentata" per evitare allucinazioni
+        if itra_index and itra_index > 0:
+            if itra_index < 500:
+                vo2_performance = min(vo2_performance, 52.0)
+            elif itra_index < 600:
+                vo2_performance = min(vo2_performance, 58.0)
+            # Per ITRA >= 600 il tetto non scatta
+
+        vo2max_stima_trail_strada = vo2_performance
         
         # Calcolo Metriche Aggiuntive (Kcal e VO2 Assoluto) per debug/log
         vo2_assoluto_l_min = (vo2max_stima_trail_strada * peso_atleta) / 1000
