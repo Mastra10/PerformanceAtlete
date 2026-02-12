@@ -112,7 +112,7 @@
     <!-- Notifiche Allenamenti -->
     {% if notifiche_utente %}
     <div id="notifications-container" class="mb-4">
-        {% for n in notifiche_utente %}
+        {% for n in notifiche_utente|slice:":3" %}
         <div class="alert alert-info alert-dismissible fade show shadow-sm border-info" role="alert" id="notifica-{{ n.id }}">
             <i class="bi bi-calendar-check-fill me-2"></i>
             {% if n.link %}<a href="{{ n.link }}" class="alert-link text-decoration-none">{{ n.messaggio }}</a>{% else %}{{ n.messaggio }}{% endif %}
@@ -138,13 +138,14 @@
                 </div>
 
                 <!-- Notifiche (Messaggi + Allarmi) -->
-                {% if allarmi or has_unread_messages %}
+                {% if allarmi or notifiche_utente|length > 3 %}
                 <div class="position-absolute top-0 end-0 p-3 d-flex gap-2">
-                    {% if has_unread_messages %}
-                    <button type="button" class="btn btn-light position-relative rounded-circle shadow-sm border" data-bs-toggle="modal" data-bs-target="#messagesModal" title="Nuovi messaggi nelle discussioni">
+                    {% if notifiche_utente|length > 3 %}
+                    <button type="button" class="btn btn-light position-relative rounded-circle shadow-sm border" data-bs-toggle="modal" data-bs-target="#messagesModal" title="Altre notifiche">
                         <i class="bi bi-envelope-paper-fill text-warning"></i>
-                        <span class="position-absolute top-0 start-100 translate-middle p-2 bg-danger border border-light rounded-circle">
-                            <span class="visually-hidden">Nuovi messaggi</span>
+                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-light">
+                            +{{ notifiche_utente|length|add:"-3" }}
+                            <span class="visually-hidden">notifiche</span>
                         </span>
                     </button>
                     {% endif %}
@@ -175,7 +176,7 @@
                     {% endif %}
                 </h3>
                 <small class="text-muted">(@{{ profilo.user.username }})</small>
-                <div class="badge bg-success my-3">Socio Cral Barilla</div>
+                <div class="badge bg-success my-3">Atleta</div>
                 <hr>
                 <div class="row text-start g-2">
                     <div class="col-6 border-end text-center">
@@ -540,6 +541,25 @@
                         {% endif %}
                     </div>
                 </div>
+                
+                <!-- Feedback Allenamenti -->
+                <div class="col-6">
+                    <div class="card p-3 stats-box h-100" style="border-color: #6c757d;">
+                        <i class="bi bi-check-circle-fill h3" style="color: #6c757d;"></i>
+                        <small class="text-muted d-block">
+                            Feedback Gruppo
+                            <i class="bi bi-info-circle-fill ms-1" data-bs-toggle="tooltip" data-bs-placement="top" title="Punteggio basato sulla partecipazione agli allenamenti a cui ti sei iscritto. (+1 Presente, -1 Assente)."></i>
+                        </small>
+                        <span class="h4 fw-bold {% if profilo.punteggio_feedback >= 0 %}text-success{% else %}text-danger{% endif %}">
+                            {% if profilo.punteggio_feedback > 0 %}+{% endif %}{{ profilo.punteggio_feedback }}
+                        </span>
+                        {% if profilo.allenamenti_saltati > 0 %}
+                        <div class="small text-danger fw-bold mt-1">{{ profilo.allenamenti_saltati }} Saltati</div>
+                        {% else %}
+                        <div class="small text-success fw-bold mt-1">100% Affidabile</div>
+                        {% endif %}
+                    </div>
+                </div>
             </div>
 
             <!-- Indici Internazionali -->
@@ -764,12 +784,11 @@
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header bg-warning text-dark">
-                <h5 class="modal-title fw-bold"><i class="bi bi-envelope-paper me-2"></i>Messaggi non letti</h5>
+                <h5 class="modal-title fw-bold"><i class="bi bi-envelope-paper me-2"></i>Altre Notifiche</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body bg-light">
-                {% for n in notifiche_utente %}
-                    {% if n.tipo == 'message' %}
+                {% for n in notifiche_utente|slice:"3:" %}
                     <div class="card mb-2 shadow-sm border-0" id="modal-msg-{{ n.id }}">
                         <div class="card-body p-3">
                             <div class="d-flex justify-content-between">
@@ -779,12 +798,11 @@
                             <p class="card-text mb-2 fw-bold">{{ n.messaggio }}</p>
                             {% if n.link %}
                             <a href="{{ n.link }}" class="btn btn-sm btn-primary w-100" onclick="segnaLetta({{ n.id }})">
-                                <i class="bi bi-eye me-1"></i>Vedi Discussione
+                                <i class="bi bi-eye me-1"></i>Vedi
                             </a>
                             {% endif %}
                         </div>
                     </div>
-                    {% endif %}
                 {% endfor %}
             </div>
         </div>

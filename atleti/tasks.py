@@ -7,8 +7,8 @@ import re
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from django.utils import timezone
-from .models import ProfiloAtleta, Attivita, Scarpa
+from django.utils import timezone, dateformat
+from .models import ProfiloAtleta, Attivita, Scarpa, Allenamento, Partecipazione, Notifica
 from allauth.socialaccount.models import SocialToken
 from .utils import refresh_strava_token, processa_attivita_strava, stima_vo2max_atleta, normalizza_scarpa, get_atleti_con_statistiche_settimanali, genera_commenti_podio_ai
 import requests
@@ -95,6 +95,90 @@ def task_aggiorna_podio_ai():
     except Exception as e:
         logger.error(f"SCHEDULER: Errore task podio AI: {e}")
 
+def task_calcola_feedback():
+    """
+    Verifica se gli utenti hanno partecipato agli allenamenti a cui si erano iscritti.
+    Confronta data, distanza e dislivello con le attività Strava caricate.
+    """
+    logger.info("SCHEDULER: Avvio calcolo Feedback Allenamenti...")
+    
+    # Prendiamo allenamenti passati da almeno 12 ore (per dare tempo di caricare su Strava)
+    # ma non più vecchi di 7 giorni (per efficienza)
+    cutoff_time = timezone.now() - timezone.timedelta(hours=12)
+    start_window = timezone.now() - timezone.timedelta(days=7)
+    
+    allenamenti_da_verificare = Allenamento.objects.filter(
+        data_orario__lt=cutoff_time,
+        data_orario__gte=start_window
+    )
+    
+    count_processed = 0
+    
+    for allenamento in allenamenti_da_verificare:
+        # Cerchiamo partecipazioni approvate ma non ancora processate
+        partecipazioni = Partecipazione.objects.filter(
+            allenamento=allenamento, 
+            stato='Approvata', 
+            feedback_processato=False
+        )
+        
+        target_date = allenamento.data_orario.date()
+        target_dist = allenamento.distanza_km * 1000 # in metri
+        target_elev = allenamento.dislivello
+        
+        # Tolleranze (20%)
+        tol_dist = 0.20
+        tol_elev = 0.20
+        
+        min_dist = target_dist * (1 - tol_dist)
+        max_dist = target_dist * (1 + tol_dist)
+        
+        # Per il dislivello, se è piatto (<100m), la tolleranza percentuale sballa, usiamo fisso
+        if target_elev < 100:
+            min_elev = 0
+            max_elev = 200
+        else:
+            min_elev = target_elev * (1 - tol_elev)
+            max_elev = target_elev * (1 + tol_elev)
+
+        for p in partecipazioni:
+            profilo = getattr(p.atleta, 'profiloatleta', None)
+            if not profilo: continue
+            
+            # Cerca attività corrispondente
+            match = Attivita.objects.filter(
+                atleta=profilo,
+                data__date=target_date,
+                distanza__gte=min_dist,
+                distanza__lte=max_dist,
+                dislivello__gte=min_elev,
+                dislivello__lte=max_elev
+            ).exists()
+            
+            if match:
+                # PRESENTE (+1)
+                profilo.punteggio_feedback += 1
+                p.esito_feedback = 'Presente'
+                msg = f"Feedback Positivo (+1): Presenza confermata a '{allenamento.titolo}'."
+                tipo_notifica = 'success'
+            else:
+                # ASSENTE (-1)
+                profilo.punteggio_feedback -= 1
+                profilo.allenamenti_saltati += 1
+                p.esito_feedback = 'Assente'
+                msg = f"Feedback Negativo (-1): Assenza rilevata a '{allenamento.titolo}'. Nessuna attività compatibile trovata."
+                tipo_notifica = 'warning'
+            
+            profilo.save()
+            p.feedback_processato = True
+            p.save()
+            
+            # Notifica all'utente
+            Notifica.objects.create(utente=p.atleta, messaggio=msg, tipo=tipo_notifica)
+            count_processed += 1
+            
+    logger.info(f"SCHEDULER: Feedback calcolato per {count_processed} partecipazioni.")
+
 def task_heartbeat():
     """Task di sistema per tenere sveglio lo scheduler (polling DB)"""
     # Chiudiamo le connessioni vecchie per evitare che il task si blocchi su connessioni stale
@@ -114,6 +198,7 @@ def task_heartbeat():
         'sync_strava_periodico': ('func', 'task_sync_strava'), # Aggiunto supporto Strava
         'repair_strava_settimanale': ('func', 'task_repair_strava'),
         'aggiorna_podio_ai_4h': ('func', 'task_aggiorna_podio_ai'),
+        'calcola_feedback_allenamenti': ('func', 'task_calcola_feedback'),
     }
 
     # Cerca task con trigger manuale attivo

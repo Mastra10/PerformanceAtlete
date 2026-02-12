@@ -6,7 +6,7 @@ from django.core.management.base import BaseCommand
 from django_apscheduler.jobstores import DjangoJobStore, register_events
 from django_apscheduler.models import DjangoJobExecution
 from django_apscheduler import util
-from atleti.tasks import task_ricalcolo_vam, task_ricalcolo_statistiche, task_scrape_itra_utmb, task_heartbeat, task_sync_strava, task_repair_strava, task_aggiorna_podio_ai
+from atleti.tasks import task_ricalcolo_vam, task_ricalcolo_statistiche, task_scrape_itra_utmb, task_heartbeat, task_sync_strava, task_repair_strava, task_aggiorna_podio_ai, task_calcola_feedback
 from atleti.models import TaskSettings
 
 logger = logging.getLogger(__name__)
@@ -154,6 +154,13 @@ class Command(BaseCommand):
             task_aggiorna_podio_ai,
             "aggiorna_podio_ai_4h",
             default_hour='*/4', default_minute=15 # Minuto 15 per non sovrapporsi al sync
+        )
+        
+        # 8. Calcolo Feedback Allenamenti (Ogni notte alle 02:00)
+        schedule_task(
+            task_calcola_feedback,
+            "calcola_feedback_allenamenti",
+            default_hour=2, default_minute=0
         )
         
         # 5. SYSTEM HEARTBEAT (Ogni 10 secondi)

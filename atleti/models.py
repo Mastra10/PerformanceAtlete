@@ -42,6 +42,10 @@ class ProfiloAtleta(models.Model):
     # Preferenza per nascondere l'avviso temporaneo nella home (persistente per utente)
     hide_home_notice = models.BooleanField(default=False, verbose_name="Nascondi avviso home")
     team_preferito = models.ForeignKey('Team', on_delete=models.SET_NULL, null=True, blank=True, related_name='utenti_preferiti')
+    
+    # Feedback Allenamenti di Gruppo
+    punteggio_feedback = models.IntegerField(default=0, verbose_name="Punteggio Affidabilità")
+    allenamenti_saltati = models.IntegerField(default=0, verbose_name="Allenamenti Saltati")
 
     class Meta:
         permissions = [
@@ -226,6 +230,7 @@ class TaskSettings(models.Model):
         ('sync_strava_periodico', 'Sync Strava Automatico'),
         ('repair_strava_settimanale', 'Riparazione Strava (Self-Healing)'),
         ('aggiorna_podio_ai_4h', 'Aggiornamento Podio AI'),
+        ('calcola_feedback_allenamenti', 'Calcolo Feedback Presenze'),
     ]
     task_id = models.CharField(max_length=50, choices=TASK_CHOICES, unique=True, verbose_name="Task")
     active = models.BooleanField(default=True, verbose_name="Attivo")
@@ -333,6 +338,10 @@ class Partecipazione(models.Model):
     is_at_risk = models.BooleanField(default=False)
     risk_reason = models.CharField(max_length=255, blank=True, null=True)
     data_richiesta = models.DateTimeField(auto_now_add=True)
+    
+    # Feedback Presenza
+    feedback_processato = models.BooleanField(default=False, verbose_name="Feedback Calcolato")
+    esito_feedback = models.CharField(max_length=20, blank=True, null=True) # 'Presente', 'Assente'
 
     class Meta:
         unique_together = ('allenamento', 'atleta')
