@@ -486,7 +486,7 @@
                         <i class="bi bi-heart-pulse h3 text-danger"></i>
                         <small class="text-muted d-block">
                             VO2max Stima Statistica
-                            <i class="bi bi-info-circle-fill ms-1" data-bs-toggle="tooltip" data-bs-placement="top" title="Algoritmo 2026: Proiezione su FC Max. Include penalità per efficienza (passo lento) e debito aerobico (>70% FC). Tetto massimo basato su indice ITRA per evitare sovrastime."></i>
+                            <i class="bi bi-info-circle-fill ms-1" data-bs-toggle="tooltip" data-bs-placement="top" title="Algoritmo 2026: Proiezione su Riserva Cardiaca (Karvonen). Include penalità ridotta (5%) per efficienza su passo lento. Tetto massimo basato su indice ITRA per evitare sovrastime."></i>
                         </small>
                         {% if profilo.vo2max_stima_statistica %}
                             <span class="h4 fw-bold text-danger">{{ profilo.vo2max_stima_statistica }}</span>
@@ -508,7 +508,7 @@
                         <i class="bi bi-speedometer2 h3 text-primary"></i>
                         <small class="text-muted d-block">
                             VO2max Solo Strada
-                            <i class="bi bi-info-circle-fill ms-1" data-bs-toggle="tooltip" data-bs-placement="top" title="Media mobile solo Strada. Usa formula ACSM su piano (GAP). Include penalità 10% se passo > 5:15 min/km e correzione per intensità elevata."></i>
+                            <i class="bi bi-info-circle-fill ms-1" data-bs-toggle="tooltip" data-bs-placement="top" title="Media mobile solo Strada. Usa formula ACSM su piano (GAP). Include penalità 5% se passo > 5:15 min/km."></i>
                         </small>
                         {% if profilo.vo2max_strada %}
                             <span class="h4 fw-bold text-primary">{{ profilo.vo2max_strada }}</span>

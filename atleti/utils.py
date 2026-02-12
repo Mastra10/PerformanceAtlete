@@ -299,40 +299,38 @@ def calcola_metrica_vo2max(attivita, profilo):
             # 2. Formula ACSM per corsa in piano (0.2 * v + 3.5)
             vo2_attivita = (0.2 * velocita_m_min) + 3.5
         
-        # 5. Calcolo VO2max (Nuovo Algoritmo 2026)
+        # 5. Calcolo VO2max (Nuovo Algoritmo 2026 - Revisione)
         
-        # --- 2. PROIEZIONE AL MASSIMALE ---
-        # Sostituiamo Karvonen con la % semplice della FC Max per essere più conservativi
-        percent_fc_max = fc_media / hr_max
+        # --- 2. PROIEZIONE AL MASSIMALE (Karvonen Restore) ---
+        # Torniamo a Karvonen (% Riserva) che è più fisiologico e meno pessimistico della % FC Max pura.
+        hrr_value = hr_max - hr_rest
+        if hrr_value <= 0: return None
         
-        # Filtro validità (Sforzo minimo 60% FC Max e durata > 20 min)
-        if percent_fc_max < 0.60 or durata_secondi < 1200:
-            print("Sforzo < 60% FC Max o Durata < 20min, calcolo ignorato.", flush=True)
+        percent_hrr = (fc_media - hr_rest) / hrr_value
+        
+        # Filtro validità (Sforzo minimo 60% Riserva e durata > 20 min)
+        if percent_hrr < 0.60 or durata_secondi < 1200:
+            print("Sforzo < 60% HRR o Durata < 20min, calcolo ignorato.", flush=True)
             return None
             
-        vo2_performance = vo2_attivita / percent_fc_max
+        # Formula inversa Karvonen: VO2max = ((VO2_activity - 3.5) / %HRR) + 3.5
+        vo2_performance = ((vo2_attivita - 3.5) / percent_hrr) + 3.5
 
         # --- 3. FATTORE DI EFFICIENZA (Passo Lento) ---
-        # Se il passo è più lento di 5:15 min/km (315 s/km = ~190.5 m/min), riduciamo del 10%
+        # Se il passo è più lento di 5:15 min/km (315 s/km = ~190.5 m/min), riduciamo del 5% (era 10%)
+        # Ammorbidiamo la penalità per non punire troppo i lenti.
         if not is_trail and velocita_m_min < 190.5:
-            vo2_performance *= 0.90
-            print(f"Penalità Efficienza 10% applicata (Passo > 5:15)", flush=True)
+            vo2_performance *= 0.95
+            print(f"Penalità Efficienza 5% applicata (Passo > 5:15)", flush=True)
 
-        # --- 4. CORREZIONE DEBITO AEROBICO (Stile Garmin/Firstbeat) ---
-        # Se lo sforzo è > 70% della FC Max e l'atleta non è Elite (ITRA < 650)
+        # --- 4. TETTO MASSIMO (Ancoraggio ITRA) ---
+        # Manteniamo i cap per evitare allucinazioni verso l'alto, ma leggermente più permissivi
         itra_index = profilo.indice_itra
-        if percent_fc_max > 0.70 and (not itra_index or itra_index < 650):
-            vo2_performance *= 0.92
-            print(f"Penalità Debito Aerobico 8% applicata (Sforzo > 70% FC Max)", flush=True)
-
-        # --- 5. TETTO MASSIMO (Ancoraggio ITRA) ---
-        # Usiamo l'indice ITRA come "realtà aumentata" per evitare allucinazioni
         if itra_index and itra_index > 0:
             if itra_index < 500:
-                vo2_performance = min(vo2_performance, 52.0)
+                vo2_performance = min(vo2_performance, 54.0) # Alzato da 52
             elif itra_index < 600:
-                vo2_performance = min(vo2_performance, 58.0)
-            # Per ITRA >= 600 il tetto non scatta
+                vo2_performance = min(vo2_performance, 60.0) # Alzato da 58
 
         vo2max_stima_trail_strada = vo2_performance
         
