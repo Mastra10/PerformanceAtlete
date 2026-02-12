@@ -20,8 +20,8 @@ class Command(BaseCommand):
             
             # 1. Ricalcola VO2max per ogni singola attività (se necessario)
             # Utile se abbiamo cambiato la formula in utils.py
-            # Ottimizzazione: Limitiamo alle ultime 60 attività (finestra media mobile)
-            attivita = Attivita.objects.filter(atleta=profilo).order_by('-data')[:60]
+            # Ricalcoliamo tutto lo storico per coerenza nei grafici dopo cambio algoritmo
+            attivita = Attivita.objects.filter(atleta=profilo).order_by('-data')
             
             updated_activities = 0
             for act in attivita:
