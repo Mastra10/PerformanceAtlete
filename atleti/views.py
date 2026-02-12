@@ -281,6 +281,16 @@ def _get_dashboard_context(user):
     # Check per icona messaggi (conversazioni/risposte)
     has_unread_messages = notifiche.filter(tipo='message').exists()
 
+    # Statistiche Feedback & Affidabilità
+    attended_count = Partecipazione.objects.filter(atleta=user, esito_feedback='Presente').count()
+    skipped_count = Partecipazione.objects.filter(atleta=user, esito_feedback='Assente').count()
+    rinunce_count = Partecipazione.objects.filter(atleta=user, stato='Rinuncia').count()
+    
+    total_valid = attended_count + skipped_count
+    affidabilita = 100
+    if total_valid > 0:
+        affidabilita = int((attended_count / total_valid) * 100)
+
     return {
         'totale_km': totale_km,
         'dislivello_totale': int(dislivello_totale),
@@ -322,6 +332,8 @@ def _get_dashboard_context(user):
         'allarmi': allarmi,
         'notifiche_utente': notifiche,
         'has_unread_messages': has_unread_messages,
+        'rinunce_count': rinunce_count,
+        'affidabilita': affidabilita,
     }
 
 # 1. Questa mostra la pagina (NON cancellarla!)

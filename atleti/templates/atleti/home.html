@@ -547,17 +547,31 @@
                     <div class="card p-3 stats-box h-100" style="border-color: #6c757d;">
                         <i class="bi bi-check-circle-fill h3" style="color: #6c757d;"></i>
                         <small class="text-muted d-block">
-                            Feedback Gruppo
-                            <i class="bi bi-info-circle-fill ms-1" data-bs-toggle="tooltip" data-bs-placement="top" title="Punteggio basato sulla partecipazione agli allenamenti a cui ti sei iscritto. (+1 Presente, -1 Assente)."></i>
+                            Feedback & Affidabilità
+                            <i class="bi bi-info-circle-fill ms-1" data-bs-toggle="tooltip" data-bs-placement="top" title="Punteggio: +1 Presente, -1 Assente. Affidabilità: % Presenze su Iscrizioni confermate."></i>
                         </small>
-                        <span class="h4 fw-bold {% if profilo.punteggio_feedback >= 0 %}text-success{% else %}text-danger{% endif %}">
-                            {% if profilo.punteggio_feedback > 0 %}+{% endif %}{{ profilo.punteggio_feedback }}
-                        </span>
-                        {% if profilo.allenamenti_saltati > 0 %}
-                        <div class="small text-danger fw-bold mt-1">{{ profilo.allenamenti_saltati }} Saltati</div>
-                        {% else %}
-                        <div class="small text-success fw-bold mt-1">100% Affidabile</div>
-                        {% endif %}
+                        
+                        <div class="d-flex justify-content-center align-items-baseline gap-2">
+                            <span class="h4 fw-bold {% if profilo.punteggio_feedback >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                {% if profilo.punteggio_feedback > 0 %}+{% endif %}{{ profilo.punteggio_feedback }}
+                            </span>
+                            <span class="small text-muted">Punti</span>
+                        </div>
+
+                        <div class="mt-2 pt-2 border-top">
+                            <div class="d-flex justify-content-between small mb-1">
+                                <span>Affidabilità:</span>
+                                <span class="fw-bold {% if affidabilita >= 90 %}text-success{% elif affidabilita >= 70 %}text-warning{% else %}text-danger{% endif %}">{{ affidabilita }}%</span>
+                            </div>
+                            <div class="progress" style="height: 6px;">
+                                <div class="progress-bar {% if affidabilita >= 90 %}bg-success{% elif affidabilita >= 70 %}bg-warning{% else %}bg-danger{% endif %}" role="progressbar" style="width: {{ affidabilita }}%"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-2 small d-flex justify-content-between text-muted" style="font-size: 0.7rem;">
+                            <span title="Allenamenti Saltati" class="text-danger">{{ profilo.allenamenti_saltati }} Saltati</span>
+                            <span title="Rinunce comunicate" class="text-secondary">{{ rinunce_count }} Rinunce</span>
+                        </div>
                     </div>
                 </div>
             </div>
