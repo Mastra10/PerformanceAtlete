@@ -1805,7 +1805,7 @@ def lista_allenamenti(request):
     
     # Statistiche Partecipazione Globali
     stats = {
-        'partecipanti': Partecipazione.objects.filter(stato='Approvata').count(),
+        'allenamenti_totali': Allenamento.objects.count(),
         'feedback_pos': Partecipazione.objects.filter(esito_feedback='Presente').count(),
         'feedback_neg': Partecipazione.objects.filter(esito_feedback='Assente').count(),
     }
