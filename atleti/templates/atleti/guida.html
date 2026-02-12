@@ -1,190 +1,131 @@
 {% extends 'base.html' %}
 
-{% block extra_css %}
-<style>
-    /* Evita che le card e i blocchi di testo si spezzino tra le pagine */
-    .card, .accordion-item, .alert, p, li, h1, h2, h3, h4, h5, h6 { page-break-inside: avoid; }
-</style>
-{% endblock %}
-
 {% block content %}
-<div class="container" id="guide-content">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="fw-bold m-0"><i class="bi bi-book-half me-2"></i>Guida Utente & Manuale</h2>
-        <button onclick="downloadPDF()" class="btn btn-danger"><i class="bi bi-file-pdf me-2"></i>Scarica PDF</button>
+<div class="container py-4">
+    <h1 class="fw-bold mb-4"><i class="bi bi-book-half me-2"></i>Guida alle Metriche & Algoritmi</h1>
+    
+    <div class="alert alert-info shadow-sm">
+        <i class="bi bi-info-circle-fill me-2"></i>
+        <strong>Aggiornamento 2026:</strong> Gli algoritmi sono stati ricalibrati per offrire una stima più fisiologica e meno dipendente dalla sola velocità pura.
     </div>
 
-    <!-- Intro -->
-    <div class="card shadow-sm mb-4 border-primary border-start border-4">
-        <div class="card-body">
-            <h5 class="card-title fw-bold text-primary">Benvenuto in Mastra Monitor</h5>
-            <p class="mb-0">Questa applicazione è progettata per monitorare le performance del team, analizzare i dati fisiologici e gestire gli allenamenti di gruppo. I dati vengono sincronizzati automaticamente da Strava e arricchiti con algoritmi proprietari e Intelligenza Artificiale.</p>
+    <div class="row g-4">
+        <!-- VO2max Stima Statistica -->
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-danger text-white fw-bold">
+                    <i class="bi bi-heart-pulse me-2"></i>VO2max Stima Statistica (Algoritmo 2026)
+                </div>
+                <div class="card-body">
+                    <p>
+                        Il <strong>VO2max Stima Statistica</strong> è l'indice principale del tuo motore aerobico. 
+                        A differenza dei calcoli standard (es. Garmin/Firstbeat) che spesso sovrastimano basandosi solo sulla velocità massima, 
+                        il nostro algoritmo utilizza la <strong>Riserva Cardiaca (Karvonen)</strong> per valutare quanto "costa" al tuo cuore mantenere un certo passo.
+                    </p>
+                    
+                    <h5 class="fw-bold mt-4 text-secondary">Come viene calcolato?</h5>
+                    <ol class="list-group list-group-numbered mb-3">
+                        <li class="list-group-item">
+                            <strong>Costo Energetico (O2):</strong> Calcoliamo l'ossigeno necessario per correre alla tua velocità.
+                            <ul>
+                                <li><span class="badge bg-primary">Strada</span> Usiamo il <strong>GAP (Grade Adjusted Pace)</strong> per normalizzare le pendenze come se fossi in piano.</li>
+                                <li><span class="badge bg-success">Trail</span> Applichiamo la regola dello sforzo equivalente: <strong>100m D+ = 500m piani</strong>.</li>
+                            </ul>
+                        </li>
+                        <li class="list-group-item">
+                            <strong>Intensità Cardiaca (%HRR):</strong> Confrontiamo la tua FC Media con la tua Riserva Cardiaca (FC Max - FC Riposo).
+                            <br><small class="text-muted">Esempio: Se corri a 4:30 min/km al 70% della tua riserva, hai un motore più grande di chi lo fa all'85%.</small>
+                        </li>
+                        <li class="list-group-item">
+                            <strong>Proiezione:</strong> Proiettiamo la prestazione al massimale usando la formula inversa di Karvonen.
+                        </li>
+                    </ol>
+
+                    <h5 class="fw-bold mt-4 text-secondary">Fattori di Correzione</h5>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="p-3 bg-light rounded border-start border-4 border-warning">
+                                <strong>🐢 Penalità Efficienza</strong><br>
+                                Se il passo è più lento di <strong>5:15 min/km</strong> su strada, applichiamo una riduzione del <strong>5%</strong>. 
+                                <br><small>Motivo: A ritmi lenti l'efficienza meccanica cala e la formula lineare tenderebbe a sovrastimare.</small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="p-3 bg-light rounded border-start border-4 border-info">
+                                <strong>🧢 Ancoraggio ITRA</strong><br>
+                                Usiamo il tuo Indice ITRA come "tetto di realtà" per evitare valori impossibili.
+                                <br><small>ITRA &lt; 500 &rarr; Max 54 | ITRA &lt; 600 &rarr; Max 60</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-    </div>
 
-    <!-- Accordion Sections -->
-    <div class="accordion shadow-sm" id="guideAccordion">
+        <!-- VO2max Solo Strada -->
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-primary text-white fw-bold">
+                    <i class="bi bi-speedometer2 me-2"></i>VO2max Solo Strada
+                </div>
+                <div class="card-body">
+                    <p>
+                        Questa metrica isola solo le attività di tipo <strong>Corsa (Run)</strong>, escludendo Trail e Trekking.
+                        È utile per monitorare la tua efficienza pura sull'asfalto o in pista.
+                    </p>
+                    <ul class="list-unstyled">
+                        <li class="mb-2"><i class="bi bi-check-lg text-success me-2"></i>Usa la formula ACSM su piano (GAP).</li>
+                        <li class="mb-2"><i class="bi bi-check-lg text-success me-2"></i>Include la penalità del 5% per passi lenti.</li>
+                        <li class="mb-2"><i class="bi bi-check-lg text-success me-2"></i>Media mobile delle ultime 60 sessioni.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- VAM Selettiva -->
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-warning text-dark fw-bold">
+                    <i class="bi bi-graph-up-arrow me-2"></i>VAM Selettiva (Pro)
+                </div>
+                <div class="card-body">
+                    <p>
+                        La VAM (Velocità Ascensionale Media) classica è spesso falsata da tratti in piano o discesa.
+                        La nostra <strong>VAM Selettiva</strong> analizza la traccia secondo per secondo.
+                    </p>
+                    <div class="alert alert-warning py-2">
+                        <strong>Regola:</strong> Consideriamo solo i segmenti di salita con pendenza <strong>&gt; 7%</strong>.
+                    </div>
+                    <p class="small text-muted mb-0">
+                        Questo ti dà la tua vera velocità di scalata pura, escludendo i "tempi morti".
+                    </p>
+                </div>
+            </div>
+        </div>
         
-        <!-- 1. Dashboard & Metriche -->
-        <div class="accordion-item">
-            <h2 class="accordion-header" id="headingOne">
-                <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne">
-                    <i class="bi bi-speedometer2 me-2"></i> Dashboard & Metriche Avanzate
-                </button>
-            </h2>
-            <div id="collapseOne" class="accordion-collapse collapse show" data-bs-parent="#guideAccordion">
-                <div class="accordion-body">
-                    <p>La Dashboard è il centro di controllo. Ecco come interpretare le metriche esclusive:</p>
-                    <ul>
-                        <li><strong>VO2max Stima Statistica:</strong> Calcolato su tutte le attività (Trail e Strada). Usa una media mobile delle ultime 60 sessioni. Per il Trail, applichiamo un fattore di correzione (100m D+ = 500m piani) per stimare lo sforzo equivalente.</li>
-                        <li><strong>VO2max Strada:</strong> Calcolato <em>solo</em> sulle attività di tipo "Corsa" (Run) su asfalto, usando la formula scientifica ACSM pura. È il riferimento per la tua velocità di base.</li>
-                        <li><strong>VAM Selettiva:</strong> Diversa dalla VAM media classica. Il sistema analizza la traccia secondo per secondo e calcola la velocità ascensionale (m/h) <em>solo</em> sui tratti con pendenza > 7%. Esclude falsopiani e discese per darti un dato reale di scalata.</li>
-                        <li><strong>Efficienza (EF):</strong> Metri percorsi per ogni battito cardiaco. Più è alto, più il tuo motore è efficiente (es. > 1.2 è buono).</li>
-                        <li><strong>Allarmi Coach:</strong> Il sistema monitora il carico (ACWR). Se aumenti il volume troppo in fretta (Ratio > 1.3) o ti alleni troppo poco (< 0.6), riceverai un avviso di rischio infortunio o detraining.</li>
-                    </ul>
+        <!-- Efficienza -->
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-success text-white fw-bold">
+                    <i class="bi bi-fuel-pump me-2"></i>Efficiency Factor (EF)
                 </div>
-            </div>
-        </div>
-
-        <!-- 2. Sincronizzazione & Gare -->
-        <div class="accordion-item">
-            <h2 class="accordion-header" id="headingTwo">
-                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo">
-                    <i class="bi bi-trophy me-2"></i> Gare & Sincronizzazione Strava
-                </button>
-            </h2>
-            <div id="collapseTwo" class="accordion-collapse collapse" data-bs-parent="#guideAccordion">
-                <div class="accordion-body">
-                    <p>I dati vengono scaricati da Strava automaticamente ogni notte, oppure puoi forzare l'aggiornamento dal pulsante "Sincronizza Strava" nella dashboard.</p>
-                    
-                    <div class="alert alert-warning">
-                        <strong><i class="bi bi-exclamation-circle-fill"></i> Importante: Come far apparire le Gare?</strong><br>
-                        Le attività vengono classificate come "Gare" in Mastra Monitor <strong>SOLO SE</strong> su Strava hai impostato il tipo di allenamento come <strong>"Gara"</strong> (Race).<br>
-                        <em>Modifica l'attività su Strava, imposta il tag "Gara" e poi risincronizza qui.</em>
+                <div class="card-body">
+                    <p>
+                        L'Efficiency Factor misura il "consumo" del tuo motore. Indica quanti <strong>metri</strong> riesci a percorrere con un singolo <strong>battito cardiaco</strong>.
+                    </p>
+                    <div class="text-center my-3">
+                        <span class="display-6 fw-bold text-success">EF = Velocità (m/min) / FC (bpm)</span>
                     </div>
-                    
-                    <p>Le attività private vengono importate solo se hai abilitato l'opzione specifica nelle Impostazioni.</p>
-
-                    <div class="alert alert-info mt-3">
-                        <strong><i class="bi bi-info-circle-fill"></i> Problemi di Sincronizzazione?</strong><br>
-                        Se la prima sincronizzazione si è interrotta o noti che mancano attività storiche, vai in <strong>Impostazioni</strong> e clicca sul pulsante <strong><i class="bi bi-database-down"></i> Riscarica Tutto</strong>. Questo forzerà il sistema a rileggere tutto lo storico da Strava (può richiedere qualche minuto).
+                    <p>
+                        <strong>Come interpretarlo?</strong>
+                        <br>Se a parità di pulsazioni vai più forte, il tuo EF sale. È il miglior indicatore di miglioramento aerobico nel lungo periodo.
+                    </p>
+                    <div class="row text-center small text-muted mt-3">
+                        <div class="col">Base: &lt; 1.0</div>
+                        <div class="col">Buono: 1.2</div>
+                        <div class="col">Eccellente: &gt; 1.4</div>
+                        <div class="col">Elite: &gt; 1.6</div>
                     </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- 3. Allenamenti di Gruppo -->
-        <div class="accordion-item">
-            <h2 class="accordion-header" id="headingThree">
-                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseThree">
-                    <i class="bi bi-calendar-event me-2"></i> Allenamenti di Gruppo
-                </button>
-            </h2>
-            <div id="collapseThree" class="accordion-collapse collapse" data-bs-parent="#guideAccordion">
-                <div class="accordion-body">
-                    <p>Organizza uscite con il team in modo semplice:</p>
-                    <ul>
-                        <li><strong>Creazione:</strong> Puoi creare un evento pubblico (visibile a tutti) o privato (solo invitati). Carica un file <strong>GPX</strong> per compilare automaticamente distanza, dislivello e mostrare la mappa interattiva.</li>
-                        <li><strong>Adesione:</strong> Clicca su "Richiedi di Partecipare". Il creatore dell'evento riceverà la richiesta e potrà approvarla.</li>
-                        <li><strong>Condivisione:</strong> Usa il tasto WhatsApp nella scheda allenamento per inviare i dettagli e il file GPX direttamente al gruppo.</li>
-                        <li><strong>Calendario:</strong> Puoi scaricare il file .ics per aggiungere l'evento al tuo calendario (Google/Apple).</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-
-        <!-- 4. Riepilogo & Podio -->
-        <div class="accordion-item">
-            <h2 class="accordion-header" id="headingFour">
-                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFour">
-                    <i class="bi bi-people me-2"></i> Riepilogo Atleti & Podio
-                </button>
-            </h2>
-            <div id="collapseFour" class="accordion-collapse collapse" data-bs-parent="#guideAccordion">
-                <div class="accordion-body">
-                    <p>Confrontati con gli altri membri del team nella pagina Riepilogo.</p>
-                    <ul>
-                        <li><strong>Podio Virtuale:</strong> Ogni settimana l'AI e un algoritmo premiano i migliori 3 atleti. Il punteggio si basa sui "Km Sforzo" (Volume + Dislivello ponderato) e sull'intensità cardiaca relativa.</li>
-                        <li><strong>Classifica:</strong> Puoi ordinare la tabella per qualsiasi colonna (KM settimanali, D+, VO2max, ecc.) cliccando sull'intestazione.</li>
-                        <li><strong>Commenti AI:</strong> L'intelligenza artificiale analizza settimanalmente le prestazioni dei top 3 e genera un commento tecnico motivazionale.</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-
-        <!-- 5. Grafici & Confronto -->
-        <div class="accordion-item">
-            <h2 class="accordion-header" id="headingFive">
-                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFive">
-                    <i class="bi bi-graph-up me-2"></i> Grafici & Confronto
-                </button>
-            </h2>
-            <div id="collapseFive" class="accordion-collapse collapse" data-bs-parent="#guideAccordion">
-                <div class="accordion-body">
-                    <p>Strumenti avanzati per l'analisi delle prestazioni:</p>
-                    <ul>
-                        <li><strong>Grafici Trend:</strong> Visualizza l'andamento delle ultime 50 sessioni per VO2max, Volume, Potenza, VAM, Passo e Frequenza Cardiaca. Utile per identificare picchi di forma o cali.</li>
-                        <li><strong>Confronto Atleti:</strong> Permette di selezionare due atleti (o lo stesso atleta in date diverse) e due attività specifiche per un confronto "testa a testa". Analizza i delta su distanza, dislivello, passo, FC media, potenza e VO2max stimato.</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-
-        <!-- 6. Attrezzatura & Dispositivi -->
-        <div class="accordion-item">
-            <h2 class="accordion-header" id="headingSix">
-                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSix">
-                    <i class="bi bi-watch me-2"></i> Attrezzatura & Dispositivi
-                </button>
-            </h2>
-            <div id="collapseSix" class="accordion-collapse collapse" data-bs-parent="#guideAccordion">
-                <div class="accordion-body">
-                    <p>Gestione dell'hardware utilizzato:</p>
-                    <ul>
-                        <li><strong>Scarpe:</strong> Monitoraggio automatico del chilometraggio delle scarpe importate da Strava. Le scarpe vengono classificate come "Attive" o "Dismesse" in base allo stato su Strava.</li>
-                        <li><strong>Dispositivi:</strong> Statistiche sull'utilizzo dei dispositivi GPS (Garmin, Apple, Suunto, ecc.) all'interno della squadra.</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-
-        <!-- 7. Dashboard Coach -->
-        <div class="accordion-item">
-            <h2 class="accordion-header" id="headingSeven">
-                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSeven">
-                    <i class="bi bi-clipboard-data me-2"></i> Dashboard Coach (Staff)
-                </button>
-            </h2>
-            <div id="collapseSeven" class="accordion-collapse collapse" data-bs-parent="#guideAccordion">
-                <div class="accordion-body">
-                    <p>Area riservata allo staff tecnico per il monitoraggio della squadra:</p>
-                    <ul>
-                        <li><strong>Panoramica:</strong> Distribuzione dei livelli di VO2max, volume settimanale totale e trend rispetto alla settimana precedente.</li>
-                        <li><strong>Allarmi:</strong> Segnalazione automatica di atleti a rischio infortunio (ACWR > 1.3), in detraining (ACWR < 0.6) o con deriva cardiaca anomala.</li>
-                        <li><strong>Analisi AI:</strong> Generazione di report settimanali automatici sullo stato di salute del team.</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-
-        <!-- 8. Impostazioni & Privacy -->
-        <div class="accordion-item">
-            <h2 class="accordion-header" id="headingEight">
-                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseEight">
-                    <i class="bi bi-shield-lock me-2"></i> Impostazioni & Privacy
-                </button>
-            </h2>
-            <div id="collapseEight" class="accordion-collapse collapse" data-bs-parent="#guideAccordion">
-                <div class="accordion-body">
-                    <p>Gestisci il tuo profilo e la visibilità dei tuoi dati:</p>
-                    <ul>
-                        <li><strong>Dati Biometrici:</strong> Imposta Peso, FC Max e FC Riposo per garantire la precisione dei calcoli (VO2max, calorie, ecc.).</li>
-                        <li><strong>Privacy Dashboard:</strong> Puoi scegliere se rendere la tua dashboard visibile agli altri membri del team ("Rendi dashboard pubblica").</li>
-                        <li><strong>Condivisione Metriche:</strong> Decidi se mostrare i tuoi valori di VO2max e Indici nella tabella "Riepilogo Atleti". Se disattivato, appariranno come nascosti agli altri utenti.</li>
-                        <li><strong>Attività Private:</strong> Opzione per importare anche le attività segnate come "Private" su Strava (richiede autorizzazione specifica).</li>
-                        <li><strong>Peso:</strong> Puoi decidere se mostrare o nascondere il tuo peso nelle classifiche di squadra.</li>
-                        <li><strong>Escludimi dalla Dashboard Coach:</strong> Se attivi questa opzione, i tuoi dati non verranno inclusi nelle statistiche aggregate del team visualizzate dallo staff tecnico (es. grafici di volume squadra, analisi trend).</li>
-                    </ul>
                 </div>
             </div>
         </div>
@@ -192,53 +133,7 @@
     </div>
     
     <div class="mt-5 text-center text-muted small">
-        <p>Mastra Monitor 2026 - Developed by Andrea Mastrapasqua</p>
+        <a href="{% url 'home' %}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-2"></i>Torna alla Dashboard</a>
     </div>
 </div>
-{% endblock %}
-
-{% block extra_js %}
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-<script>
-    function downloadPDF() {
-        const element = document.getElementById('guide-content');
-        
-        // 1. Espandi temporaneamente tutti i pannelli per includerli nel PDF
-        const collapses = element.querySelectorAll('.accordion-collapse');
-        const originalStates = [];
-        collapses.forEach(el => {
-            originalStates.push(el.classList.contains('show'));
-            el.classList.add('show'); // Forza apertura
-        });
-
-        // Opzioni per una migliore resa PDF
-        const opt = {
-            margin: [10, 10],
-            filename: 'Guida_Mastra_Monitor.pdf',
-            image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2, useCORS: true, scrollY: 0 },
-            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-            pagebreak: { mode: ['css', 'legacy'] }
-        };
-        
-        // Nascondi il bottone durante la generazione per non stamparlo
-        const btn = document.querySelector('button[onclick="downloadPDF()"]');
-        if(btn) btn.style.display = 'none';
-        
-        // Timeout breve per permettere al browser di renderizzare l'apertura
-        setTimeout(() => {
-            html2pdf().set(opt).from(element).save().then(() => {
-                // Ripristina il bottone
-                if(btn) btn.style.display = 'block';
-                
-                // 2. Ripristina lo stato originale (chiudi quelli che erano chiusi)
-                collapses.forEach((el, index) => {
-                    if (!originalStates[index]) {
-                        el.classList.remove('show');
-                    }
-                });
-            });
-        }, 300);
-    }
-</script>
 {% endblock %}
