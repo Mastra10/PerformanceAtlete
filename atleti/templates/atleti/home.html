@@ -486,7 +486,7 @@
                         <i class="bi bi-heart-pulse h3 text-danger"></i>
                         <small class="text-muted d-block">
                             VO2max Stima Statistica
-                            <i class="bi bi-info-circle-fill ms-1" data-bs-toggle="tooltip" data-bs-placement="top" title="Algoritmo Ibrido: 70% Efficienza Strada (Passo/FC) + 30% Potenza/VAM. Include Cap ITRA e penalità per discrepanze W/kg."></i>
+                            <i class="bi bi-info-circle-fill ms-1" data-bs-toggle="tooltip" data-bs-placement="top" title="Calcolato su tutte le attività (Trail e Strada). Usa una media mobile delle ultime 60 sessioni. Per il Trail, applichiamo un fattore di correzione (100m D+ = 500m piani) per stimare lo sforzo equivalente."></i>
                         </small>
                         {% if profilo.vo2max_stima_statistica %}
                             <span class="h4 fw-bold text-danger">{{ profilo.vo2max_stima_statistica }}</span>

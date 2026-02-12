@@ -277,16 +277,16 @@ def calcola_metrica_vo2max(attivita, profilo):
         if is_trail:
             if is_race:
                 # LOGICA GARA TRAIL (Allineata a Dashboard)
-                # 100m D+ = 500m piani (Coeff 5) | Fattore Terreno: +5%
+                # 100m D+ = 500m piani (Coeff 5)
                 distanza_equivalente = distanza_metri + (5 * d_plus)
                 velocita_eq = distanza_equivalente / (durata_secondi / 60)
-                vo2_attivita = (0.2 * velocita_eq * 1.05) + 3.5
+                vo2_attivita = (0.2 * velocita_eq) + 3.5
             else:
                 # LOGICA TRAIL ALLENAMENTO (Standard)
-                # 100m D+ = 500m piani (Coeff 5) | Fattore Terreno: +5%
+                # 100m D+ = 500m piani (Coeff 5)
                 distanza_equivalente = distanza_metri + (5 * d_plus)
                 velocita_eq = distanza_equivalente / (durata_secondi / 60)
-                vo2_attivita = (0.2 * velocita_eq * 1.05) + 3.5
+                vo2_attivita = (0.2 * velocita_eq) + 3.5
             
         else:
             # LOGICA STRADA (Formula ACSM Standard)
@@ -376,53 +376,8 @@ def stima_vo2max_atleta(profilo):
     else:
         profilo.vo2max_strada = None
 
-    # --- NUOVA LOGICA DI CALCOLO (Upgrade Algoritmo) ---
-    vo2_final = media_vo2_all # Fallback default
-
-    # 1. Priorità Efficienza (Road Focus): 70% Strada / 30% Statistica (All)
-    if media_vo2_strada and media_vo2_all:
-        vo2_final = (media_vo2_strada * 0.70) + (media_vo2_all * 0.30)
-    elif media_vo2_strada:
-        vo2_final = media_vo2_strada
-
-    if vo2_final:
-        # Recupero dati recenti per penalità (Ultime 10 attività)
-        recent_acts = Attivita.objects.filter(atleta=profilo).order_by('-data')[:10]
-        
-        if recent_acts:
-            # Calcolo Passo Medio Recente (min/km)
-            speeds = [a.distanza/a.durata for a in recent_acts if a.durata > 0]
-            avg_speed_ms = sum(speeds)/len(speeds) if speeds else 0
-            avg_pace_min = (1000 / avg_speed_ms) / 60 if avg_speed_ms > 0 else 0
-            
-            # Calcolo W/kg Recente
-            powers = [a.potenza_media for a in recent_acts if a.potenza_media]
-            avg_power = sum(powers)/len(powers) if powers else 0
-            w_kg = avg_power / profilo.peso if (profilo.peso and profilo.peso > 0) else 0
-            
-            # Calcolo %FC Max Recente
-            hrs = [a.fc_media for a in recent_acts if a.fc_media]
-            avg_hr = sum(hrs)/len(hrs) if hrs else 0
-            fc_max = profilo.fc_massima_teorica or 190
-            hr_pct = avg_hr / fc_max if fc_max > 0 else 0
-
-            # 2. Normalizzazione W/kg (Penalità sensori): Se > 4.5 W/kg ma passo > 5:15 (5.25), riduci del 15%
-            if w_kg > 4.5 and avg_pace_min > 5.25:
-                vo2_final = vo2_final * 0.85
-
-            # 3. Penalità Passo/Soglia: Se Passo > 5:15 e FC > 75%, Cap a 55
-            if avg_pace_min > 5.25 and hr_pct > 0.75:
-                if vo2_final > 55: vo2_final = 55
-
-        # 4. Ancoraggio ITRA/UTMB (Ceiling)
-        max_index = max(profilo.indice_itra or 0, profilo.indice_utmb or 0)
-        if max_index > 0:
-            if max_index < 500:
-                if vo2_final > 52: vo2_final = 52
-            elif max_index <= 600:
-                if vo2_final > 58: vo2_final = 58
-
-        profilo.vo2max_stima_statistica = round(vo2_final, 1)
+    if media_vo2_all:
+        profilo.vo2max_stima_statistica = round(media_vo2_all, 1)
     else:
         profilo.vo2max_stima_statistica = None
 
