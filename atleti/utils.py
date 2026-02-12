@@ -289,13 +289,15 @@ def calcola_metrica_vo2max(attivita, profilo):
                 vo2_attivita = (0.2 * velocita_eq) + 3.5
             
         else:
-            # LOGICA STRADA (Formula ACSM Standard)
-            # Più precisa per l'asfalto: Costo Orizzontale + Costo Verticale Standard
-            velocita_m_min = distanza_metri / (durata_secondi / 60)
-            pendenza = d_plus / distanza_metri if distanza_metri > 0 else 0
+            # LOGICA STRADA (Formula ACSM Modificata: Flat + Efficienza)
+            # 1. Normalizzazione al piano (uso GAP se disponibile per simulare pendenza 0%)
+            if attivita.gap_passo:
+                velocita_m_min = attivita.gap_passo * 60
+            else:
+                velocita_m_min = distanza_metri / (durata_secondi / 60)
             
-            # 0.2 * v (Orizzontale) + 0.9 * v * pendenza (Verticale) + 3.5 (Basale)
-            vo2_attivita = (0.2 * velocita_m_min) + (0.9 * velocita_m_min * pendenza) + 3.5
+            # 2. Formula ACSM per corsa in piano (0.2 * v + 3.5)
+            vo2_attivita = (0.2 * velocita_m_min) + 3.5
         
         # 5. Calcolo VO2max
         # Metodo 1: Prestazione (VO2 attività / % Riserva Cardiaca)
@@ -307,6 +309,13 @@ def calcola_metrica_vo2max(attivita, profilo):
             return None
             
         vo2_performance = vo2_attivita / karvonen_percent
+
+        # --- FATTORE DI EFFICIENZA (Solo Strada) ---
+        # Se il passo è più lento di 5:15 min/km (315 s/km = ~190.5 m/min), riduciamo del 10%
+        # perché a ritmi lenti la meccanica è meno efficiente e la formula lineare sovrastima.
+        if not is_trail and velocita_m_min < 190.5:
+            vo2_performance *= 0.90
+            print(f"Penalità Efficienza 10% applicata (Passo > 5:15)", flush=True)
 
         # Metodo 2: Fisiologia Pura (Uth-Sørensen-Overgaard-Pedersen)
         # VO2max = 15 * (HRmax / HRrest). Questo SALE se HRrest scende.
