@@ -103,14 +103,14 @@ def task_calcola_feedback():
     """
     logger.info("SCHEDULER: Avvio calcolo Feedback Allenamenti...")
     
-    # Prendiamo allenamenti passati da almeno 12 ore (per dare tempo di caricare su Strava)
-    # ma non più vecchi di 7 giorni (per efficienza)
-    cutoff_time = timezone.now() - timedelta(hours=12)
-    start_window = timezone.now() - timedelta(days=7)
+    now = timezone.now()
+    # Cerchiamo in tutti gli allenamenti passati (iniziati prima di adesso)
+    # ma non più vecchi di 7 giorni
+    start_window_search = now - timedelta(days=7)
     
     allenamenti_da_verificare = Allenamento.objects.filter(
-        data_orario__lt=cutoff_time,
-        data_orario__gte=start_window
+        data_orario__lt=now,
+        data_orario__gte=start_window_search
     )
     
     count_processed = 0
@@ -123,6 +123,9 @@ def task_calcola_feedback():
             feedback_processato=False
         )
         
+        if not partecipazioni.exists():
+            continue
+
         # Finestra temporale: tolleranza di 45 minuti (richiesti 40, abbondiamo leggermente)
         start_window = allenamento.data_orario - timedelta(minutes=45)
         end_window = allenamento.data_orario + timedelta(minutes=45)
@@ -142,6 +145,10 @@ def task_calcola_feedback():
         else:
             min_elev = target_elev * (1 - tol_elev)
 
+        # Calcolo tempo trascorso per decidere se assegnare ASSENZA (Safety Buffer)
+        hours_since_start = (now - allenamento.data_orario).total_seconds() / 3600
+        safe_absence_threshold = 12 # Ore di attesa prima di dare assente
+
         for p in partecipazioni:
             profilo = getattr(p.atleta, 'profiloatleta', None)
             if not profilo: continue
@@ -155,26 +162,33 @@ def task_calcola_feedback():
             ).exists()
             
             if match:
-                # PRESENTE (+1)
+                # PRESENTE (+1): Assegniamo SUBITO se troviamo il match
                 profilo.punteggio_feedback += 1
                 p.esito_feedback = 'Presente'
                 msg = f"Feedback Positivo (+1): Presenza confermata a '{allenamento.titolo}'."
                 tipo_notifica = 'success'
-            else:
-                # ASSENTE (-1)
+                
+                profilo.save()
+                p.feedback_processato = True
+                p.save()
+                Notifica.objects.create(utente=p.atleta, messaggio=msg, tipo=tipo_notifica)
+                count_processed += 1
+                
+            elif hours_since_start > safe_absence_threshold:
+                # ASSENTE (-1): Assegniamo SOLO se è passato il tempo di sicurezza (12h)
                 profilo.punteggio_feedback -= 1
                 profilo.allenamenti_saltati += 1
                 p.esito_feedback = 'Assente'
                 msg = f"Feedback Negativo (-1): Assenza rilevata a '{allenamento.titolo}'. Nessuna attività compatibile trovata."
                 tipo_notifica = 'warning'
+                
+                profilo.save()
+                p.feedback_processato = True
+                p.save()
+                Notifica.objects.create(utente=p.atleta, messaggio=msg, tipo=tipo_notifica)
+                count_processed += 1
             
-            profilo.save()
-            p.feedback_processato = True
-            p.save()
-            
-            # Notifica all'utente
-            Notifica.objects.create(utente=p.atleta, messaggio=msg, tipo=tipo_notifica)
-            count_processed += 1
+            # Se match=False e non sono passate 12 ore, non facciamo nulla (aspettiamo sync futuri)
             
     logger.info(f"SCHEDULER: Feedback calcolato per {count_processed} partecipazioni.")
 
