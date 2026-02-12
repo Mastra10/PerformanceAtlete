@@ -8,6 +8,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from django.utils import timezone, dateformat
+from datetime import timedelta
 from .models import ProfiloAtleta, Attivita, Scarpa, Allenamento, Partecipazione, Notifica
 from allauth.socialaccount.models import SocialToken
 from .utils import refresh_strava_token, processa_attivita_strava, stima_vo2max_atleta, normalizza_scarpa, get_atleti_con_statistiche_settimanali, genera_commenti_podio_ai
@@ -104,8 +105,8 @@ def task_calcola_feedback():
     
     # Prendiamo allenamenti passati da almeno 12 ore (per dare tempo di caricare su Strava)
     # ma non più vecchi di 7 giorni (per efficienza)
-    cutoff_time = timezone.now() - timezone.timedelta(hours=12)
-    start_window = timezone.now() - timezone.timedelta(days=7)
+    cutoff_time = timezone.now() - timedelta(hours=12)
+    start_window = timezone.now() - timedelta(days=7)
     
     allenamenti_da_verificare = Allenamento.objects.filter(
         data_orario__lt=cutoff_time,
@@ -122,9 +123,9 @@ def task_calcola_feedback():
             feedback_processato=False
         )
         
-        # Finestra temporale: da 2 ore prima a 4 ore dopo l'orario previsto
-        start_window = allenamento.data_orario - timezone.timedelta(hours=2)
-        end_window = allenamento.data_orario + timezone.timedelta(hours=4)
+        # Finestra temporale: tolleranza di 45 minuti (richiesti 40, abbondiamo leggermente)
+        start_window = allenamento.data_orario - timedelta(minutes=45)
+        end_window = allenamento.data_orario + timedelta(minutes=45)
         
         target_dist = allenamento.distanza_km * 1000 # in metri
         target_elev = allenamento.dislivello
