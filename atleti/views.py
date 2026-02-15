@@ -1836,7 +1836,8 @@ def lista_allenamenti(request):
     radius = request.GET.get('radius')
 
     # 1. Filtro Testuale (Titolo o Luogo)
-    if search_query:
+    # Se c'è una ricerca geografica attiva (raggio impostato), ignoriamo il testo perché è il nome della località centrale
+    if search_query and not (lat and lon and radius):
         qs = qs.filter(Q(titolo__icontains=search_query) | Q(luogo__icontains=search_query))
 
     if active_team:
@@ -1985,6 +1986,22 @@ def crea_allenamento(request):
                     messages.warning(request, "Libreria 'gpxpy' non installata. Impossibile estrarre dati dal GPX.")
                 except Exception as e:
                     messages.warning(request, f"Errore lettura GPX: {e}")
+            
+            # --- FALLBACK GEOCODING SERVER-SIDE ---
+            # Se l'utente ha scritto il luogo ma non ha selezionato l'autocomplete (o JS ha fallito)
+            if allenamento.luogo and (not allenamento.latitudine or not allenamento.longitudine):
+                try:
+                    headers = {'User-Agent': 'BarillaMonitor/1.0'}
+                    url = "https://nominatim.openstreetmap.org/search"
+                    params = {'format': 'json', 'q': allenamento.luogo, 'limit': 1}
+                    res = requests.get(url, headers=headers, params=params, timeout=5)
+                    if res.status_code == 200:
+                        data = res.json()
+                        if data:
+                            allenamento.latitudine = float(data[0]['lat'])
+                            allenamento.longitudine = float(data[0]['lon'])
+                except Exception as e:
+                    print(f"Errore Geocoding Server-Side: {e}")
             # ------------------------
             
             # Fallback se i campi sono vuoti e non c'è GPX (o errore GPX)
@@ -2184,6 +2201,21 @@ def modifica_allenamento(request, pk):
                         obj.longitudine = pt.longitude
                 except Exception:
                     pass # Ignoriamo errori GPX in modifica
+            
+            # --- FALLBACK GEOCODING SERVER-SIDE (Anche in modifica) ---
+            if obj.luogo and (not obj.latitudine or not obj.longitudine):
+                try:
+                    headers = {'User-Agent': 'BarillaMonitor/1.0'}
+                    url = "https://nominatim.openstreetmap.org/search"
+                    params = {'format': 'json', 'q': obj.luogo, 'limit': 1}
+                    res = requests.get(url, headers=headers, params=params, timeout=5)
+                    if res.status_code == 200 and res.json():
+                        data = res.json()[0]
+                        obj.latitudine = float(data['lat'])
+                        obj.longitudine = float(data['lon'])
+                except Exception:
+                    pass
+
             obj.save()
             form.save_m2m()
             messages.success(request, "Allenamento aggiornato!")
