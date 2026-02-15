@@ -313,6 +313,13 @@
                    class="btn btn-outline-secondary btn-sm w-100">
                     <i class="bi bi-arrow-repeat me-1"></i>Sincronizza Strava
                 </a>
+                <a href="{% url 'strava_sync' %}?force_full=true" 
+                   data-bs-toggle="modal" 
+                   data-bs-target="#syncModal" 
+                   onclick="startSyncRedirect(event)"
+                   class="btn btn-outline-warning btn-sm w-100 mt-2">
+                    <i class="bi bi-cloud-download me-1"></i>Ricarica Storico Completo
+                </a>
                 <a href="{% url 'ricalcola_statistiche' %}" class="btn btn-outline-primary btn-sm w-100 mt-2">
                     <i class="bi bi-calculator me-1"></i>Ricalcola Dati
                 </a>
