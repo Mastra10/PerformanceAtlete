@@ -11,7 +11,28 @@
                 <div class="card-body">
                     <form method="POST" enctype="multipart/form-data">
                         {% csrf_token %}
-                        {{ form.as_p }}
+                        
+                        {% for field in form %}
+                            {% if field.is_hidden %}
+                                {{ field }}
+                            {% elif field.name == 'luogo' %}
+                                <div class="mb-3 position-relative">
+                                    <label class="form-label fw-bold">{{ field.label }}</label>
+                                    <div class="input-group">
+                                        {{ field }}
+                                        <button type="button" class="btn btn-outline-primary" onclick="useMyLocation()" title="Usa la mia posizione attuale">
+                                            <i class="bi bi-geo-alt-fill"></i>
+                                        </button>
+                                    </div>
+                                    <ul id="places-results" class="list-group position-absolute w-100 shadow" style="z-index: 1050; display: none; max-height: 200px; overflow-y: auto;"></ul>
+                                    {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+                                    {{ field.errors }}
+                                </div>
+                            {% else %}
+                                <div class="mb-3">{{ field.label_tag }} {{ field }} {{ field.errors }}</div>
+                            {% endif %}
+                        {% endfor %}
+
                         <div class="d-grid gap-2">
                             <button type="submit" class="btn btn-success">Salva Allenamento</button>
                             <a href="{% url 'lista_allenamenti' %}" class="btn btn-secondary">Annulla</a>
@@ -22,4 +43,89 @@
         </div>
     </div>
 </div>
+
+<script>
+    // Gestione Autocomplete Luogo (Nominatim OpenStreetMap)
+    const luogoInput = document.getElementById('id_luogo');
+    const resultsList = document.getElementById('places-results');
+    const latInput = document.getElementById('id_latitudine');
+    const lonInput = document.getElementById('id_longitudine');
+    let debounceTimer;
+
+    luogoInput.addEventListener('input', function() {
+        const query = this.value;
+        clearTimeout(debounceTimer);
+        
+        if (query.length < 3) {
+            resultsList.style.display = 'none';
+            return;
+        }
+
+        debounceTimer = setTimeout(() => {
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`)
+                .then(response => response.json())
+                .then(data => {
+                    resultsList.innerHTML = '';
+                    if (data.length > 0) {
+                        resultsList.style.display = 'block';
+                        data.forEach(place => {
+                            const li = document.createElement('li');
+                            li.className = 'list-group-item list-group-item-action cursor-pointer';
+                            li.style.cursor = 'pointer';
+                            // Mostra nome breve se disponibile, altrimenti display_name completo
+                            const label = place.display_name; 
+                            li.textContent = label;
+                            li.onclick = () => {
+                                luogoInput.value = label; // O place.name per essere più brevi
+                                latInput.value = place.lat;
+                                lonInput.value = place.lon;
+                                resultsList.style.display = 'none';
+                            };
+                            resultsList.appendChild(li);
+                        });
+                    } else {
+                        resultsList.style.display = 'none';
+                    }
+                });
+        }, 300);
+    });
+
+    // Chiudi lista se clicco fuori
+    document.addEventListener('click', function(e) {
+        if (e.target !== luogoInput && e.target !== resultsList) {
+            resultsList.style.display = 'none';
+        }
+    });
+
+    // Funzione "Usa la mia posizione"
+    function useMyLocation() {
+        if (navigator.geolocation) {
+            const btn = document.querySelector('button[onclick="useMyLocation()"]');
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+            
+            navigator.geolocation.getCurrentPosition(position => {
+                const lat = position.coords.latitude;
+                const lon = position.coords.longitude;
+                
+                latInput.value = lat;
+                lonInput.value = lon;
+                
+                // Reverse Geocoding per mostrare l'indirizzo
+                fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        luogoInput.value = data.display_name || "Posizione rilevata";
+                        btn.innerHTML = '<i class="bi bi-check-lg"></i>';
+                        setTimeout(() => btn.innerHTML = originalHtml, 2000);
+                    });
+            }, () => {
+                alert("Impossibile rilevare la posizione.");
+                btn.innerHTML = originalHtml;
+            });
+        } else {
+            alert("Geolocalizzazione non supportata.");
+        }
+    }
+</script>
 {% endblock %}
