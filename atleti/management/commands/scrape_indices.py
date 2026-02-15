@@ -3,6 +3,8 @@ import random
 import os
 import logging
 import traceback
+import subprocess
+import re
 from django.core.management.base import BaseCommand
 from atleti.models import ProfiloAtleta
 from django.utils import timezone
@@ -31,10 +33,23 @@ class Command(BaseCommand):
         chrome_options.add_argument('--window-size=1920,1080')
         chrome_options.add_argument('--disable-extensions')
         
+        # Rilevamento automatico versione Chromium installata
+        target_version = None
+        try:
+            # Esegue 'chromium --version' per leggere la major version (es. 144)
+            res = subprocess.run(["/usr/bin/chromium", "--version"], capture_output=True, text=True)
+            if res.returncode == 0:
+                match = re.search(r"(\d+)\.", res.stdout)
+                if match:
+                    target_version = int(match.group(1))
+                    logger.info(f"Versione Chromium rilevata: {target_version}")
+        except Exception as e:
+            logger.warning(f"Impossibile rilevare versione Chromium: {e}")
+
         try:
             # Usa undetected_chromedriver: scarica automaticamente il driver corretto per la versione di Chrome installata
-            # version_main=None lascia che UC rilevi la versione dal binario del browser
-            driver = uc.Chrome(options=chrome_options, browser_executable_path="/usr/bin/chromium", version_main=144)
+            # version_main=target_version forza il download del driver compatibile con il browser installato
+            driver = uc.Chrome(options=chrome_options, browser_executable_path="/usr/bin/chromium", version_main=target_version)
             logger.info("✅ Driver UC avviato correttamente.")
         except Exception as e:
             logger.error(f"Errore critico avvio Driver (UC): {e}")
