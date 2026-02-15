@@ -66,20 +66,20 @@ class Command(BaseCommand):
             
             # 1. LOGICA ITRA
             try:
-                driver.get("https://www.google.com/")
+                driver.get("https://www.google.com/?hl=en")
                 
                 # --- BYPASS COOKIE (ID Universale + Fallback) ---
                 try:
                     # ID L2AGLb clicca "Accetta tutto" indipendentemente dalla lingua
                     WebDriverWait(driver, 4).until(EC.element_to_be_clickable((By.ID, "L2AGLb"))).click()
                 except:
-                    try:
-                        # Fallback testuale per sicurezza
-                        WebDriverWait(driver, 2).until(EC.element_to_be_clickable((By.XPATH, "//button[contains(.,'Accetta') or contains(.,'Aceptar')]"))).click()
-                    except: pass
+                    pass
                 
                 # Ricerca
-                search_box = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.NAME, "q")))
+                # Usa CSS Selector per supportare sia input che textarea (nuovo layout Google)
+                search_box = WebDriverWait(driver, 10).until(
+                    EC.element_to_be_clickable((By.CSS_SELECTOR, "[name='q']"))
+                )
                 search_box.clear()
                 for char in f"{nome_completo} itra":
                     search_box.send_keys(char)
@@ -101,19 +101,21 @@ class Command(BaseCommand):
                     logger.info(f"⭐ ITRA per {nome_completo}: {punteggio}")
                 
             except Exception as e:
-                logger.error(f"Errore ITRA {nome_completo}: {str(e)[:50]}")
+                logger.error(f"Errore ITRA {nome_completo}: {type(e).__name__} - {e}")
                 driver.save_screenshot(f"error_itra_{profilo.id}.png")
 
             # 2. LOGICA UTMB
             try:
-                driver.get("https://www.google.com/")
+                driver.get("https://www.google.com/?hl=en")
                 
                 # Bypass Cookie
                 try:
                     WebDriverWait(driver, 4).until(EC.element_to_be_clickable((By.ID, "L2AGLb"))).click()
                 except: pass
                 
-                search_box = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.NAME, "q")))
+                search_box = WebDriverWait(driver, 10).until(
+                    EC.element_to_be_clickable((By.CSS_SELECTOR, "[name='q']"))
+                )
                 search_box.clear()
                 for char in f"{nome_completo} utmb index":
                     search_box.send_keys(char)
@@ -143,7 +145,7 @@ class Command(BaseCommand):
                     except: continue
 
             except Exception as e:
-                logger.error(f"Errore UTMB {nome_completo}: {str(e)[:50]}")
+                logger.error(f"Errore UTMB {nome_completo}: {type(e).__name__} - {e}")
                 driver.save_screenshot(f"error_utmb_{profilo.id}.png")
             
             # Salvataggio e pausa "umana"
