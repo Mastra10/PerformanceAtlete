@@ -1881,6 +1881,13 @@ def statistiche_log(request):
         daily_data.append(stats_dict.get(d, 0))
         daily_unique_data.append(unique_dict.get(d, 0))
 
+    # 6. Dettaglio Navigazione Odierna
+    today = timezone.now().date()
+    navigazione_odierna = logs_qs.filter(
+        data__date=today,
+        utente__isnull=False
+    ).select_related('utente').order_by('-data')
+
     return render(request, 'atleti/statistiche_log.html', {
         'page_stats': page_stats,
         'user_stats': user_stats,
@@ -1888,6 +1895,7 @@ def statistiche_log(request):
         'daily_labels': json.dumps(daily_labels),
         'daily_data': json.dumps(daily_data),
         'daily_unique_data': json.dumps(daily_unique_data),
+        'navigazione_odierna': navigazione_odierna,
     })
 
 # --- GESTIONE ALLENAMENTI ---
