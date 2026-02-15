@@ -39,6 +39,7 @@ urlpatterns = [
     path('export-csv/', views.export_csv, name='export_csv'),
     path('export-profile-csv/', views.export_profile_csv, name='export_profile_csv'),
     path('atleti/', views.riepilogo_atleti, name='riepilogo_atleti'),
+    path('atleti/analisi-classifica-ai/', views.analisi_classifica_ai, name='analisi_classifica_ai'),
     path('gare/', views.gare_atleta, name='gare_atleta'),
     path('gare/analisi/', views.analisi_gare_ai, name='analisi_gare_ai'),
     path('coach/', views.dashboard_coach, name='dashboard_coach'),

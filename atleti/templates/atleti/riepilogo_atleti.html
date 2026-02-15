@@ -282,7 +282,7 @@ function loadAnalisiClassifica() {
     document.getElementById('contenuto-analisi').innerHTML = '';
     myModal.show();
 
-    fetch('/atleti/analisi-classifica-ai/')
+    fetch("{% url 'analisi_classifica_ai' %}")
         .then(response => response.json())
         .then(data => {
             document.getElementById('loading-analisi').style.display = 'none';
