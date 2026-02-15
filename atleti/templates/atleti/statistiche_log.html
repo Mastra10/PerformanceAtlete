@@ -64,6 +64,46 @@
         </div>
     </div>
 
+    <!-- Tabella Utenti Attivi Oggi -->
+    <div class="card shadow-sm mt-4">
+        <div class="card-header bg-primary text-white fw-bold">
+            <i class="bi bi-people-fill me-2"></i>Utenti Attivi Oggi
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Utente</th>
+                            <th>Ultima Attività</th>
+                            <th class="text-end">Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for u in utenti_oggi %}
+                        <tr>
+                            <td>
+                                <strong>
+                                    {% if u.utente__first_name %}
+                                        {{ u.utente__first_name }} {{ u.utente__last_name }}
+                                    {% else %}
+                                        {{ u.utente__username }}
+                                    {% endif %}
+                                </strong>
+                                <span class="text-muted small ms-1">(@{{ u.utente__username }})</span>
+                            </td>
+                            <td>{{ u.ultima_visita|date:"H:i" }}</td>
+                            <td class="text-end"><span class="badge bg-secondary">{{ u.count }}</span></td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="3" class="text-center py-3 text-muted">Nessun utente attivo oggi.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
     <!-- Tabella Navigazione Odierna -->
     <div class="card shadow-sm mt-4">
         <div class="card-header bg-dark text-white fw-bold">

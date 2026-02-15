@@ -1888,6 +1888,15 @@ def statistiche_log(request):
         utente__isnull=False
     ).select_related('utente').order_by('-data')
 
+    # 7. Aggregazione Utenti Oggi
+    utenti_oggi = logs_qs.filter(
+        data__date=today,
+        utente__isnull=False
+    ).values('utente__username', 'utente__first_name', 'utente__last_name').annotate(
+        count=Count('id'),
+        ultima_visita=Max('data')
+    ).order_by('-ultima_visita')
+
     return render(request, 'atleti/statistiche_log.html', {
         'page_stats': page_stats,
         'user_stats': user_stats,
@@ -1896,6 +1905,7 @@ def statistiche_log(request):
         'daily_data': json.dumps(daily_data),
         'daily_unique_data': json.dumps(daily_unique_data),
         'navigazione_odierna': navigazione_odierna,
+        'utenti_oggi': utenti_oggi,
     })
 
 # --- GESTIONE ALLENAMENTI ---
