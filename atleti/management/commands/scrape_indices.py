@@ -79,9 +79,25 @@ class Command(BaseCommand):
                 
                 # Check Anti-Bot (Captcha)
                 if "sorry" in driver.current_url or "robot" in driver.title.lower():
-                    logger.warning(f"⚠️ Google CAPTCHA rilevato per {nome_completo}. Salto e attendo 60s.")
-                    time.sleep(60)
-                    continue
+                    logger.warning(f"⚠️ Google CAPTCHA rilevato. Tento il click automatico...")
+                    try:
+                        # Switch all'iframe del ReCaptcha
+                        WebDriverWait(driver, 5).until(EC.frame_to_be_available_and_switch_to_it((By.XPATH, "//iframe[contains(@src, 'recaptcha')]")))
+                        time.sleep(random.uniform(1, 2))
+                        # Click sulla checkbox
+                        WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.ID, "recaptcha-anchor"))).click()
+                        driver.switch_to.default_content()
+                        time.sleep(5) # Attesa verifica Google
+                        
+                        if "sorry" in driver.current_url:
+                             logger.error("❌ Click non sufficiente (Image Challenge richiesta). Salto.")
+                             time.sleep(60)
+                             continue
+                    except Exception as e:
+                        logger.error(f"❌ Errore bypass: {e}")
+                        driver.switch_to.default_content()
+                        time.sleep(60)
+                        continue
                 
                 # --- BYPASS COOKIE (ID Universale + Fallback) ---
                 try:
@@ -124,9 +140,25 @@ class Command(BaseCommand):
                 driver.get("https://www.google.com/?hl=en")
                 
                 if "sorry" in driver.current_url or "robot" in driver.title.lower():
-                    logger.warning(f"⚠️ Google CAPTCHA rilevato (UTMB). Salto.")
-                    time.sleep(60)
-                    continue
+                    logger.warning(f"⚠️ Google CAPTCHA rilevato (UTMB). Tento il click automatico...")
+                    try:
+                        # Switch all'iframe del ReCaptcha
+                        WebDriverWait(driver, 5).until(EC.frame_to_be_available_and_switch_to_it((By.XPATH, "//iframe[contains(@src, 'recaptcha')]")))
+                        time.sleep(random.uniform(1, 2))
+                        # Click sulla checkbox
+                        WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.ID, "recaptcha-anchor"))).click()
+                        driver.switch_to.default_content()
+                        time.sleep(5) # Attesa verifica Google
+                        
+                        if "sorry" in driver.current_url:
+                             logger.error("❌ Click non sufficiente (Image Challenge richiesta). Salto.")
+                             time.sleep(60)
+                             continue
+                    except Exception as e:
+                        logger.error(f"❌ Errore bypass: {e}")
+                        driver.switch_to.default_content()
+                        time.sleep(60)
+                        continue
                 
                 # Bypass Cookie
                 try:
