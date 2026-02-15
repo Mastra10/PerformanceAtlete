@@ -1848,7 +1848,7 @@ def lista_allenamenti(request):
         ).exclude(visibilita='Gruppo').distinct()
 
     qs = qs.annotate(
-        num_confermati=Count('partecipanti', filter=Q(partecipanti__stato='Approvata'))
+        num_confermati=Count('partecipanti', filter=Q(partecipanti__stato='Approvata'), distinct=True)
     ).order_by('data_orario').prefetch_related('partecipanti__atleta__profiloatleta')
     
     # Statistiche Partecipazione Globali
@@ -1888,7 +1888,7 @@ def storico_allenamenti(request):
         ).exclude(visibilita='Gruppo').distinct()
 
     qs = qs.annotate(
-        num_confermati=Count('partecipanti', filter=Q(partecipanti__stato='Approvata'))
+        num_confermati=Count('partecipanti', filter=Q(partecipanti__stato='Approvata'), distinct=True)
     ).order_by('-data_orario').prefetch_related('partecipanti__atleta__profiloatleta')
     
     # Riutilizziamo lo stesso template ma con flag is_history
