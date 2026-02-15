@@ -35,6 +35,7 @@
                     <input type="number" name="radius" class="form-control" placeholder="Raggio (km)" value="{{ request.GET.radius|default:'' }}" min="1" max="500">
                     <span class="input-group-text">km</span>
                 </div>
+                <div id="user-location-display" class="small mt-1 text-muted fw-bold text-truncate"></div>
                 <input type="hidden" name="lat" id="lat" value="{{ request.GET.lat|default:'' }}">
                 <input type="hidden" name="lon" id="lon" value="{{ request.GET.lon|default:'' }}">
             </div>
@@ -182,10 +183,28 @@
             btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
             
             navigator.geolocation.getCurrentPosition(function(position) {
-                document.getElementById('lat').value = position.coords.latitude;
-                document.getElementById('lon').value = position.coords.longitude;
-                btn.innerHTML = '<i class="bi bi-check-lg text-success"></i>';
-                btn.classList.add('btn-outline-success');
+                const lat = position.coords.latitude;
+                const lon = position.coords.longitude;
+                document.getElementById('lat').value = lat;
+                document.getElementById('lon').value = lon;
+                
+                // Reverse Geocoding per mostrare la città
+                fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        const addr = data.address;
+                        const city = addr.city || addr.town || addr.village || addr.hamlet || "Posizione rilevata";
+                        document.getElementById('user-location-display').innerHTML = `<i class="bi bi-geo-alt-fill text-success"></i> ${city}`;
+                        btn.innerHTML = '<i class="bi bi-check-lg"></i>';
+                        btn.classList.add('btn-outline-success');
+                    })
+                    .catch(() => {
+                        btn.innerHTML = '<i class="bi bi-check-lg"></i>';
+                        document.getElementById('user-location-display').innerText = "Posizione OK";
+                    });
+            }, function(error) {
+                alert("Errore GPS: " + error.message);
+                btn.innerHTML = originalHtml;
             });
         } else { 
             alert("La geolocalizzazione non è supportata dal tuo browser.");
