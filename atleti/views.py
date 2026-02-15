@@ -80,6 +80,42 @@ def _get_dashboard_context(user):
     avg_weekly_km = round(annuale_km / max(1, current_week), 1)
     avg_weekly_elev = int(dislivello_annuale / max(1, current_week))
 
+    # --- STORICO YTD (Year To Date) ---
+    # Calcola i volumi degli anni passati fino allo stesso giorno di oggi
+    storico_ytd = []
+    first_act = Attivita.objects.filter(atleta=profilo).order_by('data').first()
+    if first_act:
+        first_year = first_act.data.year
+        current_year = today.year
+        
+        for year in range(current_year - 1, first_year - 1, -1):
+            try:
+                # Data inizio anno Y
+                start_y = today.replace(year=year, month=1, day=1, hour=0, minute=0, second=0)
+                # Data fine periodo Y (stesso giorno di oggi)
+                try:
+                    end_y = today.replace(year=year, hour=23, minute=59, second=59)
+                except ValueError:
+                    # Gestione bisestile: se oggi è 29 Feb e l'anno target non lo è, usiamo 28 Feb
+                    end_y = today.replace(year=year, month=2, day=28, hour=23, minute=59, second=59)
+                
+                qs_ytd = Attivita.objects.filter(atleta=profilo, data__gte=start_y, data__lte=end_y)
+                agg = qs_ytd.aggregate(Sum('distanza'), Sum('dislivello'))
+                
+                dist_sum = agg['distanza__sum'] or 0
+                elev_sum = agg['dislivello__sum'] or 0
+                dist_km = round(dist_sum / 1000, 1)
+                
+                storico_ytd.append({
+                    'anno': year,
+                    'km': dist_km,
+                    'dplus': int(elev_sum),
+                    'avg_km': round(dist_km / max(1, current_week), 1),
+                    'avg_dplus': int(elev_sum / max(1, current_week))
+                })
+            except Exception:
+                continue
+
         # 2. Recupero le ultime 30 attività per la tabella
     attivita_list = Attivita.objects.filter(atleta=profilo).order_by('-data')[:30]
         
@@ -312,6 +348,7 @@ def _get_dashboard_context(user):
         'dislivello_annuale': int(dislivello_annuale),
         'avg_weekly_km': avg_weekly_km,
         'avg_weekly_elev': avg_weekly_elev,
+        'storico_ytd': storico_ytd,
         'vam_media': vam_media,
         'potenza_media': potenza_media,
         'potenza_media_wkg': potenza_media_wkg,

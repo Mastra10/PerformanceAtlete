@@ -468,6 +468,11 @@
                                 {{ avg_weekly_km }} km <span class="text-muted fw-normal">/</span> {{ avg_weekly_elev }} m
                              </div>
                         </div>
+                        {% if storico_ytd %}
+                        <button type="button" class="btn btn-sm btn-link text-decoration-none mt-2 p-0" data-bs-toggle="modal" data-bs-target="#historyYTDModal">
+                            <i class="bi bi-clock-history me-1"></i>Confronta anni passati
+                        </button>
+                        {% endif %}
                     </div>
                 </div>
                 <div class="col-6">
@@ -789,6 +794,45 @@
                 <div class="d-grid gap-2">
                     <a href="{% url 'riepilogo_atleti' %}" class="btn btn-primary">Vai al Riepilogo</a>
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Chiudi</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Storico YTD -->
+<div class="modal fade" id="historyYTDModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title fw-bold"><i class="bi bi-calendar-range me-2"></i>Confronto Storico (YTD)</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div class="alert alert-info m-3 small">
+                    <i class="bi bi-info-circle me-1"></i> Dati calcolati dal 1° Gennaio ad oggi ({% now "d M" %}) per ogni anno.
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-striped mb-0 text-center align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Anno</th>
+                                <th>KM Tot</th>
+                                <th>D+ Tot</th>
+                                <th>Media Week</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for y in storico_ytd %}
+                            <tr>
+                                <td class="fw-bold">{{ y.anno }}</td>
+                                <td>{{ y.km }} km</td>
+                                <td>{{ y.dplus }} m</td>
+                                <td class="small text-muted">{{ y.avg_km }} km / {{ y.avg_dplus }} m</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
