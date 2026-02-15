@@ -11,9 +11,10 @@ class AllenamentoForm(forms.ModelForm):
 
     class Meta:
         model = Allenamento
-        fields = ['titolo', 'descrizione', 'data_orario', 'distanza_km', 'dislivello', 'tipo', 'tempo_stimato', 'visibilita', 'file_gpx', 'invitati']
+        fields = ['titolo', 'luogo', 'descrizione', 'data_orario', 'distanza_km', 'dislivello', 'tipo', 'tempo_stimato', 'visibilita', 'file_gpx', 'invitati']
         widgets = {
             'tempo_stimato': forms.TextInput(attrs={'placeholder': 'HH:MM:SS', 'class': 'form-control'}),
+            'luogo': forms.TextInput(attrs={'placeholder': 'Es. Parcheggio Stadio, Parma', 'class': 'form-control'}),
             'invitati': forms.SelectMultiple(attrs={'class': 'form-control'}),
             'descrizione': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
         }

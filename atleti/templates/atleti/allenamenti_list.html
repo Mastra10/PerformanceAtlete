@@ -19,6 +19,35 @@
     </div>
 </div>
 
+<!-- Barra di Ricerca e Filtri -->
+<div class="card shadow-sm mb-4 border-0">
+    <div class="card-body bg-light rounded">
+        <form method="GET" action="" class="row g-2 align-items-center">
+            <div class="col-md-4">
+                <div class="input-group">
+                    <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
+                    <input type="text" name="q" class="form-control border-start-0" placeholder="Cerca per titolo o città..." value="{{ request.GET.q|default:'' }}">
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="input-group">
+                    <button type="button" class="btn btn-outline-primary" onclick="getLocation()" title="Usa mia posizione"><i class="bi bi-geo-alt-fill"></i></button>
+                    <input type="number" name="radius" class="form-control" placeholder="Raggio (km)" value="{{ request.GET.radius|default:'' }}" min="1" max="500">
+                    <span class="input-group-text">km</span>
+                </div>
+                <input type="hidden" name="lat" id="lat" value="{{ request.GET.lat|default:'' }}">
+                <input type="hidden" name="lon" id="lon" value="{{ request.GET.lon|default:'' }}">
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-dark w-100">Filtra</button>
+            </div>
+            <div class="col-md-3 text-end">
+                <a href="{% url 'lista_allenamenti' %}" class="btn btn-link text-muted text-decoration-none small">Resetta filtri</a>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- Statistiche Partecipazione -->
 <div class="row mb-4">
     <div class="col-12">
@@ -68,6 +97,9 @@
                 <p class="card-text text-muted small mb-3">
                     <i class="bi bi-calendar me-1"></i> {{ a.data_orario|date:"d M Y, H:i" }}<br>
                     <i class="bi bi-person me-1"></i> Org: {{ a.creatore.first_name }}
+                    {% if a.luogo %}
+                    <br><i class="bi bi-geo-alt me-1 text-danger"></i> {{ a.luogo }}
+                    {% endif %}
                 </p>
                 
                 <div class="d-flex justify-content-between text-center mb-3">
@@ -141,6 +173,24 @@
     // Inizializzazione Tooltip per i nomi dei partecipanti
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
     var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) { return new bootstrap.Tooltip(tooltipTriggerEl) })
+
+    function getLocation() {
+        if (navigator.geolocation) {
+            // Mostra loading nel bottone
+            const btn = document.querySelector('button[onclick="getLocation()"]');
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+            
+            navigator.geolocation.getCurrentPosition(function(position) {
+                document.getElementById('lat').value = position.coords.latitude;
+                document.getElementById('lon').value = position.coords.longitude;
+                btn.innerHTML = '<i class="bi bi-check-lg text-success"></i>';
+                btn.classList.add('btn-outline-success');
+            });
+        } else { 
+            alert("La geolocalizzazione non è supportata dal tuo browser.");
+        }
+    }
 
     async function shareWorkout(title, date, dist, elev, participants, relativeUrl, gpxUrl) {
         const text = `Ciao! Guarda questo allenamento: ${title} il ${date} (${dist}km, ${elev}m D+). Già ${participants} partecipanti!`;

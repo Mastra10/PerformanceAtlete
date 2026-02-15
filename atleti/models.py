@@ -308,6 +308,9 @@ class Allenamento(models.Model):
     visibilita = models.CharField(max_length=10, choices=VISIBILITA_CHOICES, default='Pubblico')
     invitati = models.ManyToManyField(User, related_name='inviti_allenamento', blank=True)
     team = models.ForeignKey(Team, on_delete=models.CASCADE, null=True, blank=True, related_name='allenamenti')
+    luogo = models.CharField(max_length=100, blank=True, null=True, verbose_name="Luogo di Ritrovo", help_text="Es. Città, Via o Parcheggio")
+    latitudine = models.FloatField(blank=True, null=True)
+    longitudine = models.FloatField(blank=True, null=True)
     data_creazione = models.DateTimeField(auto_now_add=True)
 
     class Meta:

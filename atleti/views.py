@@ -1829,6 +1829,16 @@ def lista_allenamenti(request):
     
     qs = Allenamento.objects.filter(data_orario__gte=now)
 
+    # --- FILTRI RICERCA ---
+    search_query = request.GET.get('q')
+    lat = request.GET.get('lat')
+    lon = request.GET.get('lon')
+    radius = request.GET.get('radius')
+
+    # 1. Filtro Testuale (Titolo o Luogo)
+    if search_query:
+        qs = qs.filter(Q(titolo__icontains=search_query) | Q(luogo__icontains=search_query))
+
     if active_team:
         # Se siamo in un gruppo, vediamo gli allenamenti del gruppo + quelli Pubblici del Master (team=None)
         qs = qs.filter(
@@ -1846,6 +1856,35 @@ def lista_allenamenti(request):
             Q(invitati=request.user) | 
             Q(creatore=request.user)
         ).exclude(visibilita='Gruppo').distinct()
+
+    # 2. Filtro Geografico (Raggio KM) - Applicato in Python (SQLite/Postgres base non hanno geo-funzioni native semplici)
+    if lat and lon and radius:
+        try:
+            user_lat = float(lat)
+            user_lon = float(lon)
+            user_radius = float(radius)
+            
+            # Funzione Haversine per distanza
+            def haversine(lat1, lon1, lat2, lon2):
+                R = 6371  # Raggio Terra in km
+                dlat = math.radians(lat2 - lat1)
+                dlon = math.radians(lon2 - lon1)
+                a = math.sin(dlat/2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon/2)**2
+                c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+                return R * c
+
+            # Filtriamo la lista (ID degli allenamenti validi)
+            valid_ids = []
+            for a in qs:
+                if a.latitudine and a.longitudine:
+                    dist = haversine(user_lat, user_lon, a.latitudine, a.longitudine)
+                    if dist <= user_radius:
+                        valid_ids.append(a.id)
+            
+            # Riapplichiamo il filtro al QuerySet
+            qs = qs.filter(id__in=valid_ids)
+        except ValueError:
+            pass # Coordinate non valide, ignoriamo il filtro
 
     qs = qs.annotate(
         num_confermati=Count('partecipanti', filter=Q(partecipanti__stato='Approvata'), distinct=True)
@@ -1936,6 +1975,12 @@ def crea_allenamento(request):
                     uphill, downhill = gpx.get_uphill_downhill()
                     if uphill > 0:
                         allenamento.dislivello = int(uphill)
+                        
+                    # Estrazione Coordinate Partenza (Lat/Lon)
+                    if gpx.tracks and gpx.tracks[0].segments and gpx.tracks[0].segments[0].points:
+                        start_point = gpx.tracks[0].segments[0].points[0]
+                        allenamento.latitudine = start_point.latitude
+                        allenamento.longitudine = start_point.longitude
                 except ImportError:
                     messages.warning(request, "Libreria 'gpxpy' non installata. Impossibile estrarre dati dal GPX.")
                 except Exception as e:
@@ -2131,6 +2176,12 @@ def modifica_allenamento(request, pk):
                     if gpx.length_2d() > 0: obj.distanza_km = round(gpx.length_2d() / 1000, 2)
                     uphill, _ = gpx.get_uphill_downhill()
                     if uphill > 0: obj.dislivello = int(uphill)
+                    
+                    # Aggiorna coordinate se GPX cambia
+                    if gpx.tracks and gpx.tracks[0].segments and gpx.tracks[0].segments[0].points:
+                        pt = gpx.tracks[0].segments[0].points[0]
+                        obj.latitudine = pt.latitude
+                        obj.longitudine = pt.longitude
                 except Exception:
                     pass # Ignoriamo errori GPX in modifica
             obj.save()
