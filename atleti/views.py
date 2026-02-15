@@ -18,12 +18,13 @@ import csv
 from django_apscheduler.models import DjangoJobExecution, DjangoJob
 from .models import TaskSettings
 from .models import Allenamento, Partecipazione, CommentoAllenamento, Notifica, Team, RichiestaAdesioneTeam
-from .forms import AllenamentoForm, CommentoForm, TeamForm, InvitoTeamForm
+from .forms import AllenamentoForm, CommentoForm, TeamForm, InvitoTeamForm, RegistrazioneUtenteForm
 from django.core.management import call_command
 from django.contrib import messages
 from datetime import timedelta
 from django.template.loader import render_to_string
 from django.contrib.auth import login, authenticate
+from django.contrib.auth.forms import AuthenticationForm
 import os
 from django.core.exceptions import MultipleObjectsReturned
 from django.utils.safestring import mark_safe
@@ -234,6 +235,7 @@ def _get_dashboard_context(user):
     # Warning Token Strava Scaduto
     warning_token = None
     token_obj = SocialToken.objects.filter(account__user=user, account__provider='strava').first()
+    strava_connected = token_obj is not None
     if token_obj and token_obj.expires_at and token_obj.expires_at < timezone.now():
         warning_token = "⚠️ Il tuo token Strava è scaduto. Prova a sincronizzare. Se fallisce, scollega e ricollega l'account nelle Impostazioni."
 
@@ -329,6 +331,7 @@ def _get_dashboard_context(user):
         'efficienza_tooltip': "Efficiency Factor (EF): Misura quanti metri percorri per ogni battito cardiaco. Formula: Velocità (m/min) / FC. Più è alto, più il tuo motore è efficiente (es. > 1.5 è ottimo).",
         'warning_peso': warning_peso,
         'warning_token': warning_token,
+        'strava_connected': strava_connected,
         'allarmi': allarmi,
         'notifiche_utente': notifiche,
         'has_unread_messages': has_unread_messages,
@@ -362,7 +365,7 @@ def home(request):
             if context.get('warning_token'):
                 messages.warning(request, context['warning_token'])
             return render(request, 'atleti/home.html', context)
-        return render(request, 'atleti/home.html')
+        return render(request, 'atleti/home.html', {'login_form': AuthenticationForm()})
     except MultipleObjectsReturned:
         # Se il fix preventivo non ha funzionato (es. race condition), riproviamo e ricarichiamo
         print("CRITICAL: MultipleObjectsReturned intercettato in home. Tento fix di emergenza.", flush=True)
@@ -373,6 +376,55 @@ def login_cancelled(request):
     """Gestisce l'annullamento del login social reindirizzando alla home"""
     messages.info(request, "Login annullato.")
     return redirect('home')
+
+def login_standard(request):
+    """Gestisce il login standard (username/password)"""
+    if request.method == 'POST':
+        form = AuthenticationForm(request, data=request.POST)
+        if form.is_valid():
+            user = form.get_user()
+            login(request, user)
+            LogSistema.objects.create(livello='INFO', azione='Login', utente=user, messaggio="Login standard effettuato.")
+            return redirect('home')
+        else:
+            messages.error(request, "Username o password non validi.")
+    return redirect('home')
+
+def registrazione(request):
+    """Gestisce la registrazione di utenti standard (senza Strava)"""
+    if request.user.is_authenticated:
+        return redirect('home')
+
+    if request.method == 'POST':
+        form = RegistrazioneUtenteForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            # Il segnale create_user_profile in models.py creerà automaticamente il ProfiloAtleta
+            
+            # Login automatico dopo la registrazione
+            login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+            
+            LogSistema.objects.create(livello='INFO', azione='Registrazione', utente=user, messaggio="Nuovo utente registrato (No Strava).")
+            messages.success(request, f"Benvenuto {user.first_name}! Registrazione completata.")
+            return redirect('home')
+    else:
+        form = RegistrazioneUtenteForm()
+
+    context = {
+        'form': form,
+        'funzioni_incluse': [
+            '✅ Partecipazione Allenamenti di Gruppo',
+            '✅ Creazione Eventi e Ritrovi',
+            '✅ Gestione Team e Community',
+            '✅ Diario Manuale (senza import automatico)'
+        ],
+        'funzioni_escluse': [
+            '❌ Sincronizzazione Automatica Attività',
+            '❌ Statistiche Avanzate & Analisi AI',
+            '❌ Calcolo VO2max e Carico Allenante'
+        ]
+    }
+    return render(request, 'atleti/registrazione.html', context)
 
 def dashboard_atleta(request, username):
     """Visualizza la dashboard di un altro atleta se permesso"""
@@ -464,10 +516,20 @@ def impostazioni(request):
             messages.success(request, "Account Strava scollegato. Ricollegalo per aggiornare i permessi.")
             return redirect('impostazioni')
 
+        # Gestione Avatar Manuale
+        if 'avatar' in request.FILES:
+            profilo.avatar = request.FILES['avatar']
+
         try:
-            peso = float(request.POST.get('peso'))
-            fc_riposo = int(request.POST.get('fc_riposo'))
-            fc_max = int(request.POST.get('fc_max'))
+            # Campi opzionali (potrebbero non esserci nel form per utenti No-Strava)
+            peso_val = request.POST.get('peso')
+            peso = float(peso_val) if peso_val else profilo.peso
+            
+            fc_riposo_val = request.POST.get('fc_riposo')
+            fc_riposo = int(fc_riposo_val) if fc_riposo_val else profilo.fc_riposo
+            
+            fc_max_val = request.POST.get('fc_max')
+            fc_max = int(fc_max_val) if fc_max_val else profilo.fc_max
             
             # Nuovi campi impostazioni
             mostra_peso = request.POST.get('mostra_peso') == 'on'
@@ -1991,9 +2053,13 @@ def crea_allenamento(request):
             # Se l'utente ha scritto il luogo ma non ha selezionato l'autocomplete (o JS ha fallito)
             if allenamento.luogo and (not allenamento.latitudine or not allenamento.longitudine):
                 try:
+                    query = allenamento.luogo
+                    if allenamento.indirizzo:
+                        query = f"{allenamento.indirizzo}, {allenamento.luogo}"
+                        
                     headers = {'User-Agent': 'BarillaMonitor/1.0'}
                     url = "https://nominatim.openstreetmap.org/search"
-                    params = {'format': 'json', 'q': allenamento.luogo, 'limit': 1}
+                    params = {'format': 'json', 'q': query, 'limit': 1}
                     res = requests.get(url, headers=headers, params=params, timeout=5)
                     if res.status_code == 200:
                         data = res.json()
@@ -2205,9 +2271,13 @@ def modifica_allenamento(request, pk):
             # --- FALLBACK GEOCODING SERVER-SIDE (Anche in modifica) ---
             if obj.luogo and (not obj.latitudine or not obj.longitudine):
                 try:
+                    query = obj.luogo
+                    if obj.indirizzo:
+                        query = f"{obj.indirizzo}, {obj.luogo}"
+                        
                     headers = {'User-Agent': 'BarillaMonitor/1.0'}
                     url = "https://nominatim.openstreetmap.org/search"
-                    params = {'format': 'json', 'q': obj.luogo, 'limit': 1}
+                    params = {'format': 'json', 'q': query, 'limit': 1}
                     res = requests.get(url, headers=headers, params=params, timeout=5)
                     if res.status_code == 200 and res.json():
                         data = res.json()[0]

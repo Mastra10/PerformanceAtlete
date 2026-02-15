@@ -52,11 +52,44 @@
                     </div>
                     <p class="text-muted">{{ allenamento.descrizione }}</p>
                     
-                    <div class="row g-3 mt-2">
-                        <div class="col-md-3"><strong>Data:</strong><br>{{ allenamento.data_orario|date:"d/m/Y H:i" }}</div>
-                        <div class="col-md-3"><strong>Tipo:</strong><br>{{ allenamento.tipo }}</div>
-                        <div class="col-md-3"><strong>Distanza:</strong><br>{{ allenamento.distanza_km }} km</div>
-                        <div class="col-md-3"><strong>Dislivello:</strong><br>{{ allenamento.dislivello }} m D+</div>
+                    <!-- Info Tecniche e Difficoltà -->
+                    {% with diff=allenamento.difficolta_info %}
+                    <div class="card bg-light border-0 mb-3">
+                        <div class="card-body">
+                            <div class="row text-center g-3">
+                                <div class="col-md-3 border-end">
+                                    <small class="text-muted text-uppercase fw-bold">Difficoltà</small>
+                                    <div class="h4 fw-bold m-0 {% if diff.color == 'orange' %}text-warning{% else %}text-{{ diff.color }}{% endif %}" {% if diff.color == 'orange' %}style="color: #fd7e14 !important;"{% endif %}>
+                                        {{ diff.score }}<span class="small text-muted">/10</span>
+                                    </div>
+                                    <div class="badge {% if diff.color == 'orange' %}bg-warning{% else %}bg-{{ diff.color }}{% endif %}" {% if diff.color == 'orange' %}style="background-color: #fd7e14 !important; color: white;"{% endif %}>{{ diff.label }}</div>
+                                </div>
+                                <div class="col-md-3 border-end">
+                                    <small class="text-muted text-uppercase fw-bold">Passo Stimato</small>
+                                    <div class="h4 fw-bold m-0 text-dark">{{ allenamento.passo_stimato_display }}</div>
+                                    <small class="text-muted">Tempo: {{ allenamento.tempo_stimato }}</small>
+                                </div>
+                                <div class="col-md-3 border-end">
+                                    <small class="text-muted text-uppercase fw-bold">VO2max Minimo Consigliato</small>
+                                    <div class="h4 fw-bold m-0 text-primary">{{ diff.vo2 }}</div>
+                                    <small class="text-muted">ml/kg/min</small>
+                                </div>
+                                <div class="col-md-3">
+                                    <small class="text-muted text-uppercase fw-bold">Volume</small>
+                                    <div class="h4 fw-bold m-0">{{ allenamento.distanza_km }} km</div>
+                                    <small class="text-muted">{{ allenamento.dislivello }} m D+</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endwith %}
+
+                    <div class="row g-3 mt-2 text-muted small">
+                        <div class="col-md-6"><i class="bi bi-calendar me-2"></i><strong>Data:</strong> {{ allenamento.data_orario|date:"l d F Y, H:i" }}</div>
+                        <div class="col-md-6">
+                            <i class="bi bi-geo-alt me-2"></i><strong>Luogo:</strong> {{ allenamento.luogo|default:"Non specificato" }}
+                            {% if allenamento.indirizzo %}<br><i class="bi bi-signpost-2 me-2"></i><strong>Via:</strong> {{ allenamento.indirizzo }}{% endif %}
+                        </div>
                     </div>
 
                     <hr>

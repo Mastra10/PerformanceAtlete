@@ -28,6 +28,14 @@
                                     {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
                                     {{ field.errors }}
                                 </div>
+                            {% elif field.name == 'indirizzo' %}
+                                <div class="mb-3 position-relative">
+                                    <label class="form-label fw-bold">{{ field.label }}</label>
+                                    {{ field }}
+                                    <ul id="address-results" class="list-group position-absolute w-100 shadow" style="z-index: 1050; display: none; max-height: 200px; overflow-y: auto;"></ul>
+                                    {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+                                    {{ field.errors }}
+                                </div>
                             {% else %}
                                 <div class="mb-3">{{ field.label_tag }} {{ field }} {{ field.errors }}</div>
                             {% endif %}
@@ -48,11 +56,15 @@
     // Gestione Autocomplete Luogo (Nominatim OpenStreetMap)
     const luogoInput = document.getElementById('id_luogo');
     const resultsList = document.getElementById('places-results');
+    const indirizzoInput = document.getElementById('id_indirizzo');
+    const addressResultsList = document.getElementById('address-results');
     const latInput = document.getElementById('id_latitudine');
     const lonInput = document.getElementById('id_longitudine');
+    let selectedCityContext = '';
     let debounceTimer;
 
     luogoInput.addEventListener('input', function() {
+        selectedCityContext = ''; // Reset contesto se l'utente modifica il testo
         const query = this.value;
         clearTimeout(debounceTimer);
         
@@ -80,6 +92,10 @@
                                 latInput.value = place.lat;
                                 lonInput.value = place.lon;
                                 resultsList.style.display = 'none';
+                                
+                                if (place.address) {
+                                    selectedCityContext = place.address.city || place.address.town || place.address.village || place.address.hamlet || place.address.municipality || place.address.suburb || place.address.district || place.address.county || '';
+                                }
                             };
                             resultsList.appendChild(li);
                         });
@@ -90,10 +106,81 @@
         }, 300);
     });
 
+    // Gestione Autocomplete Indirizzo (Via)
+    let debounceTimerAddress;
+    if (indirizzoInput) {
+        indirizzoInput.addEventListener('input', function() {
+            const query = this.value;
+            const city = luogoInput.value; // Usa la città come contesto
+            clearTimeout(debounceTimerAddress);
+            
+            if (query.length < 3) {
+                addressResultsList.style.display = 'none';
+                return;
+            }
+
+            debounceTimerAddress = setTimeout(() => {
+                // Combina query e città per una ricerca più precisa
+                let searchQuery = query;
+                if (selectedCityContext) {
+                    searchQuery += ", " + selectedCityContext;
+                } else if (city) {
+                    // Fallback intelligente: se il luogo ha molte virgole (es. "Nome Posto, Città, Provincia"),
+                    // scartiamo la prima parte (Nome Posto) per evitare di confondere la ricerca della via.
+                    if (city.includes(',')) {
+                        const parts = city.split(',');
+                        if (parts.length > 2) {
+                            searchQuery += ", " + parts.slice(1).join(',');
+                        } else {
+                            searchQuery += ", " + city;
+                        }
+                    } else {
+                        searchQuery += ", " + city;
+                    }
+                }
+
+                fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=5&addressdetails=1`)
+                    .then(response => response.json())
+                    .then(data => {
+                        addressResultsList.innerHTML = '';
+                        if (data.length > 0) {
+                            addressResultsList.style.display = 'block';
+                            data.forEach(place => {
+                                const li = document.createElement('li');
+                                li.className = 'list-group-item list-group-item-action cursor-pointer';
+                                li.style.cursor = 'pointer';
+                                li.textContent = place.display_name;
+                                li.onclick = () => {
+                                    // Se disponibile, estrai solo la via e il numero civico
+                                    if (place.address && (place.address.road || place.address.pedestrian)) {
+                                         let street = place.address.road || place.address.pedestrian;
+                                         if (place.address.house_number) street += " " + place.address.house_number;
+                                         indirizzoInput.value = street;
+                                    } else {
+                                        indirizzoInput.value = place.display_name.split(',')[0];
+                                    }
+                                    // Aggiorna coordinate per massima precisione
+                                    latInput.value = place.lat;
+                                    lonInput.value = place.lon;
+                                    addressResultsList.style.display = 'none';
+                                };
+                                addressResultsList.appendChild(li);
+                            });
+                        } else {
+                            addressResultsList.style.display = 'none';
+                        }
+                    });
+            }, 300);
+        });
+    }
+
     // Chiudi lista se clicco fuori
     document.addEventListener('click', function(e) {
         if (e.target !== luogoInput && e.target !== resultsList) {
             resultsList.style.display = 'none';
+        }
+        if (indirizzoInput && e.target !== indirizzoInput && e.target !== addressResultsList) {
+            addressResultsList.style.display = 'none';
         }
     });
 
@@ -127,5 +214,47 @@
             alert("Geolocalizzazione non supportata.");
         }
     }
+
+    // Calcolo Automatico Passo (min/km)
+    document.addEventListener('DOMContentLoaded', function() {
+        const distInput = document.getElementById('id_distanza_km');
+        const timeInput = document.getElementById('id_tempo_stimato');
+        const paceInput = document.getElementById('id_passo_stimato');
+
+        function calculatePace() {
+            const dist = parseFloat(distInput.value);
+            const timeStr = timeInput.value; // Formato atteso HH:MM:SS o HH:MM
+            
+            if (!dist || !timeStr || dist <= 0) {
+                paceInput.value = '';
+                return;
+            }
+
+            // Parsing Tempo (HH:MM:SS)
+            const parts = timeStr.split(':');
+            let totalSeconds = 0;
+            
+            if (parts.length === 3) {
+                totalSeconds = (parseInt(parts[0]) * 3600) + (parseInt(parts[1]) * 60) + parseInt(parts[2]);
+            } else if (parts.length === 2) {
+                totalSeconds = (parseInt(parts[0]) * 3600) + (parseInt(parts[1]) * 60); // Assume HH:MM se incompleto, o MM:SS? Django DurationField usa HH:MM:SS
+            } else {
+                return;
+            }
+            
+            if (isNaN(totalSeconds) || totalSeconds <= 0) return;
+
+            const paceSecondsPerKm = totalSeconds / dist;
+            const paceMin = Math.floor(paceSecondsPerKm / 60);
+            const paceSec = Math.floor(paceSecondsPerKm % 60);
+            
+            paceInput.value = `${paceMin}:${paceSec.toString().padStart(2, '0')} min/km`;
+        }
+
+        if (distInput && timeInput && paceInput) {
+            distInput.addEventListener('input', calculatePace);
+            timeInput.addEventListener('input', calculatePace);
+        }
+    });
 </script>
 {% endblock %}

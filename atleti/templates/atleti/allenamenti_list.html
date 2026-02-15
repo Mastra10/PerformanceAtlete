@@ -88,6 +88,13 @@
                     {% endif %}
                     {{ a.tipo }}
                 </span>
+                <!-- Badge Difficoltà -->
+                {% with diff=a.difficolta_info %}
+                <span class="badge {% if diff.color == 'orange' %}bg-warning{% else %}bg-{{ diff.color }}{% endif %} border" {% if diff.color == 'orange' %}style="background-color: #fd7e14 !important; color: white;"{% endif %} title="VO2max Consigliato: {{ diff.vo2 }}">
+                    {{ diff.label }} ({{ diff.score }}/10)
+                </span>
+                {% endwith %}
+                
                 <small class="text-muted">{{ a.visibilita }}</small>
             </div>
             <div class="card-body">
@@ -103,6 +110,9 @@
                     {% if a.luogo %}
                     <br><i class="bi bi-geo-alt me-1 text-danger"></i> {{ a.luogo }}
                     {% endif %}
+                    {% if a.indirizzo %}
+                    <br><i class="bi bi-signpost-2 me-1 text-muted"></i> {{ a.indirizzo }}
+                    {% endif %}
                 </p>
                 
                 <div class="d-flex justify-content-between text-center mb-3">
@@ -115,8 +125,8 @@
                         <div class="small text-muted">D+</div>
                     </div>
                     <div class="bg-light rounded p-2 flex-fill">
-                        <div class="fw-bold">{{ a.tempo_stimato }}</div>
-                        <div class="small text-muted">Tempo</div>
+                        <div class="fw-bold">{{ a.passo_stimato_display }}</div>
+                        <div class="small text-muted">Passo</div>
                     </div>
                 </div>
                 

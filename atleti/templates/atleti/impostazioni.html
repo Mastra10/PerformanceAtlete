@@ -1,159 +1,136 @@
-{% load l10n %}
-<!DOCTYPE html>
-<html lang="it">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Impostazioni Atleta</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
-</head>
-<body class="bg-light">
-    <div class="container py-5">
-        <div class="row justify-content-center">
-            <div class="col-md-6">
-                <div class="card shadow">
-                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                        <h4 class="mb-0">⚙️ Impostazioni Profilo</h4>
-                        <div class="text-end">
-                            <small class="opacity-75 d-block"><i class="bi bi-strava"></i> Powered by Strava</small>
-                            <small class="opacity-75" style="font-size: 0.7em;">
-                                <i class="bi bi-terminal-fill me-1"></i>Dev. Andrea Mastrapasqua
-                            </small>
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0"><i class="bi bi-gear-fill me-2"></i>Impostazioni Profilo</h4>
+                    {% if strava_connected %}
+                    <span class="badge bg-success"><i class="bi bi-strava me-1"></i>Connesso</span>
+                    {% else %}
+                    <span class="badge bg-secondary">Account Standard</span>
+                    {% endif %}
+                </div>
+                <div class="card-body p-4">
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+
+                        <!-- SEZIONE 1: TEAM & COMMUNITY (Per Tutti) -->
+                        <h5 class="fw-bold text-primary mb-3"><i class="bi bi-people-fill me-2"></i>Team & Community</h5>
+                        <div class="mb-4 p-3 bg-light rounded">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Team Predefinito</label>
+                                <select name="team_preferito" class="form-select">
+                                    <option value="" {% if not profilo.team_preferito %}selected{% endif %}>Nessuno (Mostra tutti)</option>
+                                    {% for team in teams %}
+                                    <option value="{{ team.id }}" {% if profilo.team_preferito.id == team.id %}selected{% endif %}>
+                                        {{ team.nome }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                <div class="form-text">Il gruppo che vedrai selezionato automaticamente all'apertura della dashboard.</div>
+                            </div>
                         </div>
-                    </div>
-                    <div class="card-body p-4">
-                        <!-- Gestione Connessione Strava -->
-                        <div class="mb-4 p-3 bg-white rounded border shadow-sm">
-                            <h5 class="fw-bold mb-3 text-dark"><i class="bi bi-link-45deg"></i> Stato Connessione</h5>
-                            {% load socialaccount %}
-                            
-                            {% if strava_connected %}
-                                <div class="alert alert-success py-2 small d-flex align-items-center">
-                                    <i class="bi bi-check-circle-fill me-2 fs-5"></i>
-                                    <div>
-                                        <strong>Account Collegato</strong><br>
-                                        <span class="text-muted">Tutto pronto per la sincronizzazione.</span>
+
+                        <!-- SEZIONE 2: FOTO PROFILO (Per Tutti) -->
+                        <h5 class="fw-bold text-primary mb-3"><i class="bi bi-person-bounding-box me-2"></i>Foto Profilo</h5>
+                        <div class="mb-4 p-3 bg-light rounded">
+                            <div class="row align-items-center">
+                                <div class="col-auto">
+                                    {% if profilo.avatar %}
+                                        <img src="{{ profilo.avatar.url }}" class="rounded-circle" width="60" height="60" style="object-fit: cover;">
+                                    {% elif profilo.immagine_profilo %}
+                                        <img src="{{ profilo.immagine_profilo }}" class="rounded-circle" width="60" height="60" style="object-fit: cover;">
+                                    {% else %}
+                                        <i class="bi bi-person-circle display-4 text-secondary"></i>
+                                    {% endif %}
+                                </div>
+                                <div class="col">
+                                    <label class="form-label">Carica nuova foto</label>
+                                    <input type="file" name="avatar" class="form-control" accept="image/*">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SEZIONE 3: PRIVACY (Per Tutti) -->
+                        <h5 class="fw-bold text-primary mb-3"><i class="bi bi-shield-lock-fill me-2"></i>Privacy</h5>
+                        <div class="mb-4 p-3 bg-light rounded">
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" name="dashboard_pubblica" id="dashPub" {% if profilo.dashboard_pubblica %}checked{% endif %}>
+                                <label class="form-check-label" for="dashPub">Rendi la mia Dashboard pubblica (visibile a tutti)</label>
+                            </div>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" name="condividi_metriche" id="shareMetrics" {% if profilo.condividi_metriche %}checked{% endif %}>
+                                <label class="form-check-label" for="shareMetrics">Condividi VO2max e Indici nel Riepilogo Atleti</label>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="escludi_statistiche_coach" id="excludeCoach" {% if profilo.escludi_statistiche_coach %}checked{% endif %}>
+                                <label class="form-check-label" for="excludeCoach">Escludimi dalle statistiche aggregate del Coach</label>
+                            </div>
+                        </div>
+
+                        {% if strava_connected %}
+                        <!-- SEZIONE 4: DATI FISIOLOGICI (Solo Strava) -->
+                        <h5 class="fw-bold text-danger mb-3"><i class="bi bi-heart-pulse-fill me-2"></i>Parametri Fisiologici</h5>
+                        <div class="mb-4 p-3 bg-light rounded border border-danger border-opacity-25">
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <label class="form-label">Peso (kg)</label>
+                                    <input type="number" step="0.1" name="peso" class="form-control" value="{{ profilo.peso|default:'' }}" required>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">FC Riposo (bpm)</label>
+                                    <input type="number" name="fc_riposo" class="form-control" value="{{ profilo.fc_riposo|default:'' }}" required>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">FC Max (bpm)</label>
+                                    <input type="number" name="fc_max" class="form-control" value="{{ profilo.fc_massima_teorica }}" required>
+                                </div>
+                                <div class="col-12">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="fc_max_manuale" id="fcManual" {% if profilo.fc_max_manuale %}checked{% endif %}>
+                                        <label class="form-check-label small" for="fcManual">Blocca FC Max (impedisce aggiornamento automatico da Strava)</label>
                                     </div>
                                 </div>
-                                <div class="d-grid gap-2">
-                                    <form method="POST" onsubmit="return confirm('Vuoi davvero scollegare Strava?');">
-                                        {% csrf_token %}
-                                        <button type="submit" name="disconnect_strava" class="btn btn-outline-danger btn-sm w-100">
-                                            <i class="bi bi-power me-1"></i>Scollega Account
-                                        </button>
-                                    </form>
-                                </div>
-                                <div class="mt-2 text-center">
-                                    <small class="text-muted" style="font-size: 0.75rem;">
-                                        Vuoi aggiornare i permessi (es. attività private)? Scollega e ricollega.
-                                    </small>
-                                </div>
-                            {% else %}
-                                <div class="alert alert-warning py-2 small">
-                                    <i class="bi bi-exclamation-triangle-fill me-2"></i>Nessun Account Collegato
-                                </div>
-                                <a href="{% provider_login_url 'strava' process='connect' %}" class="btn btn-warning btn-sm w-100 text-dark fw-bold shadow-sm">
-                                    <img src="https://upload.wikimedia.org/wikipedia/commons/c/cb/Strava_Logo.svg" height="16" class="me-1"> Ricollega Strava
-                                </a>
-                            {% endif %}
+                            </div>
                         </div>
 
-                        <div class="mb-4 text-center border-bottom pb-3">
-                            <p class="text-muted small">I dati non corrispondono a Strava?</p>
-                            <a href="{% url 'aggiorna_profilo' %}" class="btn btn-outline-primary btn-sm"><i class="bi bi-arrow-repeat"></i> Importa Peso da Strava</a>
-                            <a href="{% url 'strava_sync' %}?force_full=true" class="btn btn-outline-warning btn-sm ms-2" onclick="return confirm('Questo riscaricherà tutto lo storico attività. Potrebbe richiedere tempo. Continuare?')"><i class="bi bi-database-down"></i> Riscarica Tutto</a>
-                        </div>
-
-                        {% if not profilo.peso or not profilo.fc_riposo %}
-                        <div class="alert alert-warning">
-                            <strong>Attenzione:</strong> Per sincronizzare le attività e calcolare il VO2max è necessario compilare questi dati.
+                        <!-- SEZIONE 5: OPZIONI STRAVA (Solo Strava) -->
+                        <h5 class="fw-bold text-warning mb-3"><i class="bi bi-strava me-2"></i>Opzioni Strava</h5>
+                        <div class="mb-4 p-3 bg-light rounded border border-warning border-opacity-25">
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" name="importa_attivita_private" id="impPriv" {% if profilo.importa_attivita_private %}checked{% endif %}>
+                                <label class="form-check-label" for="impPriv">Importa anche attività private</label>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="mostra_peso" id="showWeight" {% if profilo.mostra_peso %}checked{% endif %}>
+                                <label class="form-check-label" for="showWeight">Mostra il mio peso nelle classifiche</label>
+                            </div>
                         </div>
                         {% endif %}
 
-                        <form method="POST">
+                        <div class="d-grid gap-2 mt-5">
+                            <button type="submit" class="btn btn-primary btn-lg">Salva Modifiche</button>
+                            <a href="{% url 'home' %}" class="btn btn-outline-secondary">Annulla</a>
+                        </div>
+                    </form>
+
+                    {% if strava_connected %}
+                    <hr class="my-5">
+                    <div class="text-center">
+                        <h6 class="text-muted mb-3">Gestione Account Strava</h6>
+                        <form method="post" onsubmit="return confirm('Sei sicuro di voler scollegare Strava? Non verranno più importate nuove attività.');">
                             {% csrf_token %}
-                            
-                            <!-- Sezione 1: Dati Biometrici -->
-                            <h5 class="fw-bold text-primary mb-3"><i class="bi bi-heart-pulse me-2"></i>Dati Biometrici & Metriche</h5>
-                            <div class="card p-3 mb-4 bg-light border-0">
-                                <div class="row">
-                                    <div class="col-md-6 mb-3">
-                                        <label class="form-label fw-bold">Peso (kg)</label>
-                                        <input type="number" step="0.1" name="peso" class="form-control" value="{{ profilo.peso|unlocalize|default:'' }}" required>
-                                        <div class="form-check mt-2">
-                                            <input class="form-check-input" type="checkbox" name="peso_manuale" id="pesoManuale" {% if profilo.peso_manuale %}checked{% endif %}>
-                                            <label class="form-check-label text-muted small" for="pesoManuale">Blocca valore (no sync Strava)</label>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6 mb-3">
-                                        <label class="form-label fw-bold">FC Max (bpm)</label>
-                                        <input type="number" name="fc_max" class="form-control" value="{{ profilo.fc_max|default:190 }}" required>
-                                        <div class="form-check mt-2">
-                                            <input class="form-check-input" type="checkbox" name="fc_max_manuale" id="fcMaxManuale" {% if profilo.fc_max_manuale %}checked{% endif %}>
-                                            <label class="form-check-label text-muted small" for="fcMaxManuale">Blocca valore (no sync Strava)</label>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6 mb-3">
-                                        <label class="form-label fw-bold">FC Riposo (bpm)</label>
-                                        <input type="number" name="fc_riposo" class="form-control" value="{{ profilo.fc_riposo|default:'' }}" required>
-                                    </div>
-                                </div>
-                                
-                                <hr>
-                                <h6 class="fw-bold mb-2">Indici Competitivi</h6>
-                                <div class="row">
-                                    <div class="col-6 mb-3">
-                                        <label class="form-label fw-bold">ITRA Index</label>
-                                        <input type="number" name="indice_itra" class="form-control" value="{{ profilo.indice_itra|default:'' }}" placeholder="Es: 650">
-                                    </div>
-                                    <div class="col-6 mb-3">
-                                        <label class="form-label fw-bold">UTMB Index</label>
-                                        <input type="number" name="indice_utmb" class="form-control" value="{{ profilo.indice_utmb|default:'' }}" placeholder="Es: 660">
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Sezione 2: Privacy & Visibilità -->
-                            <h5 class="fw-bold text-primary mb-3"><i class="bi bi-shield-lock me-2"></i>Privacy & Visibilità</h5>
-                            <div class="card p-3 mb-4 bg-light border-0">
-                                <div class="form-check form-switch mb-3">
-                                    <input class="form-check-input" type="checkbox" name="mostra_peso" id="mostraPeso" {% if profilo.mostra_peso %}checked{% endif %}>
-                                    <label class="form-check-label fw-bold" for="mostraPeso">Mostra Peso in Classifica</label>
-                                    <div class="text-muted small">Se disattivato, il tuo peso sarà nascosto agli altri atleti.</div>
-                                </div>
-                                
-                                <div class="form-check form-switch mb-3">
-                                    <input class="form-check-input" type="checkbox" name="dashboard_pubblica" id="dashboardPubblica" {% if profilo.dashboard_pubblica %}checked{% endif %}>
-                                    <label class="form-check-label fw-bold" for="dashboardPubblica">Dashboard Pubblica</label>
-                                    <div class="text-muted small">Permetti agli altri membri del team di vedere la tua dashboard completa.</div>
-                                </div>
-                                
-                                <div class="form-check form-switch mb-3">
-                                    <input class="form-check-input" type="checkbox" name="condividi_metriche" id="condividiMetriche" {% if profilo.condividi_metriche %}checked{% endif %}>
-                                    <label class="form-check-label fw-bold" for="condividiMetriche">Condividi Metriche (VO2max, Indici)</label>
-                                    <div class="text-muted small">Se disattivato, i tuoi valori fisiologici saranno nascosti nel Riepilogo Atleti.</div>
-                                </div>
-
-                                <div class="form-check form-switch mb-3">
-                                    <input class="form-check-input" type="checkbox" name="escludi_statistiche_coach" id="escludiCoach" {% if profilo.escludi_statistiche_coach %}checked{% endif %}>
-                                    <label class="form-check-label fw-bold text-danger" for="escludiCoach">Escludimi dalla Dashboard Coach</label>
-                                    <div class="text-muted small">Se attivato, i tuoi dati non verranno inclusi nelle statistiche aggregate del team (Coach Dashboard).</div>
-                                </div>
-                                
-                                <div class="form-check form-switch mb-3">
-                                    <input class="form-check-input" type="checkbox" name="importa_attivita_private" id="importaPrivate" {% if profilo.importa_attivita_private %}checked{% endif %}>
-                                    <label class="form-check-label fw-bold" for="importaPrivate">Importa Attività Private</label>
-                                    <div class="text-muted small">Richiede permessi Strava aggiuntivi. Utile se tieni il profilo Strava privato.</div>
-                                </div>
-                            </div>
-
-                            <button type="submit" class="btn btn-success w-100 py-2">Salva Impostazioni</button>
+                            <input type="hidden" name="disconnect_strava" value="true">
+                            <button type="submit" class="btn btn-outline-danger btn-sm"><i class="bi bi-plug-fill me-1"></i>Scollega Account Strava</button>
                         </form>
                     </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
     </div>
-</body>
-</html>
+</div>
+{% endblock %}

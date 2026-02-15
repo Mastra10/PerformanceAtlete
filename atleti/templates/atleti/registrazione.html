@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content_unauth %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow border-0">
+                <div class="card-header bg-dark text-white text-center py-3">
+                    <h3 class="fw-bold m-0"><i class="bi bi-person-plus-fill me-2"></i>Registrazione</h3>
+                </div>
+                <div class="card-body p-5">
+                    <div class="row">
+                        <div class="col-md-6 mb-4 mb-md-0 border-end">
+                            <h5 class="fw-bold text-primary mb-3">Nuovo Account</h5>
+                            <form method="post">
+                                {% csrf_token %}
+                                {{ form.as_p }}
+                                <div class="d-grid mt-4">
+                                    <button type="submit" class="btn btn-success">Registrati</button>
+                                </div>
+                            </form>
+                            <div class="text-center mt-3">
+                                <a href="{% url 'home' %}" class="text-muted small">Torna alla Home</a>
+                            </div>
+                        </div>
+                        <div class="col-md-6 ps-md-4">
+                            <h5 class="fw-bold text-secondary mb-3">Funzionalità Incluse</h5>
+                            <ul class="list-group list-group-flush mb-4">
+                                {% for item in funzioni_incluse %}
+                                <li class="list-group-item bg-transparent px-0 py-1"><small>{{ item }}</small></li>
+                                {% endfor %}
+                            </ul>
+                            
+                            <h5 class="fw-bold text-muted mb-3">Funzionalità Limitate</h5>
+                            <ul class="list-group list-group-flush">
+                                {% for item in funzioni_escluse %}
+                                <li class="list-group-item bg-transparent px-0 py-1 text-muted"><small>{{ item }}</small></li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

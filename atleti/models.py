@@ -22,6 +22,7 @@ class ProfiloAtleta(models.Model):
     eta = models.IntegerField(default=30)
     fc_riposo = models.IntegerField(help_text="Battiti a riposo", null=True, blank=True)
     immagine_profilo = models.URLField(max_length=500, blank=True, null=True)
+    avatar = models.ImageField(upload_to='avatars/', blank=True, null=True, verbose_name="Foto Profilo Manuale")
     fc_max = models.IntegerField(help_text="Battiti massimi", default=190)
     fc_massima_teorica = models.IntegerField(default=190)
     fc_max_manuale = models.BooleanField(default=False, verbose_name="FC Max impostata manualmente")
@@ -308,7 +309,8 @@ class Allenamento(models.Model):
     visibilita = models.CharField(max_length=10, choices=VISIBILITA_CHOICES, default='Pubblico')
     invitati = models.ManyToManyField(User, related_name='inviti_allenamento', blank=True)
     team = models.ForeignKey(Team, on_delete=models.CASCADE, null=True, blank=True, related_name='allenamenti')
-    luogo = models.CharField(max_length=100, blank=True, null=True, verbose_name="Luogo di Ritrovo", help_text="Es. Città, Via o Parcheggio")
+    luogo = models.CharField(max_length=100, blank=True, null=True, verbose_name="Luogo (Città/Zona)", help_text="Es. Parma, Parco Ducale")
+    indirizzo = models.CharField(max_length=200, blank=True, null=True, verbose_name="Indirizzo Specifico", help_text="Es. Via Roma 10 (Opzionale)")
     latitudine = models.FloatField(blank=True, null=True)
     longitudine = models.FloatField(blank=True, null=True)
     data_creazione = models.DateTimeField(auto_now_add=True)
@@ -319,6 +321,59 @@ class Allenamento(models.Model):
 
     def __str__(self):
         return f"{self.titolo} ({self.data_orario.date()})"
+
+    @property
+    def passo_stimato_display(self):
+        """Restituisce il passo stimato in min/km"""
+        if not self.tempo_stimato or self.distanza_km <= 0:
+            return "--:--"
+        
+        total_seconds = self.tempo_stimato.total_seconds()
+        seconds_per_km = total_seconds / self.distanza_km
+        
+        mins = int(seconds_per_km // 60)
+        secs = int(seconds_per_km % 60)
+        return f"{mins}:{secs:02d} min/km"
+
+    @property
+    def difficolta_info(self):
+        """Calcola score difficoltà (1-10), colore e VO2max consigliato"""
+        if not self.tempo_stimato or self.distanza_km <= 0:
+            return {'score': 0, 'label': 'N/A', 'color': 'secondary', 'vo2': 0}
+            
+        durata_min = self.tempo_stimato.total_seconds() / 60
+        if durata_min <= 0: return {'score': 0, 'label': 'N/A', 'color': 'secondary', 'vo2': 0}
+        
+        # 1. Calcolo VO2 Richiesto (Intensità)
+        # Km Sforzo: 1km + 100m D+ (Vale anche su strada per il costo metabolico della salita)
+        dist_eq_km = self.distanza_km + (self.dislivello / 100)
+        
+        if self.tipo == 'Trail':
+            factor = 1.10 # Terreno tecnico (fango, sassi, ecc)
+        else:
+            factor = 1.0 # Asfalto/Liscio
+
+        velocita_req_m_min = (dist_eq_km * 1000) / durata_min
+        vo2 = ((0.2 * velocita_req_m_min) + 3.5) * factor
+        
+        # 2. Base Score da VO2 (Range 20-65) -> 1-9 (Ricalibrato per essere meno severo)
+        base_score = ((vo2 - 20) / 45) * 8 + 1
+        
+        # 3. Fattore Durata (Endurance Bonus)
+        durata_hours = durata_min / 60
+        duration_bonus = 0
+        if durata_hours > 1.5: duration_bonus += 0.5
+        if durata_hours > 3: duration_bonus += 1.0
+        if durata_hours > 5: duration_bonus += 1.5
+        
+        final_score = base_score + duration_bonus
+        final_score = round(max(1, min(10, final_score)), 1)
+        
+        # Assegnazione Label e Colore
+        if final_score < 4.5: return {'score': final_score, 'label': 'Facile', 'color': 'success', 'vo2': int(vo2)}
+        elif final_score < 7.5: return {'score': final_score, 'label': 'Medio', 'color': 'warning text-dark', 'vo2': int(vo2)}
+        elif final_score < 9.0: return {'score': final_score, 'label': 'Impegnativo', 'color': 'orange', 'vo2': int(vo2)} # Orange gestito via CSS o style
+        else: return {'score': final_score, 'label': 'Estremo', 'color': 'danger', 'vo2': int(vo2)}
 
     def save(self, *args, **kwargs):
         if self.data_orario and timezone.is_naive(self.data_orario):
