@@ -26,12 +26,15 @@ class Command(BaseCommand):
         chrome_options = uc.ChromeOptions()
         chrome_options.binary_location = "/usr/bin/chromium" 
         
-        chrome_options.add_argument('--headless=new') 
+        # RIMOSSO: --headless=new manuale (rompe le patch anti-bot di UC)
         chrome_options.add_argument('--no-sandbox')
         chrome_options.add_argument('--disable-dev-shm-usage') 
         chrome_options.add_argument('--disable-gpu')
         chrome_options.add_argument('--window-size=1920,1080')
         chrome_options.add_argument('--disable-extensions')
+        chrome_options.add_argument('--lang=en-US')
+        # Profilo persistente: mantiene i cookie e riduce i controlli di sicurezza
+        chrome_options.add_argument('--user-data-dir=/code/chrome_data')
         
         # Rilevamento automatico versione Chromium installata
         target_version = None
@@ -49,7 +52,13 @@ class Command(BaseCommand):
         try:
             # Usa undetected_chromedriver: scarica automaticamente il driver corretto per la versione di Chrome installata
             # version_main=target_version forza il download del driver compatibile con il browser installato
-            driver = uc.Chrome(options=chrome_options, browser_executable_path="/usr/bin/chromium", version_main=target_version)
+            # headless=True attiva le patch anti-detection specifiche di UC
+            driver = uc.Chrome(
+                options=chrome_options, 
+                browser_executable_path="/usr/bin/chromium", 
+                version_main=target_version,
+                headless=True
+            )
             logger.info("✅ Driver UC avviato correttamente.")
         except Exception as e:
             logger.error(f"Errore critico avvio Driver (UC): {e}")
@@ -67,6 +76,12 @@ class Command(BaseCommand):
             # 1. LOGICA ITRA
             try:
                 driver.get("https://www.google.com/?hl=en")
+                
+                # Check Anti-Bot (Captcha)
+                if "sorry" in driver.current_url or "robot" in driver.title.lower():
+                    logger.warning(f"⚠️ Google CAPTCHA rilevato per {nome_completo}. Salto e attendo 60s.")
+                    time.sleep(60)
+                    continue
                 
                 # --- BYPASS COOKIE (ID Universale + Fallback) ---
                 try:
@@ -107,6 +122,11 @@ class Command(BaseCommand):
             # 2. LOGICA UTMB
             try:
                 driver.get("https://www.google.com/?hl=en")
+                
+                if "sorry" in driver.current_url or "robot" in driver.title.lower():
+                    logger.warning(f"⚠️ Google CAPTCHA rilevato (UTMB). Salto.")
+                    time.sleep(60)
+                    continue
                 
                 # Bypass Cookie
                 try:
