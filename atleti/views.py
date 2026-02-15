@@ -1830,8 +1830,11 @@ def lista_allenamenti(request):
     qs = Allenamento.objects.filter(data_orario__gte=now)
 
     if active_team:
-        # Se siamo in un gruppo, vediamo SOLO gli allenamenti di quel gruppo
-        qs = qs.filter(team=active_team)
+        # Se siamo in un gruppo, vediamo gli allenamenti del gruppo + quelli Pubblici del Master (team=None)
+        qs = qs.filter(
+            Q(team=active_team) | 
+            (Q(visibilita='Pubblico') & Q(team__isnull=True))
+        )
     else:
         # Se siamo nel Master (Tutti), vediamo:
         # 1. Allenamenti Pubblici (di qualsiasi gruppo)
@@ -1856,6 +1859,40 @@ def lista_allenamenti(request):
     }
     
     context = {'allenamenti': qs, 'stats': stats}
+    context.update(_get_navbar_context(request))
+    return render(request, 'atleti/allenamenti_list.html', context)
+
+@login_required
+def storico_allenamenti(request):
+    """Lista allenamenti passati (Storico)"""
+    timezone.activate(ZoneInfo("Europe/Rome"))
+    now = timezone.now()
+    
+    active_team = _get_active_team(request)
+    
+    # Base Query: Allenamenti passati
+    qs = Allenamento.objects.filter(data_orario__lt=now)
+
+    if active_team:
+        # Logica Gruppo: Allenamenti del gruppo + Pubblici del Master (team=None)
+        qs = qs.filter(
+            Q(team=active_team) | 
+            (Q(visibilita='Pubblico') & Q(team__isnull=True))
+        )
+    else:
+        # Logica Master: Pubblici (anche dei gruppi) + Privati invitati + Creati da me
+        qs = qs.filter(
+            Q(visibilita='Pubblico') | 
+            Q(invitati=request.user) | 
+            Q(creatore=request.user)
+        ).exclude(visibilita='Gruppo').distinct()
+
+    qs = qs.annotate(
+        num_confermati=Count('partecipanti', filter=Q(partecipanti__stato='Approvata'))
+    ).order_by('-data_orario').prefetch_related('partecipanti__atleta__profiloatleta')
+    
+    # Riutilizziamo lo stesso template ma con flag is_history
+    context = {'allenamenti': qs, 'is_history': True}
     context.update(_get_navbar_context(request))
     return render(request, 'atleti/allenamenti_list.html', context)
 

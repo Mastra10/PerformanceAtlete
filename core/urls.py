@@ -65,6 +65,7 @@ urlpatterns = [
     
     # --- ALLENAMENTI ---
     path('allenamenti/', views.lista_allenamenti, name='lista_allenamenti'),
+    path('allenamenti/storico/', views.storico_allenamenti, name='storico_allenamenti'),
     path('allenamenti/nuovo/', views.crea_allenamento, name='crea_allenamento'),
     path('allenamenti/<int:pk>/', views.dettaglio_allenamento, name='dettaglio_allenamento'),
     path('allenamenti/partecipazione/<int:pk>/<str:action>/', views.gestisci_partecipazione, name='gestisci_partecipazione'),
