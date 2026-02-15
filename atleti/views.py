@@ -369,6 +369,11 @@ def home(request):
         fix_strava_duplicates()
         return redirect('home')
 
+def login_cancelled(request):
+    """Gestisce l'annullamento del login social reindirizzando alla home"""
+    messages.info(request, "Login annullato.")
+    return redirect('home')
+
 def dashboard_atleta(request, username):
     """Visualizza la dashboard di un altro atleta se permesso"""
     if request.user.is_authenticated:

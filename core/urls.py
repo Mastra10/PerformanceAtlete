@@ -27,6 +27,10 @@ from atleti.views import statistiche_dispositivi
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    # Override per login cancellato (Standard Allauth e Path specifico segnalato)
+    path('accounts/social/login/cancelled/', views.login_cancelled, name='socialaccount_login_cancelled'),
+    path('accounts/3rdparty/login/cancelled/', views.login_cancelled),
+    
     path('accounts/', include('allauth.urls')), # Gestisce tutto il flusso login/logout
     path('', home, name='home'), # Questo gestisce l'indirizzo http://localhost:8000/
     path('sync/', views.sincronizza_strava, name='strava_sync'),
