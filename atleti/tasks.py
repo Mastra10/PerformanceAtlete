@@ -311,68 +311,48 @@ def task_sync_strava():
             
         headers = {'Authorization': f'Bearer {access_token}'}
 
-        # --- 1.5 SYNC SCARPE & PROFILO (Nuovo) ---
-        try:
-            # Chiamata leggera per prendere scarpe e peso
-            resp_athlete = requests.get("https://www.strava.com/api/v3/athlete", headers=headers, timeout=10)
-            if resp_athlete.status_code == 200:
-                athlete_data = resp_athlete.json()
-                profilo, _ = ProfiloAtleta.objects.get_or_create(user=user)
-                
-                shoes = athlete_data.get('shoes', [])
-                strava_shoe_ids = []
-                for s in shoes:
-                    strava_shoe_ids.append(s['id'])
-                    brand, model = normalizza_scarpa(s['name'])
-                    Scarpa.objects.update_or_create(
-                        strava_id=s['id'],
-                        defaults={
-                            'atleta': profilo,
-                            'nome': s['name'],
-                            'distanza': s['distance'],
-                            'primary': s['primary'],
-                            'brand': brand,
-                            'modello_normalizzato': model,
-                            'retired': False
-                        }
-                    )
-                Scarpa.objects.filter(atleta=profilo).exclude(strava_id__in=strava_shoe_ids).update(retired=True)
-                logger.info(f"Sync Scarpe per {user.username}: {len(shoes)} scarpe aggiornate.")
-        except Exception as e:
-            logger.error(f"Errore sync scarpe per {user.username}: {e}")
-
-        # 2. Scarica Attività (Solo ultime 10 per risparmiare API nel task automatico)
+        # 2. Scarica Attività (Ottimizzato con 'after')
+        # Usiamo il timestamp dell'ultima attività per chiedere a Strava solo le novità.
+        # Questo riduce il payload e evita elaborazioni ridondanti.
+        last_act = Attivita.objects.filter(atleta__user=user).order_by('-data').first()
         params = {'page': 1, 'per_page': 10} 
+        
+        if last_act:
+            # Aggiungiamo 1 secondo per non riscaricare l'ultima attività nota
+            params['after'] = int(last_act.data.timestamp()) + 1
         
         try:
             response = requests.get("https://www.strava.com/api/v3/athlete/activities", headers=headers, params=params, timeout=15)
             
             if response.status_code == 200:
                 activities = response.json()
-                profilo, _ = ProfiloAtleta.objects.get_or_create(user=user)
                 
-                count_new = 0
-                for act in activities:
-                    if act['type'] not in ['Run', 'TrailRun', 'Hike']:
-                        continue
-                    
-                    # Usiamo la utility centralizzata
-                    _, created = processa_attivita_strava(act, profilo, access_token)
-                    if created:
-                        count_new += 1
-                
-                if count_new > 0:
-                    stima_vo2max_atleta(profilo)
-                    logger.info(f"Importate {count_new} nuove attività.")
+                # Se la lista è vuota, non c'è nulla da fare (1 sola chiamata API spesa)
+                if not activities:
+                    logger.info(f"Nessuna nuova attività per {user.username}.")
                 else:
-                    logger.info("Nessuna nuova attività.")
+                    profilo, _ = ProfiloAtleta.objects.get_or_create(user=user)
                 
-                # Aggiorniamo timestamp sync
-                profilo.data_ultima_sincronizzazione = timezone.now()
-                profilo.save()
+                    count_new = 0
+                    for act in activities:
+                        if act['type'] not in ['Run', 'TrailRun', 'Hike']:
+                            continue
+                        
+                        # Usiamo la utility centralizzata
+                        _, created = processa_attivita_strava(act, profilo, access_token)
+                        if created:
+                            count_new += 1
+                    
+                    if count_new > 0:
+                        stima_vo2max_atleta(profilo)
+                        logger.info(f"Importate {count_new} nuove attività per {user.username}.")
+                    
+                    # Aggiorniamo timestamp sync
+                    profilo.data_ultima_sincronizzazione = timezone.now()
+                    profilo.save()
                     
             elif response.status_code == 429:
-                logger.warning("Rate Limit Strava raggiunto. Interrompo sync globale.")
+                logger.warning("SCHEDULER: Rate Limit Strava (429) raggiunto. Stop task globale per recupero quota.")
                 break 
             else:
                 logger.error(f"Errore API Strava: {response.status_code}")
@@ -380,6 +360,6 @@ def task_sync_strava():
         except Exception as e:
             logger.error(f"Errore durante sync per {user.username}: {e}")
             
-        time.sleep(30) # Pausa etica tra utenti (30s per evitare Rate Limits)
+        time.sleep(2) # Pausa ridotta a 2s. Con 17 utenti = 34s totali. Con 600 req/15min siamo ampiamente dentro.
         
     logger.info("SCHEDULER: Sincronizzazione Strava completata.")

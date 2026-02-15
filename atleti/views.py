@@ -239,6 +239,17 @@ def _get_dashboard_context(user):
     if token_obj and token_obj.expires_at and token_obj.expires_at < timezone.now():
         warning_token = "⚠️ Il tuo token Strava è scaduto. Prova a sincronizzare. Se fallisce, scollega e ricollega l'account nelle Impostazioni."
 
+    # Warning Privacy FC (Dati mancanti)
+    warning_privacy_fc = None
+    if strava_connected:
+        # Controlliamo le ultime 5 corse
+        last_runs = Attivita.objects.filter(atleta=profilo, tipo_attivita__in=['Run', 'TrailRun']).order_by('-data')[:5]
+        if last_runs.exists():
+            missing_fc = sum(1 for r in last_runs if not r.fc_media or r.fc_media == 0)
+            # Se più della metà non ha FC, mostriamo l'avviso
+            if missing_fc >= len(last_runs) / 2:
+                warning_privacy_fc = "⚠️ Dati cardiaci non ricevuti. Per calcolare VO2max e Carico, abilita 'Dati relativi alla salute' nelle impostazioni di Strava o rendi visibile la frequenza cardiaca nelle attività."
+
     # --- CALCOLO ALLARMI FISIOLOGICI & CARICO ---
     allarmi = []
     
@@ -331,6 +342,7 @@ def _get_dashboard_context(user):
         'efficienza_tooltip': "Efficiency Factor (EF): Misura quanti metri percorri per ogni battito cardiaco. Formula: Velocità (m/min) / FC. Più è alto, più il tuo motore è efficiente (es. > 1.5 è ottimo).",
         'warning_peso': warning_peso,
         'warning_token': warning_token,
+        'warning_privacy_fc': warning_privacy_fc,
         'strava_connected': strava_connected,
         'allarmi': allarmi,
         'notifiche_utente': notifiche,

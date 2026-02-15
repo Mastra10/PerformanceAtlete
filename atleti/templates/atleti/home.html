@@ -169,6 +169,12 @@
     </div>
     {% endif %}
     
+    {% if warning_privacy_fc %}
+    <div class="alert alert-warning text-center fw-bold shadow-sm border-warning">
+        <i class="bi bi-heart-half me-2"></i> {{ warning_privacy_fc }}
+    </div>
+    {% endif %}
+    
     {% if not strava_connected %}
     <div class="alert alert-secondary text-center shadow-sm border-secondary">
         <i class="bi bi-cloud-slash-fill me-2"></i> <strong>Sincronizzazione Strava non attiva.</strong>
