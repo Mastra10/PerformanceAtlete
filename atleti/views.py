@@ -23,7 +23,7 @@ from django.core.management import call_command
 from django.contrib import messages
 from datetime import timedelta
 from django.template.loader import render_to_string
-from django.contrib.auth import login
+from django.contrib.auth import login, authenticate
 import os
 from django.core.exceptions import MultipleObjectsReturned
 from django.utils.safestring import mark_safe
@@ -2309,6 +2309,31 @@ def serve_team_image(request, team_id):
         raise Http404("File non trovato")
 
 # --- API PER APP MOBILE ---
+
+@csrf_exempt
+def api_login(request):
+    """API per effettuare il login dall'App Mobile"""
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            username = data.get('username')
+            password = data.get('password')
+            
+            user = authenticate(request, username=username, password=password)
+            if user is not None:
+                login(request, user)
+                # In un'app reale useresti un Token (es. DRF Token), 
+                # ma per iniziare questo crea la sessione anche per le chiamate successive
+                return JsonResponse({
+                    'success': True, 
+                    'username': user.username,
+                    'sessionid': request.session.session_key
+                })
+            else:
+                return JsonResponse({'error': 'Credenziali non valide'}, status=401)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=400)
+    return JsonResponse({'error': 'Metodo non consentito'}, status=405)
 
 def api_get_dashboard(request):
     """API per restituire i dati della dashboard in formato JSON"""
