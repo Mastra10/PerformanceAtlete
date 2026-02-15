@@ -2,8 +2,21 @@
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2 class="fw-bold m-0"><i class="bi bi-calendar-event me-2"></i>Allenamenti di Gruppo</h2>
-    <a href="{% url 'crea_allenamento' %}" class="btn btn-primary"><i class="bi bi-plus-lg me-2"></i>Crea Nuovo</a>
+    <h2 class="fw-bold m-0">
+        {% if is_history %}
+            <i class="bi bi-clock-history me-2"></i>Storico Allenamenti
+        {% else %}
+            <i class="bi bi-calendar-event me-2"></i>Prossimi Allenamenti
+        {% endif %}
+    </h2>
+    <div>
+        {% if is_history %}
+            <a href="{% url 'lista_allenamenti' %}" class="btn btn-outline-secondary me-2"><i class="bi bi-calendar-check me-1"></i>Vedi Futuri</a>
+        {% else %}
+            <a href="{% url 'storico_allenamenti' %}" class="btn btn-outline-secondary me-2"><i class="bi bi-clock-history me-1"></i>Vedi Storico</a>
+        {% endif %}
+        <a href="{% url 'crea_allenamento' %}" class="btn btn-primary"><i class="bi bi-plus-lg me-2"></i>Crea Nuovo</a>
+    </div>
 </div>
 
 <!-- Statistiche Partecipazione -->
