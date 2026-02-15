@@ -34,7 +34,7 @@ class Command(BaseCommand):
         try:
             # Usa undetected_chromedriver: scarica automaticamente il driver corretto per la versione di Chrome installata
             # version_main=None lascia che UC rilevi la versione dal binario del browser
-            driver = uc.Chrome(options=chrome_options, browser_executable_path="/usr/bin/chromium", version_main=None)
+            driver = uc.Chrome(options=chrome_options, browser_executable_path="/usr/bin/chromium", version_main=144)
             logger.info("✅ Driver UC avviato correttamente.")
         except Exception as e:
             logger.error(f"Errore critico avvio Driver (UC): {e}")
