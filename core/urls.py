@@ -27,6 +27,7 @@ from atleti.views import statistiche_dispositivi
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('i18n/', include('django.conf.urls.i18n')),
     # Override per login cancellato (Standard Allauth e Path specifico segnalato)
     path('accounts/social/login/cancelled/', views.login_cancelled, name='socialaccount_login_cancelled'),
     path('accounts/3rdparty/login/cancelled/', views.login_cancelled),

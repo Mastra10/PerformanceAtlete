@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 {% load socialaccount %}
 {% load static %}
+{% load i18n %}
 
 {% block extra_css %}
 <style>
@@ -102,6 +103,15 @@
                     Non hai Strava? Registrati qui
                 </a>
             </div>
+            
+            <form action="{% url 'set_language' %}" method="post" class="d-flex justify-content-center gap-2 mt-4 pt-3 border-top">
+                {% csrf_token %}
+                <input name="next" type="hidden" value="{{ request.path }}">
+                <button type="submit" name="language" value="it" class="btn btn-sm btn-light border-0 shadow-sm" title="Italiano">🇮🇹</button>
+                <button type="submit" name="language" value="en" class="btn btn-sm btn-light border-0 shadow-sm" title="English">🇬🇧</button>
+                <button type="submit" name="language" value="es" class="btn btn-sm btn-light border-0 shadow-sm" title="Español">🇪🇸</button>
+                <button type="submit" name="language" value="fr" class="btn btn-sm btn-light border-0 shadow-sm" title="Français">🇫🇷</button>
+            </form>
         </div>
     </div>
 </div>
@@ -370,6 +380,15 @@
                     User: <strong>{{ request.user.username }}</strong><br>
                     Staff: <strong class="{% if request.user.is_staff %}text-success{% else %}text-danger{% endif %}">{{ request.user.is_staff }}</strong>
                 </div>
+                
+                <form action="{% url 'set_language' %}" method="post" class="d-flex justify-content-center gap-2 mt-3 pt-2 border-top">
+                    {% csrf_token %}
+                    <input name="next" type="hidden" value="{{ request.path }}">
+                    <button type="submit" name="language" value="it" class="btn btn-sm btn-outline-secondary border-0" title="Italiano">🇮🇹</button>
+                    <button type="submit" name="language" value="en" class="btn btn-sm btn-outline-secondary border-0" title="English">🇬🇧</button>
+                    <button type="submit" name="language" value="es" class="btn btn-sm btn-outline-secondary border-0" title="Español">🇪🇸</button>
+                    <button type="submit" name="language" value="fr" class="btn btn-sm btn-outline-secondary border-0" title="Français">🇫🇷</button>
+                </form>
                 </div>
             </div>
 
