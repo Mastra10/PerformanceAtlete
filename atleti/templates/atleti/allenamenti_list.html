@@ -23,19 +23,21 @@
 <div class="card shadow-sm mb-4 border-0">
     <div class="card-body bg-light rounded">
         <form method="GET" action="" class="row g-2 align-items-center">
-            <div class="col-md-4">
-                <div class="input-group">
+            <div class="col-md-6">
+                <div class="input-group position-relative">
                     <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
-                    <input type="text" name="q" class="form-control border-start-0" placeholder="Cerca per titolo o città..." value="{{ request.GET.q|default:'' }}">
+                    <input type="text" id="search-input" name="q" class="form-control border-start-0 border-end-0" placeholder="Cerca città o titolo..." value="{{ request.GET.q|default:'' }}" autocomplete="off">
+                    <button type="button" class="btn btn-outline-secondary border-start-0" onclick="getLocation()" title="Usa mia posizione">
+                        <i class="bi bi-geo-alt-fill"></i>
+                    </button>
+                    <ul id="search-results" class="list-group position-absolute w-100 shadow" style="z-index: 1050; top: 100%; display: none; max-height: 200px; overflow-y: auto;"></ul>
                 </div>
             </div>
-            <div class="col-md-3">
+            <div class="col-md-2">
                 <div class="input-group">
-                    <button type="button" class="btn btn-outline-primary" onclick="getLocation()" title="Usa mia posizione"><i class="bi bi-geo-alt-fill"></i></button>
-                    <input type="number" name="radius" class="form-control" placeholder="Raggio (km)" value="{{ request.GET.radius|default:'' }}" min="1" max="500">
+                    <input type="number" name="radius" class="form-control" placeholder="Raggio" value="{{ request.GET.radius|default:'' }}" min="1" max="500">
                     <span class="input-group-text">km</span>
                 </div>
-                <div id="user-location-display" class="small mt-1 text-muted fw-bold text-truncate"></div>
                 <input type="hidden" name="lat" id="lat" value="{{ request.GET.lat|default:'' }}">
                 <input type="hidden" name="lon" id="lon" value="{{ request.GET.lon|default:'' }}">
             </div>
@@ -175,6 +177,61 @@
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
     var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) { return new bootstrap.Tooltip(tooltipTriggerEl) })
 
+    // Gestione Autocomplete Città
+    const searchInput = document.getElementById('search-input');
+    const resultsList = document.getElementById('search-results');
+    const latInput = document.getElementById('lat');
+    const lonInput = document.getElementById('lon');
+    let debounceTimer;
+
+    searchInput.addEventListener('input', function() {
+        // Reset coordinate se l'utente modifica il testo (nuova ricerca)
+        latInput.value = '';
+        lonInput.value = '';
+
+        const query = this.value;
+        clearTimeout(debounceTimer);
+        
+        if (query.length < 3) {
+            resultsList.style.display = 'none';
+            return;
+        }
+
+        debounceTimer = setTimeout(() => {
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`)
+                .then(response => response.json())
+                .then(data => {
+                    resultsList.innerHTML = '';
+                    if (data.length > 0) {
+                        resultsList.style.display = 'block';
+                        data.forEach(place => {
+                            const li = document.createElement('li');
+                            li.className = 'list-group-item list-group-item-action cursor-pointer';
+                            li.style.cursor = 'pointer';
+                            const label = place.display_name; 
+                            li.textContent = label;
+                            li.onclick = () => {
+                                searchInput.value = label; 
+                                latInput.value = place.lat;
+                                lonInput.value = place.lon;
+                                resultsList.style.display = 'none';
+                            };
+                            resultsList.appendChild(li);
+                        });
+                    } else {
+                        resultsList.style.display = 'none';
+                    }
+                });
+        }, 300);
+    });
+
+    // Chiudi lista se clicco fuori
+    document.addEventListener('click', function(e) {
+        if (e.target !== searchInput && e.target !== resultsList) {
+            resultsList.style.display = 'none';
+        }
+    });
+
     function getLocation() {
         if (navigator.geolocation) {
             // Mostra loading nel bottone
@@ -194,13 +251,14 @@
                     .then(data => {
                         const addr = data.address;
                         const city = addr.city || addr.town || addr.village || addr.hamlet || "Posizione rilevata";
-                        document.getElementById('user-location-display').innerHTML = `<i class="bi bi-geo-alt-fill text-success"></i> ${city}`;
+                        document.getElementById('search-input').value = city;
                         btn.innerHTML = '<i class="bi bi-check-lg"></i>';
-                        btn.classList.add('btn-outline-success');
+                        setTimeout(() => btn.innerHTML = originalHtml, 2000);
                     })
                     .catch(() => {
                         btn.innerHTML = '<i class="bi bi-check-lg"></i>';
-                        document.getElementById('user-location-display').innerText = "Posizione OK";
+                        document.getElementById('search-input').value = "Posizione attuale";
+                        setTimeout(() => btn.innerHTML = originalHtml, 2000);
                     });
             }, function(error) {
                 alert("Errore GPS: " + error.message);
