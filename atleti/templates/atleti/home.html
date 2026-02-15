@@ -710,22 +710,22 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title"><i class="bi bi-stars me-2"></i>Novità: Allenamenti & Classifiche</h5>
+                <h5 class="modal-title"><i class="bi bi-stars me-2"></i>Novità: Telecronaca AI!</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <div class="text-center mb-3">
-                    <i class="bi bi-heart-pulse display-1 text-danger"></i>
+                    <i class="bi bi-mic-fill display-1 text-warning"></i>
                 </div>
-                <h5 class="fw-bold text-center mb-3">Nuovi Algoritmi VO2max!</h5>
-                <p>Abbiamo aggiornato il motore di calcolo per renderlo più preciso e fisiologico (Versione 2026):</p>
+                <h5 class="fw-bold text-center mb-3">La Classifica prende vita!</h5>
+                <p>Vai nella pagina <strong>Riepilogo Atleti</strong> e prova il nuovo tasto <strong>Telecronaca AI</strong>.</p>
                 <ul class="list-group list-group-flush text-start small mb-3">
-                    <li class="list-group-item"><i class="bi bi-check-circle-fill text-success me-2"></i><strong>Karvonen & HRR:</strong> Il calcolo ora si basa sulla Riserva Cardiaca, non solo sulla FC Max.</li>
-                    <li class="list-group-item"><i class="bi bi-check-circle-fill text-success me-2"></i><strong>Penalità Efficienza:</strong> Correzione automatica per passi lenti (>5:15/km) per evitare sovrastime.</li>
-                    <li class="list-group-item"><i class="bi bi-check-circle-fill text-success me-2"></i><strong>Cap ITRA:</strong> Tetto massimo basato sul tuo livello competitivo reale.</li>
+                    <li class="list-group-item"><i class="bi bi-check-circle-fill text-success me-2"></i><strong>Commento Tecnico:</strong> L'AI analizza la classifica settimanale come un vero telecronista sportivo.</li>
+                    <li class="list-group-item"><i class="bi bi-check-circle-fill text-success me-2"></i><strong>Analisi Podio:</strong> Scopri chi ha vinto e perché (Volume? Dislivello? Intensità?).</li>
+                    <li class="list-group-item"><i class="bi bi-check-circle-fill text-success me-2"></i><strong>Sfide:</strong> Un recap avvincente e divertente per motivare tutto il gruppo.</li>
                 </ul>
                 <div class="d-grid gap-2">
-                    <a href="{% url 'guida_utente' %}" class="btn btn-primary">Leggi la Guida Completa</a>
+                    <a href="{% url 'riepilogo_atleti' %}" class="btn btn-primary">Vai al Riepilogo</a>
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Chiudi</button>
                 </div>
             </div>
@@ -854,7 +854,7 @@
 
     // Gestione Novità (Lampeggio)
     const newsBtn = document.getElementById('btnNews');
-    const NEWS_KEY = 'news_vo2max_update_2026';
+    const NEWS_KEY = 'news_telecronaca_ai_v1';
     
     if (newsBtn && !localStorage.getItem(NEWS_KEY)) {
         newsBtn.classList.add('blink-animation');
