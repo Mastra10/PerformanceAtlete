@@ -6,7 +6,7 @@ from allauth.socialaccount.models import SocialToken ,SocialAccount
 from django.core.cache import cache
 from .models import Attivita, ProfiloAtleta, LogSistema, Scarpa
 import math
-from .utils import analizza_performance_atleta, calcola_metrica_vo2max, stima_vo2max_atleta, stima_potenza_watt, calcola_trend_atleta, formatta_passo, stima_potenziale_gara, analizza_squadra_coach, calcola_vam_selettiva, refresh_strava_token, processa_attivita_strava, fix_strava_duplicates, normalizza_scarpa, BRAND_LOGOS, analizza_gare_atleta, calcola_vo2max_effettivo, calcola_efficienza, normalizza_dispositivo, genera_commenti_podio_ai, get_atleti_con_statistiche_settimanali
+from .utils import analizza_performance_atleta, calcola_metrica_vo2max, stima_vo2max_atleta, stima_potenza_watt, calcola_trend_atleta, formatta_passo, stima_potenziale_gara, analizza_squadra_coach, calcola_vam_selettiva, refresh_strava_token, processa_attivita_strava, fix_strava_duplicates, normalizza_scarpa, BRAND_LOGOS, analizza_gare_atleta, calcola_vo2max_effettivo, calcola_efficienza, normalizza_dispositivo, genera_commenti_podio_ai, get_atleti_con_statistiche_settimanali, analizza_classifica_settimanale
 import time
 from django.db.models import Sum, Max, Q, OuterRef, Subquery, Avg, Count
 from django.db.models.functions import TruncDate
@@ -1022,6 +1022,34 @@ def riepilogo_atleti(request):
     }
     context.update(_get_navbar_context(request))
     return render(request, 'atleti/riepilogo_atleti.html', context)
+
+def analisi_classifica_ai(request):
+    """
+    API per generare il recap avvincente della classifica settimanale.
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Non autorizzato'}, status=401)
+    
+    # Controllo permessi
+    if not (request.user.is_staff or request.user.has_perm('atleti.access_riepilogo')):
+        return JsonResponse({'error': 'Permessi insufficienti'}, status=403)
+
+    # Recupero dati
+    _, active_atleti, _ = get_atleti_con_statistiche_settimanali()
+    
+    # Filtro Team (coerente con la vista riepilogo)
+    active_team = _get_active_team(request)
+    team_name = None
+    
+    if active_team:
+        team_members_ids = active_team.membri.values_list('id', flat=True)
+        active_atleti = [a for a in active_atleti if a.user.id in team_members_ids]
+        team_name = active_team.nome
+
+    # Generazione Analisi
+    analisi_testo = analizza_classifica_settimanale(active_atleti, team_name)
+    
+    return JsonResponse({'analisi': analisi_testo})
 
 def gare_atleta(request):
     """Visualizza solo le attività taggate come Gara su Strava"""

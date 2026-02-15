@@ -1064,3 +1064,45 @@ def get_atleti_con_statistiche_settimanali():
     podio = sorted(active_atleti, key=lambda x: x.punteggio_podio, reverse=True)[:3]
     
     return atleti, active_atleti, podio
+
+def analizza_classifica_settimanale(atleti_list, team_name=None):
+    """
+    Genera una telecronaca avvincente della classifica settimanale usando Gemini.
+    """
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        return "Errore: Chiave API mancante."
+
+    client = genai.Client(api_key=api_key)
+
+    # Ordiniamo per punteggio podio decrescente
+    classifica = sorted(atleti_list, key=lambda x: getattr(x, 'punteggio_podio', 0), reverse=True)
+    
+    lines = []
+    for i, a in enumerate(classifica):
+        rank = i + 1
+        score = getattr(a, 'punteggio_podio', 0)
+        km = getattr(a, 'km_week', 0)
+        dplus = getattr(a, 'dplus_week', 0)
+        lines.append(f"{rank}. {a.user.first_name} {a.user.last_name} | Score: {score} | {km}km | {dplus}m D+")
+
+    context_team = f"del gruppo '{team_name}'" if team_name else "generale"
+
+    prompt = f"""
+    Sei il telecronista sportivo più esaltato e tecnico del mondo. Devi commentare la classifica settimanale {context_team} di corsa/trail running.
+    
+    DATI CLASSIFICA:
+    {chr(10).join(lines)}
+
+    OBIETTIVO:
+    Scrivi un recap avvincente, epico e divertente (max 250 parole).
+    1. **Il Podio**: Celebra il vincitore (il "Re della settimana") e analizza la lotta per il 2° e 3° posto. Spiega PERCHÉ hanno vinto (Volume? Dislivello mostruoso? Intensità?).
+    2. **Il Gruppo**: Menziona brevemente chi sta inseguendo o chi ha fatto una prestazione degna di nota fuori dal podio.
+    3. **Tono**: Usa emoji, sii motivante ma anche ironico se qualcuno ha fatto pochi km. Chiudi con una frase di sfida per la prossima settimana.
+    """
+
+    try:
+        response = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
+        return response.text
+    except Exception as e:
+        return f"Il commentatore AI è senza voce al momento: {e}"
