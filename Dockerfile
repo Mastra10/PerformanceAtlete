@@ -8,7 +8,7 @@ ENV PYTHONUNBUFFERED 1
 WORKDIR /code
 
 # Installiamo le dipendenze di sistema necessarie per PostgreSQL
-RUN apt-get update && apt-get install -y libpq-dev gcc && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y libpq-dev gcc gettext && rm -rf /var/lib/apt/lists/*
 
 # Installazione Chromium e Driver (Più stabile su Docker e compatibile ARM/Mac M1)
 RUN apt-get update && apt-get install -y \

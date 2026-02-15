@@ -32,6 +32,7 @@ from django.urls import reverse
 from django.utils.dateparse import parse_datetime, parse_duration
 from django.views.decorators.csrf import csrf_exempt
 from zoneinfo import ZoneInfo
+from django.utils.translation import gettext as _
 
 def _get_active_team(request):
     """Helper per recuperare il team attivo dalla sessione"""
@@ -53,7 +54,7 @@ def _get_navbar_context(request):
 def _get_dashboard_context(user):
     """Helper per generare il contesto della dashboard per un dato utente"""
         # Recuperiamo il profilo
-    profilo, _ = ProfiloAtleta.objects.get_or_create(user=user)
+    profilo, created = ProfiloAtleta.objects.get_or_create(user=user)
         
         # 1. Calcolo KM Totali (da metri a km)
     metri = Attivita.objects.filter(atleta=profilo).aggregate(Sum('distanza'))['distanza__sum'] or 0
@@ -266,14 +267,14 @@ def _get_dashboard_context(user):
     # Warning Peso
     warning_peso = None
     if not profilo.peso or profilo.peso <= 0:
-        warning_peso = "Peso non configurato per l'atleta! Fondamentale impostarlo nei settings. Stiamo assumendo un valore di default (70kg) per i calcoli."
+        warning_peso = _("Peso non configurato per l'atleta! Fondamentale impostarlo nei settings. Stiamo assumendo un valore di default (70kg) per i calcoli.")
 
     # Warning Token Strava Scaduto
     warning_token = None
     token_obj = SocialToken.objects.filter(account__user=user, account__provider='strava').first()
     strava_connected = token_obj is not None
     if token_obj and token_obj.expires_at and token_obj.expires_at < timezone.now():
-        warning_token = "⚠️ Il tuo token Strava è scaduto. Prova a sincronizzare. Se fallisce, scollega e ricollega l'account nelle Impostazioni."
+        warning_token = _("⚠️ Il tuo token Strava è scaduto. Prova a sincronizzare. Se fallisce, scollega e ricollega l'account nelle Impostazioni.")
 
     # Warning Privacy FC (Dati mancanti)
     warning_privacy_fc = None
@@ -284,7 +285,7 @@ def _get_dashboard_context(user):
             missing_fc = sum(1 for r in last_runs if not r.fc_media or r.fc_media == 0)
             # Se più della metà non ha FC, mostriamo l'avviso
             if missing_fc >= len(last_runs) / 2:
-                warning_privacy_fc = "⚠️ Dati cardiaci non ricevuti. Per calcolare VO2max e Carico, abilita 'Dati relativi alla salute' nelle impostazioni di Strava o rendi visibile la frequenza cardiaca nelle attività."
+                warning_privacy_fc = _("⚠️ Dati cardiaci non ricevuti. Per calcolare VO2max e Carico, abilita 'Dati relativi alla salute' nelle impostazioni di Strava o rendi visibile la frequenza cardiaca nelle attività.")
 
     # --- CALCOLO ALLARMI FISIOLOGICI & CARICO ---
     allarmi = []
@@ -315,14 +316,14 @@ def _get_dashboard_context(user):
     if avg_chronic > 10:
         ratio = load_acute / avg_chronic if avg_chronic > 0 else 0
         if ratio >= 1.3:
-            allarmi.append({'tipo': 'danger', 'titolo': 'Rischio Infortunio (ACWR)', 'msg': f"Carico Acuto ({int(load_acute)}) eccessivo rispetto al Cronico ({int(avg_chronic)}). Ratio: {ratio:.2f}. Rischio infortunio alto, scarica!"})
+            allarmi.append({'tipo': 'danger', 'titolo': _('Rischio Infortunio (ACWR)'), 'msg': _("Carico Acuto ({acute}) eccessivo rispetto al Cronico ({chronic}). Ratio: {ratio:.2f}. Rischio infortunio alto, scarica!").format(acute=int(load_acute), chronic=int(avg_chronic), ratio=ratio)})
         elif ratio <= 0.6:
-            allarmi.append({'tipo': 'warning', 'titolo': 'Detraining (ACWR)', 'msg': f"Carico Acuto ({int(load_acute)}) troppo basso rispetto al tuo standard ({int(avg_chronic)}). Ratio: {ratio:.2f}. Stai perdendo forma."})
+            allarmi.append({'tipo': 'warning', 'titolo': _('Detraining (ACWR)'), 'msg': _("Carico Acuto ({acute}) troppo basso rispetto al tuo standard ({chronic}). Ratio: {ratio:.2f}. Stai perdendo forma.").format(acute=int(load_acute), chronic=int(avg_chronic), ratio=ratio)})
 
     # 2. Allarme FC (Trend in aumento > 5%)
     # trends['fc_media'] è la variazione % recente vs storico calcolata da calcola_trend_atleta
     if trends.get('fc_media', 0) > 5:
-        allarmi.append({'tipo': 'warning', 'titolo': 'Deriva Cardiaca', 'msg': f"La tua FC media è salita del {trends['fc_media']}% recentemente a parità di passo. Possibile accumulo di fatica o stress."})
+        allarmi.append({'tipo': 'warning', 'titolo': _('Deriva Cardiaca'), 'msg': _("La tua FC media è salita del {trend}% recentemente a parità di passo. Possibile accumulo di fatica o stress.").format(trend=trends['fc_media'])})
 
     # Recupero Notifiche non lette
     notifiche = Notifica.objects.filter(utente=user, letta=False).order_by('-data_creazione')
@@ -374,9 +375,9 @@ def _get_dashboard_context(user):
         'chart_dist': json.dumps(dist_data),
         'chart_power': json.dumps(power_data),
         'chart_elev': json.dumps(elev_data),
-        'vam_tooltip': "VAM Selettiva (Pro): Calcolata isolando solo i tratti di salita con pendenza > 7% (dati reali secondo per secondo). Esclude pause, discese e tratti in piano per riflettere la tua vera velocità ascensionale.",
-        'vo2max_effettivo_tooltip': "VO2max Effettivo (Mastra-Logic): Indicatore di Efficienza (RE). Calcolato rapportando il Costo O2 del tuo passo reale all'impegno cardiaco (%FC Riserva). Se il percorso è collinare (>50m D+), usiamo il Passo Regolato (GAP) per neutralizzare la pendenza. Premia chi corre forte con pulsazioni basse.",
-        'efficienza_tooltip': "Efficiency Factor (EF): Misura quanti metri percorri per ogni battito cardiaco. Formula: Velocità (m/min) / FC. Più è alto, più il tuo motore è efficiente (es. > 1.5 è ottimo).",
+        'vam_tooltip': _("VAM Selettiva (Pro): Calcolata isolando solo i tratti di salita con pendenza > 7% (dati reali secondo per secondo). Esclude pause, discese e tratti in piano per riflettere la tua vera velocità ascensionale."),
+        'vo2max_effettivo_tooltip': _("VO2max Effettivo (Mastra-Logic): Indicatore di Efficienza (RE). Calcolato rapportando il Costo O2 del tuo passo reale all'impegno cardiaco (%FC Riserva). Se il percorso è collinare (>50m D+), usiamo il Passo Regolato (GAP) per neutralizzare la pendenza. Premia chi corre forte con pulsazioni basse."),
+        'efficienza_tooltip': _("Efficiency Factor (EF): Misura quanti metri percorri per ogni battito cardiaco. Formula: Velocità (m/min) / FC. Più è alto, più il tuo motore è efficiente (es. > 1.5 è ottimo)."),
         'warning_peso': warning_peso,
         'warning_token': warning_token,
         'warning_privacy_fc': warning_privacy_fc,
@@ -423,7 +424,7 @@ def home(request):
 
 def login_cancelled(request):
     """Gestisce l'annullamento del login social reindirizzando alla home"""
-    messages.info(request, "Login annullato.")
+    messages.info(request, _("Login annullato."))
     return redirect('home')
 
 def login_standard(request):
@@ -433,10 +434,10 @@ def login_standard(request):
         if form.is_valid():
             user = form.get_user()
             login(request, user)
-            LogSistema.objects.create(livello='INFO', azione='Login', utente=user, messaggio="Login standard effettuato.")
+            LogSistema.objects.create(livello='INFO', azione='Login', utente=user, messaggio=_("Login standard effettuato."))
             return redirect('home')
         else:
-            messages.error(request, "Username o password non validi.")
+            messages.error(request, _("Username o password non validi."))
     return redirect('home')
 
 def registrazione(request):
@@ -454,7 +455,7 @@ def registrazione(request):
             login(request, user, backend='django.contrib.auth.backends.ModelBackend')
             
             LogSistema.objects.create(livello='INFO', azione='Registrazione', utente=user, messaggio="Nuovo utente registrato (No Strava).")
-            messages.success(request, f"Benvenuto {user.first_name}! Registrazione completata.")
+            messages.success(request, _("Benvenuto {name}! Registrazione completata.").format(name=user.first_name))
             return redirect('home')
     else:
         form = RegistrazioneUtenteForm()
@@ -493,7 +494,7 @@ def dashboard_atleta(request, username):
         return render(request, 'atleti/home.html', context)
     else:
         return render(request, 'atleti/home.html', {
-            'error_message': f"La dashboard di {target_user.first_name} è privata."
+            'error_message': _("La dashboard di {name} è privata.").format(name=target_user.first_name)
         })
 
 
@@ -553,7 +554,7 @@ def impostazioni(request):
     if request.method == 'GET' and request.user.is_authenticated:
         LogSistema.objects.create(livello='INFO', azione='Page View', utente=request.user, messaggio="Visita Impostazioni")
 
-    profilo, _ = ProfiloAtleta.objects.get_or_create(user=request.user)
+    profilo, created = ProfiloAtleta.objects.get_or_create(user=request.user)
     strava_connected = SocialAccount.objects.filter(user=request.user, provider='strava').exists()
 
     if request.method == 'POST':
@@ -627,7 +628,7 @@ def impostazioni(request):
 @login_required
 def aggiorna_dati_profilo(request):
     """Forza l'aggiornamento dei dati anagrafici (Peso, Nome) da Strava tramite API"""
-    profilo, _ = ProfiloAtleta.objects.get_or_create(user=request.user)
+    profilo, created = ProfiloAtleta.objects.get_or_create(user=request.user)
     
     social_acc = SocialAccount.objects.filter(user=request.user, provider='strava').first()
     if not social_acc:
@@ -683,7 +684,7 @@ def hide_home_notice(request):
     """Endpoint AJAX per salvare la preferenza di non mostrare più l'avviso nella home."""
     if request.method == 'POST':
         try:
-            profilo, _ = ProfiloAtleta.objects.get_or_create(user=request.user)
+            profilo, created = ProfiloAtleta.objects.get_or_create(user=request.user)
             # Accettiamo sia JSON che form-encoded
             # Se client invia {'hide': true} -> impostiamo a True
             hide = request.POST.get('hide')
@@ -746,7 +747,7 @@ def sincronizza_strava(request):
         return redirect('/accounts/strava/login/')
 
     # Aggiorniamo il profilo atleta
-    profilo, _ = ProfiloAtleta.objects.get_or_create(user=request.user)
+    profilo, created = ProfiloAtleta.objects.get_or_create(user=request.user)
 
     if athlete_res.status_code == 200:
         athlete_data = athlete_res.json()
@@ -909,7 +910,7 @@ def sincronizza_strava(request):
 @login_required
 def ricalcola_statistiche(request):
     """Ricalcola manualmente le statistiche (VO2max, ecc) per l'utente corrente"""
-    profilo, _ = ProfiloAtleta.objects.get_or_create(user=request.user)
+    profilo, created = ProfiloAtleta.objects.get_or_create(user=request.user)
     
     # 1. Ricalcola VO2max per ogni singola attività
     attivita = Attivita.objects.filter(atleta=profilo)
@@ -941,7 +942,7 @@ def grafici_atleta(request):
         return redirect('home')
         
     LogSistema.objects.create(livello='INFO', azione='Page View', utente=request.user, messaggio="Visita Grafici")
-    profilo, _ = ProfiloAtleta.objects.get_or_create(user=request.user)
+    profilo, created = ProfiloAtleta.objects.get_or_create(user=request.user)
     
     # Recuperiamo le ultime 50 attività
     # Ordiniamo per data decrescente per prendere le ultime, poi invertiamo per l'ordine cronologico nel grafico
@@ -1011,7 +1012,7 @@ def export_csv(request):
     if not request.user.is_authenticated:
         return redirect('home')
         
-    profilo, _ = ProfiloAtleta.objects.get_or_create(user=request.user)
+    profilo, created = ProfiloAtleta.objects.get_or_create(user=request.user)
     
     response = HttpResponse(
         content_type='text/csv',

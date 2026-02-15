@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 from pathlib import Path
 import os
+from django.utils.translation import gettext_lazy as _
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -54,6 +55,7 @@ SITE_ID = 1
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.locale.LocaleMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -123,9 +125,16 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
 
-LANGUAGE_CODE = 'it-it'
+LANGUAGE_CODE = 'it'
 
 TIME_ZONE = 'Europe/Rome'
+
+LANGUAGES = [
+    ('it', _('Italiano')),
+    ('en', _('English')),
+    ('es', _('Español')),
+    ('fr', _('Français')),
+]
 
 USE_I18N = True
 USE_L10N = False
@@ -210,3 +219,8 @@ else:
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+# Configurazione Internazionalizzazione
+LOCALE_PATHS = [
+    os.path.join(BASE_DIR, 'locale'),
+]
