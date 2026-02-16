@@ -208,5 +208,27 @@ else:
     #CSRF_COOKIE_SECURE = False
     SECURE_PROXY_SSL_HEADER = None
 
+
+# Configurazione Logging per vedere errori 500 in console (Docker/Systemd)
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')

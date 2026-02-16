@@ -2049,6 +2049,7 @@ def lista_allenamenti(request):
     
     # FILTRO TEAM
     active_team = _get_active_team(request)
+    only_group = request.GET.get('only_group') == 'true'
     
     qs = Allenamento.objects.filter(data_orario__gte=now)
 
@@ -2064,11 +2065,15 @@ def lista_allenamenti(request):
         qs = qs.filter(Q(titolo__icontains=search_query) | Q(luogo__icontains=search_query))
 
     if active_team:
-        # Se siamo in un gruppo, vediamo gli allenamenti del gruppo + quelli Pubblici del Master (team=None)
-        qs = qs.filter(
-            Q(team=active_team) | 
-            (Q(visibilita='Pubblico') & Q(team__isnull=True))
-        )
+        if only_group:
+            # Visualizza SOLO allenamenti del gruppo
+            qs = qs.filter(team=active_team)
+        else:
+            # Se siamo in un gruppo, vediamo gli allenamenti del gruppo + quelli Pubblici del Master (team=None)
+            qs = qs.filter(
+                Q(team=active_team) | 
+                (Q(visibilita='Pubblico') & Q(team__isnull=True))
+            )
     else:
         # Se siamo nel Master (Tutti), vediamo:
         # 1. Allenamenti Pubblici (di qualsiasi gruppo)
@@ -2121,7 +2126,7 @@ def lista_allenamenti(request):
         'feedback_neg': Partecipazione.objects.filter(esito_feedback='Assente').count(),
     }
     
-    context = {'allenamenti': qs, 'stats': stats}
+    context = {'allenamenti': qs, 'stats': stats, 'only_group': only_group}
     context.update(_get_navbar_context(request))
     return render(request, 'atleti/allenamenti_list.html', context)
 
@@ -2132,16 +2137,20 @@ def storico_allenamenti(request):
     now = timezone.now()
     
     active_team = _get_active_team(request)
+    only_group = request.GET.get('only_group') == 'true'
     
     # Base Query: Allenamenti passati
     qs = Allenamento.objects.filter(data_orario__lt=now)
 
     if active_team:
-        # Logica Gruppo: Allenamenti del gruppo + Pubblici del Master (team=None)
-        qs = qs.filter(
-            Q(team=active_team) | 
-            (Q(visibilita='Pubblico') & Q(team__isnull=True))
-        )
+        if only_group:
+            qs = qs.filter(team=active_team)
+        else:
+            # Logica Gruppo: Allenamenti del gruppo + Pubblici del Master (team=None)
+            qs = qs.filter(
+                Q(team=active_team) | 
+                (Q(visibilita='Pubblico') & Q(team__isnull=True))
+            )
     else:
         # Logica Master: Pubblici (anche dei gruppi) + Privati invitati + Creati da me
         qs = qs.filter(
@@ -2155,7 +2164,7 @@ def storico_allenamenti(request):
     ).order_by('-data_orario').prefetch_related('partecipanti__atleta__profiloatleta')
     
     # Riutilizziamo lo stesso template ma con flag is_history
-    context = {'allenamenti': qs, 'is_history': True}
+    context = {'allenamenti': qs, 'is_history': True, 'only_group': only_group}
     context.update(_get_navbar_context(request))
     return render(request, 'atleti/allenamenti_list.html', context)
 
