@@ -344,36 +344,51 @@ class Allenamento(models.Model):
         durata_min = self.tempo_stimato.total_seconds() / 60
         if durata_min <= 0: return {'score': 0, 'label': 'N/A', 'color': 'secondary', 'vo2': 0}
         
-        # 1. Calcolo VO2 Richiesto (Intensità)
-        # Km Sforzo: 1km + 100m D+ (Vale anche su strada per il costo metabolico della salita)
-        dist_eq_km = self.distanza_km + (self.dislivello / 100)
+        # 1. Calcolo Km Sforzo (Distanza Equivalente)
+        # 100m D+ = 1km piano (Formula standard Trail)
+        km_sforzo = self.distanza_km + (self.dislivello / 100)
         
-        if self.tipo == 'Trail':
-            factor = 1.10 # Terreno tecnico (fango, sassi, ecc)
-        else:
-            factor = 1.0 # Asfalto/Liscio
-
-        velocita_req_m_min = (dist_eq_km * 1000) / durata_min
-        vo2 = ((0.2 * velocita_req_m_min) + 3.5) * factor
+        # 2. Calcolo Costo O2 (VO2 Cost) sul passo equivalente
+        # Velocità equivalente in m/min
+        velocita_eq_m_min = (km_sforzo * 1000) / durata_min
         
-        # 2. Base Score da VO2 (Range 20-65) -> 1-9 (Ricalibrato per essere meno severo)
-        base_score = ((vo2 - 20) / 45) * 8 + 1
+        # Formula ACSM Running: VO2 = 0.2 * v + 3.5
+        # Usiamo i Km Sforzo come base, senza ulteriori fattori tecnici, 
+        # per allinearci alla stima maratona.
+        vo2_cost = (0.2 * velocita_eq_m_min) + 3.5
         
-        # 3. Fattore Durata (Endurance Bonus)
+        # 3. Calcolo VO2max Richiesto (Capacity)
+        # Consideriamo il decadimento della % sostenibile nel tempo (Fatigue Factor)
         durata_hours = durata_min / 60
-        duration_bonus = 0
-        if durata_hours > 1.5: duration_bonus += 0.5
-        if durata_hours > 3: duration_bonus += 1.0
-        if durata_hours > 5: duration_bonus += 1.5
         
-        final_score = base_score + duration_bonus
-        final_score = round(max(1, min(10, final_score)), 1)
+        if durata_hours <= 1.0:
+            sustainable_pct = 0.93 # 5k/10k pace
+        elif durata_hours <= 2.5:
+            sustainable_pct = 0.85 # Half Marathon pace
+        elif durata_hours <= 4.5:
+            sustainable_pct = 0.78 # Marathon pace (3h30-4h30)
+        elif durata_hours <= 8.0:
+            sustainable_pct = 0.70 # Ultra pace
+        else:
+            sustainable_pct = 0.60 # Extreme Ultra pace
+            
+        vo2_req = vo2_cost / sustainable_pct
+        
+        # 4. Score (1-10) basato sul VO2max Richiesto
+        # Scala: 25 (Base) -> 70 (Elite)
+        score = (vo2_req - 25) / 4.5
+        
+        # Bonus mentale per durata estrema
+        if durata_hours > 6: score += 0.5
+        if durata_hours > 12: score += 0.5
+        
+        final_score = round(max(1, min(10, score)), 1)
         
         # Assegnazione Label e Colore
-        if final_score < 4.5: return {'score': final_score, 'label': 'Facile', 'color': 'success', 'vo2': int(vo2)}
-        elif final_score < 7.5: return {'score': final_score, 'label': 'Medio', 'color': 'warning text-dark', 'vo2': int(vo2)}
-        elif final_score < 9.0: return {'score': final_score, 'label': 'Impegnativo', 'color': 'orange', 'vo2': int(vo2)} # Orange gestito via CSS o style
-        else: return {'score': final_score, 'label': 'Estremo', 'color': 'danger', 'vo2': int(vo2)}
+        if final_score < 4.0: return {'score': final_score, 'label': 'Facile', 'color': 'success', 'vo2': int(vo2_req)}
+        elif final_score < 6.5: return {'score': final_score, 'label': 'Medio', 'color': 'warning text-dark', 'vo2': int(vo2_req)}
+        elif final_score < 8.5: return {'score': final_score, 'label': 'Impegnativo', 'color': 'orange', 'vo2': int(vo2_req)}
+        else: return {'score': final_score, 'label': 'Estremo', 'color': 'danger', 'vo2': int(vo2_req)}
 
     def save(self, *args, **kwargs):
         if self.data_orario and timezone.is_naive(self.data_orario):

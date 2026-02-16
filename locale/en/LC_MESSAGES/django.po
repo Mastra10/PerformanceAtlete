@@ -1,0 +1,306 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-02-15 22:33+0100\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+#: atleti/templates/atleti/home.html:92
+msgid "Monitora i tuoi progressi, contribuisci al successo del gruppo."
+msgstr "Monitor your progress, contribute to the group's success."
+
+#: atleti/templates/atleti/home.html:100
+msgid "Accedi con Password"
+msgstr "Login with Password"
+
+#: atleti/templates/atleti/home.html:103
+msgid "Non hai Strava? Registrati qui"
+msgstr "Don't have Strava? Register here"
+
+#: atleti/templates/atleti/home.html:124
+msgid "Accedi"
+msgstr "Sign In"
+
+#: atleti/templates/atleti/home.html:131 atleti/templates/atleti/home.html:132
+msgid "Username"
+msgstr "Username"
+
+#: atleti/templates/atleti/home.html:135 atleti/templates/atleti/home.html:136
+msgid "Password"
+msgstr "Password"
+
+#: atleti/templates/atleti/home.html:139
+msgid "Login"
+msgstr "Login"
+
+#: atleti/templates/atleti/home.html:158
+msgid "MODALITÀ IMPERSONIFICAZIONE ATTIVA"
+msgstr "IMPERSONATION MODE ACTIVE"
+
+#: atleti/templates/atleti/home.html:159
+msgid "Stai agendo come"
+msgstr "You are acting as"
+
+#: atleti/templates/atleti/home.html:159
+msgid "Admin originale"
+msgstr "Original Admin"
+
+#: atleti/templates/atleti/home.html:159
+msgid "Logout per uscire"
+msgstr "Logout to exit"
+
+#: atleti/templates/atleti/home.html:190
+msgid "Sincronizzazione Strava non attiva."
+msgstr "Strava synchronization not active."
+
+#: atleti/templates/atleti/home.html:191
+msgid ""
+"Le metriche fisiologiche, i volumi e le analisi non verranno calcolati. Puoi "
+"comunque gestire allenamenti e team."
+msgstr ""
+"Physiological metrics, volumes, and analysis will not be calculated. You can "
+"still manage workouts and teams."
+
+#: atleti/templates/atleti/home.html:195
+msgid "Dashboard Personale"
+msgstr "Personal Dashboard"
+
+#: atleti/templates/atleti/home.html:251
+msgid "Atleta"
+msgstr "Athlete"
+
+#: atleti/templates/atleti/home.html:255
+msgid "Peso"
+msgstr "Weight"
+
+#: atleti/templates/atleti/home.html:259
+msgid "FC Max"
+msgstr "Max HR"
+
+#: atleti/templates/atleti/home.html:263
+msgid "(Impostata a mano)"
+msgstr "(Manually set)"
+
+#: atleti/templates/atleti/home.html:275
+msgid "ITRA Index"
+msgstr "ITRA Index"
+
+#: atleti/templates/atleti/home.html:280
+msgid "UTMB Index"
+msgstr "UTMB Index"
+
+#: atleti/templates/atleti/home.html:288
+msgid "Soglia Aerobica"
+msgstr "Aerobic Threshold"
+
+#: atleti/templates/atleti/home.html:290
+msgid "Stima Fondo (Z2)"
+msgstr "Endurance Est. (Z2)"
+
+#: atleti/templates/atleti/home.html:293
+msgid "Soglia Anaerobica"
+msgstr "Anaerobic Threshold"
+
+#: atleti/templates/atleti/home.html:295
+msgid "Stima Soglia (Z4)"
+msgstr "Threshold Est. (Z4)"
+
+#: atleti/templates/atleti/home.html:301
+msgid "Passo Medio"
+msgstr "Avg Pace"
+
+#: atleti/templates/atleti/home.html:303 atleti/templates/atleti/home.html:308
+msgid "Recente"
+msgstr "Recent"
+
+#: atleti/templates/atleti/home.html:306
+msgid "FC Media"
+msgstr "Avg HR"
+
+#: atleti/templates/atleti/home.html:315
+msgid "Controlli"
+msgstr "Controls"
+
+#: atleti/templates/atleti/home.html:318
+msgid "Impostazioni"
+msgstr "Settings"
+
+#: atleti/templates/atleti/home.html:324
+msgid "Sincronizza Strava"
+msgstr "Sync Strava"
+
+#: atleti/templates/atleti/home.html:331
+msgid "Ricarica Storico Completo"
+msgstr "Reload Full History"
+
+#: atleti/templates/atleti/home.html:334
+msgid "Ricalcola Dati"
+msgstr "Recalculate Data"
+
+#: atleti/templates/atleti/home.html:337
+msgid "Scarica Attività CSV"
+msgstr "Download Activities CSV"
+
+#: atleti/templates/atleti/home.html:340
+msgid "Scarica Profilo CSV"
+msgstr "Download Profile CSV"
+
+#: atleti/templates/atleti/home.html:343
+msgid "Guida & Metriche"
+msgstr "Guide & Metrics"
+
+#: atleti/templates/atleti/home.html:346
+msgid "Analisi AI Personalizzata"
+msgstr "Personal AI Analysis"
+
+#: atleti/templates/atleti/home.html:351
+msgid "Ultima Sync:"
+msgstr "Last Sync:"
+
+#: atleti/templates/atleti/home.html:357
+msgid "Ultimo Ricalcolo:"
+msgstr "Last Recalculation:"
+
+#: atleti/templates/atleti/home.html:366
+msgid "Admin Zone"
+msgstr "Admin Zone"
+
+#: atleti/templates/atleti/home.html:368
+msgid "Log Scheduler"
+msgstr "Scheduler Logs"
+
+#: atleti/templates/atleti/home.html:374
+msgid "Dashboard Coach"
+msgstr "Coach Dashboard"
+
+#: atleti/views.py:270
+msgid ""
+"Peso non configurato per l'atleta! Fondamentale impostarlo nei settings. "
+"Stiamo assumendo un valore di default (70kg) per i calcoli."
+msgstr ""
+"Weight not configured for the athlete! Essential to set it in settings. "
+"Assuming a default value (70kg) for calculations."
+
+#: atleti/views.py:277
+msgid ""
+"⚠️ Il tuo token Strava è scaduto. Prova a sincronizzare. Se fallisce, "
+"scollega e ricollega l'account nelle Impostazioni."
+msgstr ""
+"⚠️ Your Strava token has expired. Try synchronizing. If it fails, disconnect "
+"and reconnect the account in Settings."
+
+#: atleti/views.py:288
+msgid ""
+"⚠️ Dati cardiaci non ricevuti. Per calcolare VO2max e Carico, abilita 'Dati "
+"relativi alla salute' nelle impostazioni di Strava o rendi visibile la "
+"frequenza cardiaca nelle attività."
+msgstr ""
+"⚠️ Heart rate data not received. To calculate VO2max and Load, enable "
+"'Health-related data' in Strava settings or make heart rate visible in "
+"activities."
+
+#: atleti/views.py:319
+msgid "Rischio Infortunio (ACWR)"
+msgstr "Injury Risk (ACWR)"
+
+#: atleti/views.py:319
+#, python-brace-format
+msgid ""
+"Carico Acuto ({acute}) eccessivo rispetto al Cronico ({chronic}). Ratio: "
+"{ratio:.2f}. Rischio infortunio alto, scarica!"
+msgstr ""
+"Acute Load ({acute}) excessive compared to Chronic ({chronic}). Ratio: "
+"{ratio:.2f}. High injury risk, unload!"
+
+#: atleti/views.py:321
+msgid "Detraining (ACWR)"
+msgstr "Detraining (ACWR)"
+
+#: atleti/views.py:321
+#, python-brace-format
+msgid ""
+"Carico Acuto ({acute}) troppo basso rispetto al tuo standard ({chronic}). "
+"Ratio: {ratio:.2f}. Stai perdendo forma."
+msgstr ""
+"Acute Load ({acute}) too low compared to your standard ({chronic}). Ratio: "
+"{ratio:.2f}. You are losing fitness."
+
+#: atleti/views.py:326
+msgid "Deriva Cardiaca"
+msgstr "Cardiac Drift"
+
+#: atleti/views.py:326
+#, python-format, python-brace-format
+msgid ""
+"La tua FC media è salita del {trend}% recentemente a parità di passo. "
+"Possibile accumulo di fatica o stress."
+msgstr ""
+"Your average HR has risen by {trend}% recently at the same pace. Possible "
+"fatigue accumulation or stress."
+
+#: atleti/views.py:378
+msgid ""
+"VAM Selettiva (Pro): Calcolata isolando solo i tratti di salita con pendenza "
+"> 7% (dati reali secondo per secondo). Esclude pause, discese e tratti in "
+"piano per riflettere la tua vera velocità ascensionale."
+msgstr ""
+"Selective VAM (Pro): Calculated isolating only uphill sections with slope > "
+"7% (real-time data second by second). Excludes pauses, descents, and flat "
+"sections to reflect your true ascent speed."
+
+#: atleti/views.py:379
+msgid ""
+"VO2max Effettivo (Mastra-Logic): Indicatore di Efficienza (RE). Calcolato "
+"rapportando il Costo O2 del tuo passo reale all'impegno cardiaco (%FC "
+"Riserva). Se il percorso è collinare (>50m D+), usiamo il Passo Regolato "
+"(GAP) per neutralizzare la pendenza. Premia chi corre forte con pulsazioni "
+"basse."
+msgstr ""
+"Effective VO2max (Mastra-Logic): Efficiency Indicator (RE). Calculated by "
+"relating the O2 Cost of your real pace to cardiac effort (%HR Reserve). If "
+"the route is hilly (>50m D+), we use Grade Adjusted Pace (GAP) to neutralize "
+"the slope. Rewards running fast with low pulse."
+
+#: atleti/views.py:380
+msgid ""
+"Efficiency Factor (EF): Misura quanti metri percorri per ogni battito "
+"cardiaco. Formula: Velocità (m/min) / FC. Più è alto, più il tuo motore è "
+"efficiente (es. > 1.5 è ottimo)."
+msgstr ""
+"Efficiency Factor (EF): Measures how many meters you cover for each "
+"heartbeat. Formula: Speed (m/min) / HR. The higher it is, the more efficient "
+"your engine (e.g. > 1.5 is excellent)."
+
+#: atleti/views.py:427
+msgid "Login annullato."
+msgstr "Login cancelled."
+
+#: atleti/views.py:437
+msgid "Login standard effettuato."
+msgstr "Standard login successful."
+
+#: atleti/views.py:440
+msgid "Username o password non validi."
+msgstr "Invalid username or password."
+
+#: atleti/views.py:458
+#, python-brace-format
+msgid "Benvenuto {name}! Registrazione completata."
+msgstr "Welcome {name}! Registration completed."
+
+#: atleti/views.py:497
+#, python-brace-format
+msgid "La dashboard di {name} è privata."
+msgstr "The dashboard of {name} is private."
