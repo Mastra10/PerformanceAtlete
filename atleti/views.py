@@ -6,7 +6,7 @@ from allauth.socialaccount.models import SocialToken ,SocialAccount
 from django.core.cache import cache
 from .models import Attivita, ProfiloAtleta, LogSistema, Scarpa
 import math
-from .utils import analizza_performance_atleta, calcola_metrica_vo2max, stima_vo2max_atleta, stima_potenza_watt, calcola_trend_atleta, formatta_passo, stima_potenziale_gara, analizza_squadra_coach, calcola_vam_selettiva, refresh_strava_token, processa_attivita_strava, fix_strava_duplicates, normalizza_scarpa, BRAND_LOGOS, analizza_gare_atleta, calcola_vo2max_effettivo, calcola_efficienza, normalizza_dispositivo, genera_commenti_podio_ai, get_atleti_con_statistiche_settimanali, analizza_classifica_settimanale
+from .utils import analizza_performance_atleta, calcola_metrica_vo2max, stima_vo2max_atleta, stima_potenza_watt, calcola_trend_atleta, formatta_passo, stima_potenziale_gara, analizza_squadra_coach, calcola_vam_selettiva, refresh_strava_token, processa_attivita_strava, fix_strava_duplicates, normalizza_scarpa, BRAND_LOGOS, analizza_gare_atleta, calcola_vo2max_effettivo, calcola_efficienza, normalizza_dispositivo, genera_commenti_podio_ai, get_atleti_con_statistiche_settimanali, analizza_classifica_settimanale, analizza_confronto_ai
 import time
 from django.db.models import Sum, Max, Q, OuterRef, Subquery, Avg, Count
 from django.db.models.functions import TruncDate
@@ -1758,6 +1758,49 @@ def confronto_attivita(request):
 
     context.update(_get_navbar_context(request))
     return render(request, 'atleti/confronto.html', context)
+
+def analisi_confronto_ai_view(request):
+    """API per generare l'analisi AI del confronto tra due attività"""
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Non autorizzato'}, status=403)
+        
+    act1_id = request.GET.get('act1')
+    act2_id = request.GET.get('act2')
+    
+    if not act1_id or not act2_id:
+        return JsonResponse({'error': 'Parametri mancanti'}, status=400)
+        
+    act1 = get_object_or_404(Attivita, id=act1_id)
+    act2 = get_object_or_404(Attivita, id=act2_id)
+    
+    # Logica estrazione parziali (Semplificata per AI)
+    def extract_splits(act):
+        data = {}
+        if act.parziali:
+            for s in act.parziali:
+                idx = s.get('split', 0)
+                speed = s.get('average_speed', 0)
+                pace = formatta_passo(speed)
+                data[idx] = {
+                    'km': idx,
+                    'pace': pace,
+                    'hr': int(s.get('average_heartrate', 0) or 0),
+                    'elev': int(s.get('elevation_difference', 0) or 0),
+                }
+        return data
+
+    s1_data = extract_splits(act1)
+    s2_data = extract_splits(act2)
+    all_indexes = sorted(list(set(s1_data.keys()) | set(s2_data.keys())))
+    
+    splits_data = []
+    for idx in all_indexes:
+        row = {'km': idx, 'act1': s1_data.get(idx, {}), 'act2': s2_data.get(idx, {})}
+        splits_data.append(row)
+
+    analisi_testo = analizza_confronto_ai(act1, act2, splits_data)
+    
+    return JsonResponse({'analisi': analisi_testo})
 
 def attrezzatura_scarpe(request):
     """Pagina statistiche scarpe e attrezzatura"""

@@ -1119,3 +1119,57 @@ def analizza_classifica_settimanale(atleti_list, team_name=None):
         return response.text
     except Exception as e:
         return f"Il commentatore AI è senza voce al momento: {e}"
+
+def analizza_confronto_ai(act1, act2, splits):
+    """Genera un confronto AI tra due attività basandosi sui parziali."""
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        return "Errore: Chiave API non trovata."
+
+    client = genai.Client(api_key=api_key)
+
+    # Summary
+    summary = f"""
+    CONFRONTO:
+    [A] {act1.atleta.user.first_name}: {act1.nome} | {act1.distanza_km}km | {act1.dislivello}m D+ | Passo Avg: {act1.passo_medio} | FC Avg: {act1.fc_media}
+    [B] {act2.atleta.user.first_name}: {act2.nome} | {act2.distanza_km}km | {act2.dislivello}m D+ | Passo Avg: {act2.passo_medio} | FC Avg: {act2.fc_media}
+    """
+
+    # Splits (Costruzione testo parziali)
+    splits_lines = []
+    for s in splits:
+        km = s['km']
+        a_pace = s.get('act1', {}).get('pace', '-')
+        a_hr = s.get('act1', {}).get('hr', '-')
+        a_elev = s.get('act1', {}).get('elev', 0)
+        
+        b_pace = s.get('act2', {}).get('pace', '-')
+        b_hr = s.get('act2', {}).get('hr', '-')
+        
+        splits_lines.append(f"Km {km}: A={a_pace}({a_hr}bpm, {a_elev}m+) vs B={b_pace}({b_hr}bpm)")
+    
+    splits_text = "\n".join(splits_lines)
+
+    prompt = f"""
+    Sei un coach di running esperto. Analizza il confronto testa a testa tra queste due attività (A vs B).
+    
+    DATI GENERALI:
+    {summary}
+
+    PARZIALI KM PER KM:
+    {splits_text}
+
+    RICHIESTA:
+    1. **Analisi del Ritmo**: Chi ha gestito meglio la gara/allenamento? C'è stato un calo nel finale o una progressione?
+    2. **Analisi Sforzo (FC)**: Confronta la frequenza cardiaca rispetto al passo. Chi è stato più efficiente?
+    3. **Fattore Dislivello**: Come hanno reagito alle salite (se presenti nei parziali)?
+    4. **Verdetto Finale**: Chi ha fatto la prestazione migliore e perché?
+
+    Usa formattazione Markdown (grassetti, elenchi). Sii sintetico ma incisivo.
+    """
+
+    try:
+        response = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
+        return response.text
+    except Exception as e:
+        return f"Errore AI: {e}"

@@ -207,6 +207,23 @@
             </div>
         </div>
     </div>
+
+    <!-- Sezione Analisi AI -->
+    <div class="text-center my-5">
+        <button class="btn btn-primary btn-lg shadow-sm" onclick="generaAnalisiConfronto()">
+            <i class="bi bi-stars me-2"></i>Genera Analisi AI (Parziali & Sforzo)
+        </button>
+    </div>
+
+    <div id="aiAnalysisContainer" class="card shadow-sm border-primary d-none mb-5">
+        <div class="card-header bg-primary text-white fw-bold">
+            <i class="bi bi-robot me-2"></i>Analisi Coach AI
+        </div>
+        <div class="card-body">
+            <div id="aiLoading" class="text-center py-4"><div class="spinner-border text-primary" role="status"></div><p class="mt-2 text-muted">Analisi dei parziali in corso...</p></div>
+            <div id="aiContent" class="d-none" style="white-space: pre-line; font-size: 1.1rem; line-height: 1.6;"></div>
+        </div>
+    </div>
     {% endif %}
     {% endif %}
 </div>
@@ -236,5 +253,34 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 });
+
+function generaAnalisiConfronto() {
+    const container = document.getElementById('aiAnalysisContainer');
+    const loading = document.getElementById('aiLoading');
+    const content = document.getElementById('aiContent');
+    
+    container.classList.remove('d-none');
+    loading.classList.remove('d-none');
+    content.classList.add('d-none');
+    
+    // Scroll to analysis
+    container.scrollIntoView({behavior: 'smooth'});
+
+    fetch("{% url 'analisi_confronto_ai' %}?act1={{ act1.id }}&act2={{ act2.id }}")
+        .then(response => response.json())
+        .then(data => {
+            loading.classList.add('d-none');
+            content.classList.remove('d-none');
+            // Formattazione base
+            let text = data.analisi.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            text = text.replace(/## (.*)/g, '<h5 class="fw-bold mt-3">$1</h5>');
+            content.innerHTML = text;
+        })
+        .catch(err => {
+            loading.classList.add('d-none');
+            content.classList.remove('d-none');
+            content.innerHTML = `<div class="alert alert-danger">Errore: ${err}</div>`;
+        });
+}
 </script>
 {% endblock %}

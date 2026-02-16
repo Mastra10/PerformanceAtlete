@@ -69,6 +69,7 @@ urlpatterns = [
     path('api/teams/', views.api_team_list, name='api_team_list'),
     path('guida/', views.guida_utente, name='guida_utente'),
     path('confronto/', views.confronto_attivita, name='confronto_attivita'),
+    path('confronto/analisi-ai/', views.analisi_confronto_ai_view, name='analisi_confronto_ai'),
     path('attrezzatura/', views.attrezzatura_scarpe, name='attrezzatura_scarpe'),
     path('registrazione/', views.registrazione, name='registrazione'),
     path('login-standard/', views.login_standard, name='login_standard'),
