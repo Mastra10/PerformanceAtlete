@@ -718,10 +718,23 @@ def processa_attivita_strava(act, profilo, access_token):
             resp_detail = requests.get(url_detail, headers={'Authorization': f'Bearer {access_token}'}, timeout=5)
             if resp_detail.status_code == 200:
                 detail_data = resp_detail.json()
+                
+                update_fields = []
+                
+                # Device Name
                 device_name = detail_data.get('device_name')
                 if device_name:
                     nuova_attivita.dispositivo = device_name
-                    nuova_attivita.save(update_fields=['dispositivo'])
+                    update_fields.append('dispositivo')
+                
+                # Splits (Parziali)
+                splits = detail_data.get('splits_metric')
+                if splits:
+                    nuova_attivita.parziali = splits
+                    update_fields.append('parziali')
+                
+                if update_fields:
+                    nuova_attivita.save(update_fields=update_fields)
         except Exception as e:
             print(f"Warning: Impossibile recuperare dispositivo per {act['id']}: {e}", flush=True)
 

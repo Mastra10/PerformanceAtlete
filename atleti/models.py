@@ -102,6 +102,7 @@ class Attivita(models.Model):
     gap_passo = models.FloatField(null=True, blank=True, help_text="Passo GAP in m/s")
     # Campo per le zone cardiache (salvato come testo JSON per semplicità)
     zone_cardiache = models.JSONField(null=True, blank=True)
+    parziali = models.JSONField(null=True, blank=True, verbose_name="Parziali (Splits)")
     vam_selettiva = models.FloatField(null=True, blank=True, help_text="VAM calcolata su pendenze > 7%")
 
     tipo_attivita = models.CharField(max_length=20, default='Run') # 'Run' o 'TrailRun'

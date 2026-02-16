@@ -1704,6 +1704,57 @@ def confronto_attivita(request):
             'delta': delta,
             'show_comparison': True
         })
+        
+        # --- GESTIONE PARZIALI (SPLITS) ---
+        splits_data = []
+        
+        def extract_splits(act):
+            data = {}
+            if act.parziali:
+                for s in act.parziali:
+                    # Strava splits_metric ha 'split', 'distance', 'elapsed_time', 'elevation_difference', 'average_speed', 'average_heartrate'
+                    idx = s.get('split', 0)
+                    speed = s.get('average_speed', 0)
+                    pace = formatta_passo(speed)
+                    
+                    data[idx] = {
+                        'km': idx,
+                        'pace': pace,
+                        'hr': int(s.get('average_heartrate', 0) or 0),
+                        'elev': int(s.get('elevation_difference', 0) or 0),
+                        'speed_raw': speed
+                    }
+            return data
+
+        s1_data = extract_splits(act1)
+        s2_data = extract_splits(act2)
+        
+        # Uniamo gli indici (km) presenti in entrambe
+        all_indexes = sorted(list(set(s1_data.keys()) | set(s2_data.keys())))
+        
+        for idx in all_indexes:
+            row = {'km': idx}
+            d1 = s1_data.get(idx)
+            d2 = s2_data.get(idx)
+            
+            row['act1'] = d1
+            row['act2'] = d2
+            
+            # Calcolo Delta se entrambi esistono
+            if d1 and d2:
+                # Delta Passo
+                sec1 = 1000 / d1['speed_raw'] if d1['speed_raw'] > 0 else 0
+                sec2 = 1000 / d2['speed_raw'] if d2['speed_raw'] > 0 else 0
+                diff_sec = sec1 - sec2
+                sign = "+" if diff_sec > 0 else "-"
+                m, s = divmod(abs(int(diff_sec)), 60)
+                row['delta_pace'] = f"{sign}{m}:{s:02d}"
+                row['delta_hr'] = d1['hr'] - d2['hr']
+                row['delta_elev'] = d1['elev'] - d2['elev']
+                
+            splits_data.append(row)
+            
+        context['splits'] = splits_data
 
     context.update(_get_navbar_context(request))
     return render(request, 'atleti/confronto.html', context)
@@ -2737,17 +2788,28 @@ def api_list_workouts(request):
     if not request.user.is_authenticated:
         return JsonResponse({'error': 'Autenticazione richiesta'}, status=401)
         
+    # Supporto filtro storico
+    show_history = request.GET.get('history') == 'true'
     now = timezone.now()
-    qs = Allenamento.objects.filter(
+    
+    base_qs = Allenamento.objects.filter(
         Q(visibilita='Pubblico') | 
         Q(invitati=request.user) | 
         Q(creatore=request.user)
-    ).filter(data_orario__gte=now).distinct().order_by('data_orario')
+    ).distinct()
+    
+    if show_history:
+        qs = base_qs.filter(data_orario__lt=now).order_by('-data_orario')
+    else:
+        qs = base_qs.filter(data_orario__gte=now).order_by('data_orario')
     
     data = []
     for a in qs:
         partecipanti_count = a.partecipanti.filter(stato='Approvata').count()
         is_participant = a.partecipanti.filter(atleta=request.user).exists()
+        
+        # Info difficoltà
+        diff = a.difficolta_info
         
         data.append({
             'id': a.id,
@@ -2757,13 +2819,223 @@ def api_list_workouts(request):
             'distanza_km': a.distanza_km,
             'dislivello': a.dislivello,
             'tipo': a.tipo,
+            'luogo': a.luogo,
+            'lat': a.latitudine,
+            'lon': a.longitudine,
             'creatore': f"{a.creatore.first_name} {a.creatore.last_name}",
+            'creatore_id': a.creatore.id,
             'partecipanti_count': partecipanti_count,
             'is_participant': is_participant,
-            'visibilita': a.visibilita
+            'visibilita': a.visibilita,
+            'difficolta': {
+                'score': diff['score'],
+                'label': diff['label'],
+                'color': diff['color']
+            }
         })
         
     return JsonResponse({'allenamenti': data})
+
+def api_workout_detail(request, pk):
+    """API per il dettaglio completo di un allenamento (partecipanti, commenti, ecc)"""
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Autenticazione richiesta'}, status=401)
+        
+    allenamento = get_object_or_404(Allenamento, pk=pk)
+    
+    # 1. Partecipanti
+    partecipanti_qs = Partecipazione.objects.filter(allenamento=allenamento).select_related('atleta', 'atleta__profiloatleta')
+    partecipanti_data = []
+    user_status = None
+    
+    for p in partecipanti_qs:
+        if p.atleta == request.user:
+            user_status = p.stato
+            
+        profilo = getattr(p.atleta, 'profiloatleta', None)
+        avatar_url = profilo.immagine_profilo if profilo else None
+        
+        partecipanti_data.append({
+            'user_id': p.atleta.id,
+            'nome': f"{p.atleta.first_name} {p.atleta.last_name}",
+            'avatar': avatar_url,
+            'stato': p.stato,
+            'is_risk': p.is_at_risk,
+            'risk_msg': p.risk_reason if request.user == allenamento.creatore else None # Solo creatore vede dettagli rischio
+        })
+        
+    # 2. Commenti
+    commenti_qs = allenamento.commenti.all().select_related('autore', 'autore__profiloatleta').order_by('data')
+    commenti_data = []
+    for c in commenti_qs:
+        profilo = getattr(c.autore, 'profiloatleta', None)
+        avatar_url = profilo.immagine_profilo if profilo else None
+        commenti_data.append({
+            'id': c.id,
+            'autore': f"{c.autore.first_name} {c.autore.last_name}",
+            'autore_id': c.autore.id,
+            'avatar': avatar_url,
+            'testo': c.testo,
+            'data': c.data.isoformat(),
+            'is_me': c.autore == request.user
+        })
+
+    diff = allenamento.difficolta_info
+
+    data = {
+        'id': allenamento.id,
+        'titolo': allenamento.titolo,
+        'descrizione': allenamento.descrizione,
+        'data': allenamento.data_orario.isoformat(),
+        'luogo': allenamento.luogo,
+        'indirizzo': allenamento.indirizzo,
+        'lat': allenamento.latitudine,
+        'lon': allenamento.longitudine,
+        'distanza_km': allenamento.distanza_km,
+        'dislivello': allenamento.dislivello,
+        'tempo_stimato': str(allenamento.tempo_stimato),
+        'passo_stimato': allenamento.passo_stimato_display,
+        'tipo': allenamento.tipo,
+        'creatore': f"{allenamento.creatore.first_name} {allenamento.creatore.last_name}",
+        'is_creator': allenamento.creatore == request.user,
+        'partecipanti': partecipanti_data,
+        'commenti': commenti_data,
+        'user_status': user_status, # Stato dell'utente corrente (Richiesta, Approvata, Rinuncia, None)
+        'difficolta': diff,
+        'gpx_url': request.build_absolute_uri(reverse('download_allenamento_gpx', args=[pk])) if allenamento.file_gpx else None
+    }
+    
+    return JsonResponse(data)
+
+@csrf_exempt
+def api_workout_action(request, pk):
+    """API per Join/Leave/Approve/Reject"""
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Autenticazione richiesta'}, status=401)
+    
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Metodo non consentito'}, status=405)
+        
+    allenamento = get_object_or_404(Allenamento, pk=pk)
+    
+    try:
+        data = json.loads(request.body)
+        action = data.get('action') # 'join', 'leave', 'approve', 'reject'
+        
+        # --- JOIN (Partecipa) ---
+        if action == 'join':
+            part, created = Partecipazione.objects.get_or_create(allenamento=allenamento, atleta=request.user)
+            # Se era rinunciatario o rifiutato, resetta a richiesta/approvata
+            if not created and part.stato in ['Rinuncia', 'Rifiutata']:
+                part.stato = 'Richiesta' # O Approvata se logica auto-approve
+            
+            # Logica Auto-Approve (default per ora)
+            if part.stato == 'Richiesta':
+                part.stato = 'Approvata'
+                
+            part.check_risk()
+            part.save()
+            
+            # Notifica Creatore
+            if allenamento.creatore != request.user and created:
+                Notifica.objects.create(
+                    utente=allenamento.creatore,
+                    messaggio=f"{request.user.first_name} partecipa a: {allenamento.titolo}",
+                    link=reverse('dettaglio_allenamento', args=[pk]),
+                    tipo='info'
+                )
+            return JsonResponse({'success': True, 'status': part.stato})
+            
+        # --- LEAVE (Rinuncia) ---
+        elif action == 'leave':
+            part = Partecipazione.objects.filter(allenamento=allenamento, atleta=request.user).first()
+            if part:
+                part.stato = 'Rinuncia'
+                part.motivo_rinuncia = data.get('reason', 'Rinuncia da App')
+                part.save()
+                
+                if allenamento.creatore != request.user:
+                    Notifica.objects.create(
+                        utente=allenamento.creatore,
+                        messaggio=f"{request.user.first_name} ha rinunciato a: {allenamento.titolo}",
+                        link=reverse('dettaglio_allenamento', args=[pk]),
+                        tipo='warning'
+                    )
+            return JsonResponse({'success': True, 'status': 'Rinuncia'})
+            
+        # --- APPROVE/REJECT (Solo Creatore) ---
+        elif action in ['approve', 'reject']:
+            if request.user != allenamento.creatore:
+                return JsonResponse({'error': 'Non autorizzato'}, status=403)
+                
+            target_user_id = data.get('user_id')
+            part = get_object_or_404(Partecipazione, allenamento=allenamento, atleta_id=target_user_id)
+            
+            if action == 'approve':
+                part.stato = 'Approvata'
+                part.save()
+            else:
+                part.stato = 'Rifiutata'
+                part.motivo_rifiuto = data.get('reason', 'Rifiutato da organizzatore')
+                part.save()
+                
+            return JsonResponse({'success': True, 'new_status': part.stato})
+            
+        else:
+            return JsonResponse({'error': 'Azione non valida'}, status=400)
+            
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+@csrf_exempt
+def api_workout_comment(request, pk):
+    """API per aggiungere un commento"""
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Autenticazione richiesta'}, status=401)
+        
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Metodo non consentito'}, status=405)
+        
+    allenamento = get_object_or_404(Allenamento, pk=pk)
+    
+    try:
+        data = json.loads(request.body)
+        testo = data.get('testo')
+        
+        if not testo:
+            return JsonResponse({'error': 'Testo vuoto'}, status=400)
+            
+        comm = CommentoAllenamento.objects.create(
+            allenamento=allenamento,
+            autore=request.user,
+            testo=testo
+        )
+        
+        # Notifiche (Logica identica alla view web)
+        recipient_ids = set()
+        if allenamento.creatore != request.user:
+            recipient_ids.add(allenamento.creatore.id)
+        prev_authors = allenamento.commenti.exclude(autore=request.user).values_list('autore_id', flat=True)
+        recipient_ids.update(prev_authors)
+        
+        if recipient_ids:
+            recipients = User.objects.filter(id__in=recipient_ids)
+            msg = f"Nuova risposta in: {allenamento.titolo}"
+            link = reverse('dettaglio_allenamento', args=[pk])
+            notifiche_objs = [Notifica(utente=u, messaggio=msg, link=link, tipo='message') for u in recipients]
+            Notifica.objects.bulk_create(notifiche_objs)
+            
+        return JsonResponse({
+            'success': True, 
+            'comment': {
+                'id': comm.id,
+                'autore': request.user.first_name,
+                'testo': comm.testo,
+                'data': comm.data.isoformat()
+            }
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
 @csrf_exempt
 def api_create_workout(request):
@@ -2834,3 +3106,193 @@ def api_create_workout(request):
         return JsonResponse({'error': 'JSON non valido'}, status=400)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+def api_coach_dashboard(request):
+    """API per la Dashboard Coach (Statistiche squadra)"""
+    if not (request.user.is_staff or request.user.has_perm('atleti.access_coach_dashboard')):
+        return JsonResponse({'error': 'Permessi insufficienti'}, status=403)
+    
+    try:
+        week_offset = int(request.GET.get('week', 0))
+    except ValueError:
+        week_offset = 0
+        
+    # Supporto filtro team via query param per l'app
+    team_id = request.GET.get('team_id')
+    active_team = None
+    if team_id:
+        active_team = get_object_or_404(Team, pk=team_id)
+    else:
+        active_team = _get_active_team(request) # Fallback sessione
+
+    context = _get_coach_dashboard_context(week_offset, active_team)
+    
+    # Helper per serializzare liste di atleti/oggetti complessi
+    def serialize_athlete_list(obj_list, value_key=None):
+        res = []
+        for item in obj_list:
+            # item può essere un ProfiloAtleta o un dict (es. top_power)
+            if isinstance(item, dict):
+                atleta = item['atleta']
+                val = item.get(value_key) if value_key else None
+                # Se è un dict di trends/alerts, estraiamo il valore annidato
+                if 'trends' in item and value_key:
+                    val = item['trends'].get(value_key)
+                elif 'ratio' in item and value_key == 'ratio': # ACWR
+                    val = item['ratio']
+            else:
+                atleta = item
+                val = getattr(atleta, value_key) if value_key else None
+            
+            profilo = getattr(atleta, 'profiloatleta', None) # item potrebbe essere ProfiloAtleta stesso
+            if isinstance(atleta, ProfiloAtleta):
+                user = atleta.user
+                avatar = atleta.immagine_profilo
+            else:
+                user = atleta.user
+                avatar = atleta.immagine_profilo
+
+            data = {
+                'id': user.id,
+                'nome': f"{user.first_name} {user.last_name}",
+                'avatar': avatar,
+            }
+            if val is not None:
+                data['value'] = val
+            
+            # Extra keys per alerts
+            if isinstance(item, dict):
+                if 'status' in item: data['status'] = item['status']
+                if 'acute' in item: data['acute'] = item['acute']
+                if 'chronic' in item: data['chronic'] = item['chronic']
+                
+            res.append(data)
+        return res
+
+    # Serializzazione Readiness
+    readiness_data = {}
+    for cat, data in context['readiness'].items():
+        readiness_data[cat] = {
+            'percentage': data['percentage'],
+            'athletes': serialize_athlete_list(data['athletes'])
+        }
+
+    response_data = {
+        'week_label': context['week_label'],
+        'volume': {
+            'current': context['vol_current_km'],
+            'prev': context['vol_prev_km'],
+            'trend': context['trend_vol']
+        },
+        'charts': {
+            'vo2_labels': json.loads(context['vo2_labels']),
+            'vo2_data': json.loads(context['vo2_data']),
+            'trail_road_data': json.loads(context['trail_road_data'])
+        },
+        'rankings': {
+            'itra': serialize_athlete_list(context['top_itra'], 'indice_itra'),
+            'utmb': serialize_athlete_list(context['top_utmb'], 'indice_utmb'),
+            'power': serialize_athlete_list(context['top_power'], 'power')
+        },
+        'trends': {
+            'improvers': serialize_athlete_list(context['top_improvers'], 'vo2max'),
+            'struggling': serialize_athlete_list(context['struggling'], 'vo2max')
+        },
+        'alerts': {
+            'fc': serialize_athlete_list(context['fc_alerts'], 'fc_media'),
+            'acwr': serialize_athlete_list(context['acwr_alerts'], 'ratio'),
+            'inattivi': serialize_athlete_list(context['atleti_inattivi'])
+        },
+        'readiness': readiness_data,
+        'perc_inattivi': context['perc_inattivi']
+    }
+    
+    return JsonResponse(response_data)
+
+def api_athletes_summary(request):
+    """API per il Riepilogo Atleti (Classifica settimanale)"""
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Autenticazione richiesta'}, status=401)
+        
+    # Logica Team
+    team_id = request.GET.get('team_id')
+    active_team = None
+    if team_id:
+        active_team = get_object_or_404(Team, pk=team_id)
+    else:
+        active_team = _get_active_team(request)
+
+    # Recupero dati
+    atleti, active_atleti, podio = get_atleti_con_statistiche_settimanali()
+    
+    # Filtro Team
+    if active_team:
+        team_members_ids = active_team.membri.values_list('id', flat=True)
+        active_atleti = [a for a in active_atleti if a.user.id in team_members_ids]
+        # Ricalcolo podio locale
+        podio = sorted(active_atleti, key=lambda x: x.punteggio_podio, reverse=True)[:3]
+    
+    # Recupero commenti AI
+    ai_comments = cache.get("podio_ai_comments_latest") or {}
+    
+    data = []
+    for i, a in enumerate(active_atleti):
+        # Privacy check
+        show_metrics = request.user.is_staff or a.condividi_metriche
+        
+        item = {
+            'rank': i + 1,
+            'id': a.user.id,
+            'nome': f"{a.user.first_name} {a.user.last_name}",
+            'avatar': a.immagine_profilo,
+            'km': a.km_week,
+            'dplus': a.dplus_week,
+            'score': a.punteggio_podio,
+            'vo2': a.vo2max_stima_statistica if show_metrics else None,
+            'is_me': a.user == request.user
+        }
+        
+        # Info Podio
+        if i < 3:
+            item['is_podium'] = True
+            # Motivazione: AI > Algoritmo
+            if a.user.username in ai_comments:
+                item['motivation'] = ai_comments[a.user.username]
+            else:
+                item['motivation'] = getattr(a, 'motivazione_podio', '')
+        
+        data.append(item)
+        
+    return JsonResponse({
+        'team_name': active_team.nome if active_team else "Generale",
+        'atleti': data
+    })
+
+def api_team_list(request):
+    """Lista dei team dell'utente e inviti pendenti"""
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Autenticazione richiesta'}, status=401)
+        
+    # Team di cui sono membro
+    my_teams = request.user.teams_appartenenza.all()
+    
+    # Inviti pendenti
+    invites = RichiestaAdesioneTeam.objects.filter(utente=request.user, tipo='Invito', stato='In Attesa')
+    
+    data = {
+        'my_teams': [{
+            'id': t.id,
+            'nome': t.nome,
+            'descrizione': t.descrizione,
+            'membri_count': t.membri.count(),
+            'is_creator': t.creatore == request.user,
+            'image': request.build_absolute_uri(reverse('serve_team_image', args=[t.id])) if t.immagine else None
+        } for t in my_teams],
+        
+        'invites': [{
+            'id': i.id,
+            'team_name': i.team.nome,
+            'date': i.data_richiesta.isoformat()
+        } for i in invites]
+    }
+    return JsonResponse(data)
