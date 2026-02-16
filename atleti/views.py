@@ -863,7 +863,7 @@ def sincronizza_strava(request):
             # Aggiunto supporto per Hike (Trekking) trattato come Trail
             if act['type'] in ['Run', 'TrailRun', 'Hike']:
                 # Usiamo la nuova utility centralizzata
-                processa_attivita_strava(act, profilo, access_token)
+                processa_attivita_strava(act, profilo, access_token, force_detail_update=force_full)
         
         # Se la pagina è incompleta, significa che abbiamo finito
         if len(activities) < per_page:
