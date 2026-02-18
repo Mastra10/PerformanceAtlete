@@ -284,7 +284,7 @@ def _get_dashboard_context(user):
             missing_fc = sum(1 for r in last_runs if not r.fc_media or r.fc_media == 0)
             # Se più della metà non ha FC, mostriamo l'avviso
             if missing_fc >= len(last_runs) / 2:
-                warning_privacy_fc = "⚠️ Dati cardiaci non ricevuti. Per calcolare VO2max e Carico, abilita 'Dati relativi alla salute' nelle impostazioni di Strava o rendi visibile la frequenza cardiaca nelle attività. Il VO2max sarà visibile dopo 3 attività con frequenza cardiaca."
+                warning_privacy_fc = "⚠️ Dati cardiaci non ricevuti. Per calcolare VO2max e Carico, abilita 'Dati relativi alla salute' nelle impostazioni di Strava o rendi visibile la frequenza cardiaca nelle attività. Importante: imposta correttamente FC Riposo e FC Max nelle impostazioni altrimenti il VO2max sarà sballato. Il dato sarà visibile dopo 3 attività con frequenza cardiaca."
 
     # Warning Fisiologia (Valori Sospetti)
     warning_fisiologia = None
