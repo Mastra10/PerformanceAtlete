@@ -284,7 +284,12 @@ def _get_dashboard_context(user):
             missing_fc = sum(1 for r in last_runs if not r.fc_media or r.fc_media == 0)
             # Se più della metà non ha FC, mostriamo l'avviso
             if missing_fc >= len(last_runs) / 2:
-                warning_privacy_fc = "⚠️ Dati cardiaci non ricevuti. Per calcolare VO2max e Carico, abilita 'Dati relativi alla salute' nelle impostazioni di Strava o rendi visibile la frequenza cardiaca nelle attività."
+                warning_privacy_fc = "⚠️ Dati cardiaci non ricevuti. Per calcolare VO2max e Carico, abilita 'Dati relativi alla salute' nelle impostazioni di Strava o rendi visibile la frequenza cardiaca nelle attività. Il VO2max sarà visibile dopo 3 attività con frequenza cardiaca."
+
+    # Warning Fisiologia (Valori Sospetti)
+    warning_fisiologia = None
+    if profilo.peso and profilo.peso > 90 and profilo.fc_riposo and profilo.fc_riposo < 50:
+        warning_fisiologia = f"⚠️ Anomalia Fisiologica: Peso {profilo.peso}kg con FC Riposo {profilo.fc_riposo}bpm è una combinazione improbabile. Verifica 'FC Riposo' e 'FC Max' nelle Impostazioni per stime corrette."
 
     # --- CALCOLO ALLARMI FISIOLOGICI & CARICO ---
     allarmi = []
@@ -380,6 +385,7 @@ def _get_dashboard_context(user):
         'warning_peso': warning_peso,
         'warning_token': warning_token,
         'warning_privacy_fc': warning_privacy_fc,
+        'warning_fisiologia': warning_fisiologia,
         'strava_connected': strava_connected,
         'allarmi': allarmi,
         'notifiche_utente': notifiche,
@@ -413,6 +419,8 @@ def home(request):
             context.update(_get_navbar_context(request))
             if context.get('warning_token'):
                 messages.warning(request, context['warning_token'])
+            if context.get('warning_fisiologia'):
+                messages.warning(request, context['warning_fisiologia'])
             return render(request, 'atleti/home.html', context)
         return render(request, 'atleti/home.html', {'login_form': AuthenticationForm()})
     except MultipleObjectsReturned:
