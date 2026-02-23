@@ -330,18 +330,7 @@ def _get_dashboard_context(user):
         allarmi.append({'tipo': 'warning', 'titolo': 'Deriva Cardiaca', 'msg': f"La tua FC media è salita del {trends['fc_media']}% recentemente a parità di passo. Possibile accumulo di fatica o stress."})
 
     # Recupero Notifiche non lette
-    # Logica Privacy: Admin vede tutto, Utente vede le sue, Anonimo nulla.
-    notifiche_target = user
-    if viewer:
-        if not viewer.is_authenticated:
-            notifiche_target = None
-        elif not viewer.is_staff and viewer != user:
-            notifiche_target = viewer
-            
-    if notifiche_target:
-        notifiche = Notifica.objects.filter(utente=notifiche_target, letta=False).order_by('-data_creazione')
-    else:
-        notifiche = Notifica.objects.none()
+    notifiche = Notifica.objects.filter(utente=user, letta=False).order_by('-data_creazione')
 
     # Check per icona messaggi (conversazioni/risposte)
     has_unread_messages = notifiche.filter(tipo='message').exists()
@@ -507,7 +496,7 @@ def dashboard_atleta(request, username):
     # 2. È un admin (staff)
     # 3. L'utente ha reso la dashboard pubblica
     if request.user == target_user or request.user.is_staff or profilo.dashboard_pubblica:
-        context = _get_dashboard_context(target_user, viewer=request.user)
+        context = _get_dashboard_context(target_user)
         context.update(_get_navbar_context(request))
         return render(request, 'atleti/home.html', context)
     else:
