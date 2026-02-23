@@ -339,7 +339,7 @@ def task_sync_strava():
                             continue
                         
                         # Usiamo la utility centralizzata
-                        _, created = processa_attivita_strava(act, profilo, access_token)
+                        _, created = processa_attivita_strava(act, profilo, access_token, force_detail_update=True)
                         if created:
                             count_new += 1
                     
