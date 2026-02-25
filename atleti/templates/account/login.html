@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load allauth account %}
+{% load socialaccount %}
+{% load static %}
+
+{% block head_title %}
+    {% trans "Sign In" %}
+{% endblock head_title %}
+
+{% block content_unauth %}
+<div class="d-flex justify-content-center align-items-center" style="min-height: 100vh; background: #f0f2f5;">
+    <div class="card shadow-lg border-0" style="width: 100%; max-width: 450px;">
+        <div class="card-body p-5 text-center">
+            <h2 class="fw-bold mb-3">{% trans "Accedi" %}</h2>
+            <p class="text-muted mb-4">
+                Per continuare, accedi con il tuo account Strava.
+            </p>
+
+            {% if SOCIALACCOUNT_ENABLED %}
+                <div class="socialaccount_ballot mb-4">
+                    <a href="{% provider_login_url 'strava' %}" class="btn btn-lg">
+                        <img src="{% static 'images/btn_strava_connect_with_orange.svg' %}" alt="Connect with Strava" style="width: 250px;">
+                    </a>
+                </div>
+            {% endif %}
+
+            {% if not SOCIALACCOUNT_ONLY %}
+                <div class="accordion" id="loginAccordion">
+                    <div class="accordion-item border-0">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed bg-light" type="button" data-bs-toggle="collapse" data-bs-target="#collapseLogin" aria-expanded="false" aria-controls="collapseLogin">
+                                {% trans "O accedi con username/password" %}
+                            </button>
+                        </h2>
+                        <div id="collapseLogin" class="accordion-collapse collapse" data-bs-parent="#loginAccordion">
+                            <div class="accordion-body text-start">
+                                <form class="login" method="post" action="{% url 'account_login' %}">
+                                    {% csrf_token %}
+                                    
+                                    {{ form.as_p }}
+                                    
+                                    {% if redirect_field_value %}
+                                        <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}" />
+                                    {% endif %}
+                                    
+                                    <div class="d-grid gap-2 mt-4">
+                                        <button class="btn btn-primary fw-bold" type="submit">{% trans "Accedi" %}</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <p class="mt-4 text-muted small">
+                    {% trans "Se non hai ancora creato un account," %}
+                    <a href="{{ signup_url }}">{% trans "Registrati" %}</a>.
+                </p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock content_unauth %}
