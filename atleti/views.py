@@ -808,7 +808,14 @@ def sincronizza_strava(request):
 
     # --- CHECK BLOCCANTE: Se mancano Peso o FC Riposo, STOP ---
     if not profilo.peso or not profilo.fc_riposo:
-        LogSistema.objects.create(livello='WARNING', azione='Sync Manuale', utente=request.user, messaggio="Dati profilo (Peso/FC) mancanti.")
+        missing_data = []
+        if not profilo.peso:
+            missing_data.append("Peso")
+        if not profilo.fc_riposo:
+            missing_data.append("FC Riposo")
+        msg = f"Sincronizzazione interrotta. Dati profilo mancanti: {', '.join(missing_data)}. Vai alle impostazioni per completarli."
+        LogSistema.objects.create(livello='WARNING', azione='Sync Manuale', utente=request.user, messaggio=msg)
+        messages.warning(request, msg)
         return redirect('impostazioni')
 
     # --- 4. SCARICAMENTO ATTIVITÀ (FULL SYNC + CHECKPOINT) ---
