@@ -71,8 +71,25 @@
                             </div>
                         </div>
 
+                        <!-- SEZIONE 4: INDICI PERFORMANCE (Per Tutti) -->
+                        <h5 class="fw-bold text-success mb-3"><i class="bi bi-trophy-fill me-2"></i>Indici di Performance</h5>
+                        <div class="mb-4 p-3 bg-light rounded">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Indice ITRA</label>
+                                    <input type="number" name="indice_itra" class="form-control" value="{% if profilo.indice_itra > 0 %}{{ profilo.indice_itra }}{% endif %}" placeholder="Es. 650" min="0" max="1000">
+                                    <div class="form-text">Il tuo punteggio ITRA attuale.</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Indice UTMB</label>
+                                    <input type="number" name="indice_utmb" class="form-control" value="{% if profilo.indice_utmb > 0 %}{{ profilo.indice_utmb }}{% endif %}" placeholder="Es. 650" min="0" max="1000">
+                                    <div class="form-text">Il tuo UTMB Index attuale.</div>
+                                </div>
+                            </div>
+                        </div>
+
                         {% if strava_connected %}
-                        <!-- SEZIONE 4: DATI FISIOLOGICI (Solo Strava) -->
+                        <!-- SEZIONE 5: DATI FISIOLOGICI (Solo Strava) -->
                         <h5 class="fw-bold text-danger mb-3"><i class="bi bi-heart-pulse-fill me-2"></i>Parametri Fisiologici</h5>
                         <div class="mb-4 p-3 bg-light rounded border border-danger border-opacity-25">
                             <div class="row g-3">
@@ -97,7 +114,7 @@
                             </div>
                         </div>
 
-                        <!-- SEZIONE 5: OPZIONI STRAVA (Solo Strava) -->
+                        <!-- SEZIONE 6: OPZIONI STRAVA (Solo Strava) -->
                         <h5 class="fw-bold text-warning mb-3"><i class="bi bi-strava me-2"></i>Opzioni Strava</h5>
                         <div class="mb-4 p-3 bg-light rounded border border-warning border-opacity-25">
                             <div class="form-check form-switch mb-2">
