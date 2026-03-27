@@ -806,16 +806,21 @@ def sincronizza_strava(request):
         messages.success(request, "Scarpe e Attrezzatura aggiornate con successo!")
         return redirect('attrezzatura_scarpe')
 
-    # --- CHECK BLOCCANTE: Se mancano Peso o FC Riposo, STOP ---
-    if not profilo.peso or not profilo.fc_riposo:
-        missing_data = []
-        if not profilo.peso:
-            missing_data.append("Peso")
-        if not profilo.fc_riposo:
-            missing_data.append("FC Riposo")
-        msg = f"Sincronizzazione interrotta. Dati profilo mancanti: {', '.join(missing_data)}. Vai alle impostazioni per completarli."
-        LogSistema.objects.create(livello='WARNING', azione='Sync Manuale', utente=request.user, messaggio=msg)
+    # --- GESTIONE DATI PROFILO MANCANTI (con fallback) ---
+    # 1. Gestione FC Riposo
+    if not profilo.fc_riposo:
+        profilo.fc_riposo = 50
+        profilo.save()
+        msg = "FC a Riposo non impostata. È stato usato un valore di default (50bpm). Per calcoli precisi, vai nelle Impostazioni e inserisci il tuo valore reale."
         messages.warning(request, msg)
+        LogSistema.objects.create(livello='WARNING', azione='Sync Manuale', utente=request.user, messaggio=f"FC Riposo mancante, impostato default a 50.")
+
+    # 2. CHECK BLOCCANTE: Peso (è l'unico dato critico senza un default sensato)
+    # Il peso dovrebbe essere stato aggiornato da Strava poco fa. Se è ancora mancante, blocchiamo.
+    if not profilo.peso or profilo.peso <= 0:
+        msg = "Sincronizzazione interrotta. Il tuo peso non è impostato. Inseriscilo nelle Impostazioni o configuralo sul tuo profilo Strava."
+        LogSistema.objects.create(livello='ERROR', azione='Sync Manuale', utente=request.user, messaggio="Peso mancante, sync bloccata.")
+        messages.error(request, msg)
         return redirect('impostazioni')
 
     # --- 4. SCARICAMENTO ATTIVITÀ (FULL SYNC + CHECKPOINT) ---
@@ -888,13 +893,13 @@ def sincronizza_strava(request):
 
     cache.set(cache_key, {'status': 'Analisi fisiologica e statistiche...', 'progress': 90}, timeout=300)
     # --- 8. AUTO-CALCOLO FC MAX REALE ---
-    # Modifica: cattura la fc max degli ultimi 5 mesi (approx 150 giorni)
-    five_months_ago = timezone.now() - timedelta(days=150)
+    # Modifica: cattura la fc max degli ultimi 3 mesi (approx 90 giorni)
+    three_months_ago = timezone.now() - timedelta(days=90)
     
     # Cerchiamo l'attività con la FC più alta nel periodo per estrarre anche la data
     best_activity = Attivita.objects.filter(
         atleta=profilo, 
-        data__gte=five_months_ago,
+        data__gte=three_months_ago,
         fc_max_sessione__gt=160  # Filtriamo valori non fisiologici/bassi
     ).order_by('-fc_max_sessione').first()
     
@@ -903,7 +908,7 @@ def sincronizza_strava(request):
         data_record = best_activity.data.strftime('%d/%m/%Y')
         data_obj = best_activity.data.date()
         
-        # Aggiorniamo il profilo al "Season Best" (ultimi 5 mesi).
+        # Aggiorniamo il profilo al "Season Best" (ultimi 3 mesi).
         # FIX: Se l'utente ha impostato la FC manualmente, NON sovrascriviamo.
         if not profilo.fc_max_manuale:
             profilo.fc_massima_teorica = max_fc_reale
