@@ -73,7 +73,17 @@ def refresh_strava_token(token_obj, buffer_minutes=10, force=False):
             LogSistema.objects.create(livello='INFO', azione='Token Refresh', utente=token_obj.account.user, messaggio=f"Token Strava rinnovato. Scopes: {scopes}")
             return token_obj.token
         else:
-            LogSistema.objects.create(livello='ERROR', azione='Token Refresh', utente=token_obj.account.user, messaggio=f"ERRORE Refresh: {response.text}")
+            # Log per debug immediato in console
+            print(f"Status API Strava (refresh token): {response.status_code}")
+            print(f"Dettaglio Errore: {response.text}")
+            
+            # Log su DB per tracciabilità
+            LogSistema.objects.create(
+                livello='ERROR', 
+                azione='Token Refresh', 
+                utente=token_obj.account.user, 
+                messaggio=f"ERRORE Refresh. Status: {response.status_code}, Dettaglio: {response.text}"
+            )
             return None
     except Exception as e:
         LogSistema.objects.create(livello='ERROR', azione='Token Refresh', utente=token_obj.account.user, messaggio=f"Eccezione: {e}")
@@ -99,7 +109,9 @@ def calcola_vam_selettiva(activity_id, access_token):
             return None
             
         if response.status_code != 200:
-            LogSistema.objects.create(livello='ERROR', azione='Calcolo VAM', messaggio=f"Errore streams ({response.status_code}) per ID {activity_id}")
+            print(f"Status API Strava (streams): {response.status_code}")
+            print(f"Dettaglio Errore: {response.text}")
+            LogSistema.objects.create(livello='ERROR', azione='Calcolo VAM', messaggio=f"Errore streams ({response.status_code}) per ID {activity_id}: {response.text}")
             return None
             
         data = response.json()
@@ -737,6 +749,17 @@ def processa_attivita_strava(act, profilo, access_token, force_detail_update=Fal
                 
                 if update_fields:
                     nuova_attivita.save(update_fields=update_fields)
+            else:
+                # Log in console per debug immediato
+                print(f"Status API Strava (dettaglio attività): {resp_detail.status_code}")
+                print(f"Dettaglio Errore: {resp_detail.text}")
+                # Log nel sistema per tracciabilità
+                LogSistema.objects.create(
+                    livello='WARNING', 
+                    azione='Import Attività', 
+                    utente=profilo.user, 
+                    messaggio=f"Impossibile recuperare dettaglio per attività {act['id']}. Status: {resp_detail.status_code}"
+                )
         except Exception as e:
             print(f"Warning: Impossibile recuperare dispositivo per {act['id']}: {e}", flush=True)
 

@@ -355,7 +355,12 @@ def task_sync_strava():
                 logger.warning("SCHEDULER: Rate Limit Strava (429) raggiunto. Stop task globale per recupero quota.")
                 break 
             else:
-                logger.error(f"Errore API Strava: {response.status_code}")
+                # Log per debug immediato in console
+                print(f"Status API Strava (activities): {response.status_code}")
+                print(f"Dettaglio Errore: {response.text}")
+                
+                # Log su DB per tracciabilità
+                logger.error(f"Errore API Strava per {user.username}: {response.status_code}. Dettaglio: {response.text}")
                 
         except Exception as e:
             logger.error(f"Errore durante sync per {user.username}: {e}")
