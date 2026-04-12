@@ -663,7 +663,7 @@ def analizza_performance_atleta(profilo):
         print(f"DEBUG ERRORE FINALE: {e}")
         return "⚠️ Servizio AI momentaneamente non disponibile. Riprova tra un minuto."
 
-def processa_attivita_strava(act, profilo, access_token, force_detail_update=False):
+def processa_attivita_strava(act, profilo, access_token, force_detail_update=False, skip_detail=False):
     """
     Logica centralizzata per salvare/aggiornare un'attività Strava nel DB.
     Restituisce (Attivita, created).
@@ -724,7 +724,7 @@ def processa_attivita_strava(act, profilo, access_token, force_detail_update=Fal
     # 6. Recupero Dettagli (Dispositivo e Parziali)
     # Il campo 'device_name' è presente solo nel dettaglio attività, non nel summary.
     # Scarichiamo se è nuova OPPURE se forzato (es. Full Sync) e mancano i dati
-    should_fetch_detail = created or (force_detail_update and not nuova_attivita.parziali)
+    should_fetch_detail = not skip_detail and (created or (force_detail_update and not nuova_attivita.parziali))
     if should_fetch_detail and access_token:
         try:
             url_detail = f"https://www.strava.com/api/v3/activities/{act['id']}"

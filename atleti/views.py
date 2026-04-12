@@ -1,4 +1,5 @@
 import requests
+import threading
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse, JsonResponse, FileResponse, Http404
 from django.contrib.auth.decorators import login_required
@@ -14,6 +15,7 @@ from django.utils import timezone
 from datetime import timedelta, timezone as dt_timezone
 import json
 from django.contrib.auth.models import User
+from django.db import close_old_connections
 import csv
 from django_apscheduler.models import DjangoJobExecution, DjangoJob
 from .models import TaskSettings
@@ -417,6 +419,16 @@ def home(request):
             LogSistema.objects.create(livello='INFO', azione='Page View', utente=request.user, messaggio="Visita Dashboard")
             context = _get_dashboard_context(request.user)
             context.update(_get_navbar_context(request))
+            
+            # --- Controllo stato sincronizzazione in background ---
+            sync_state = cache.get(f"sync_progress_{request.user.id}")
+            if sync_state and sync_state.get('progress', 100) < 100:
+                context['is_syncing'] = True
+                context['sync_status_text'] = sync_state.get('status', 'Inizializzazione...')
+                context['sync_progress'] = sync_state.get('progress', 0)
+            else:
+                context['is_syncing'] = False
+
             if context.get('warning_token'):
                 messages.warning(request, context['warning_token'])
             if context.get('warning_fisiologia'):
@@ -720,6 +732,7 @@ def sincronizza_strava(request):
     LogSistema.objects.create(livello='INFO', azione='Sync Manuale', utente=request.user, messaggio="Avvio sincronizzazione...")
     only_shoes = request.GET.get('only_shoes') == 'true'
     force_full = request.GET.get('force_full') == 'true'
+    user_id = request.user.id
     cache_key = f"sync_progress_{request.user.id}"
     cache.set(cache_key, {'status': 'Connessione a Strava...', 'progress': 5}, timeout=300)
     
@@ -743,21 +756,32 @@ def sincronizza_strava(request):
         messages.error(request, "Il token Strava è scaduto e non può essere rinnovato. Per favore scollega e ricollega l'account nelle Impostazioni.")
         return redirect('impostazioni')
         
-    headers = {'Authorization': f'Bearer {access_token}'}
-
-    cache.set(cache_key, {'status': 'Aggiornamento profilo...', 'progress': 10}, timeout=300)
-    # --- 2. DATI PROFILO (PESO E NOMI) ---
-    athlete_res = requests.get("https://www.strava.com/api/v3/athlete", headers=headers)
+    # Avvia thread in background
+    thread = threading.Thread(target=_bg_sincronizza_strava, args=(user_id, access_token, only_shoes, force_full))
+    thread.daemon = True
+    thread.start()
     
-    if athlete_res.status_code == 401:
-        LogSistema.objects.create(livello='WARNING', azione='Sync Manuale', utente=request.user, messaggio="Token scaduto durante fetch profilo.")
-        return redirect('/accounts/strava/login/')
+    messages.success(request, "Sincronizzazione avviata in background. L'operazione potrebbe richiedere alcuni minuti per gli archivi più grandi. Puoi continuare a navigare.")
+    return redirect('home')
 
-    # Aggiorniamo il profilo atleta
-    profilo, _ = ProfiloAtleta.objects.get_or_create(user=request.user)
+def _bg_sincronizza_strava(user_id, access_token, only_shoes, force_full):
+    try:
+        user = User.objects.get(id=user_id)
+        profilo, _ = ProfiloAtleta.objects.get_or_create(user=user)
+        cache_key = f"sync_progress_{user_id}"
+        headers = {'Authorization': f'Bearer {access_token}'}
 
-    if athlete_res.status_code == 200:
-        athlete_data = athlete_res.json()
+        cache.set(cache_key, {'status': 'Aggiornamento profilo...', 'progress': 10}, timeout=300)
+        # --- 2. DATI PROFILO (PESO E NOMI) ---
+        athlete_res = requests.get("https://www.strava.com/api/v3/athlete", headers=headers)
+    
+        if athlete_res.status_code == 401:
+            LogSistema.objects.create(livello='WARNING', azione='Sync Manuale', utente=user, messaggio="Token scaduto durante fetch profilo in background.")
+            cache.set(cache_key, {'status': 'Errore: Token scaduto', 'progress': 100}, timeout=300)
+            return
+
+        if athlete_res.status_code == 200:
+            athlete_data = athlete_res.json()
         # DEBUG: Verifichiamo se Strava ci manda le scarpe
         print(f"DEBUG STRAVA: Trovate {len(athlete_data.get('shoes', []))} scarpe nel profilo.", flush=True)
 
@@ -774,12 +798,12 @@ def sincronizza_strava(request):
         if strava_img:
             profilo.immagine_profilo = strava_img
             
-        request.user.first_name = athlete_data.get('firstname', '')
-        request.user.last_name = athlete_data.get('lastname', '')
-        request.user.save()
+            user.first_name = athlete_data.get('firstname', '')
+            user.last_name = athlete_data.get('lastname', '')
+            user.save()
         
-        # --- SYNC SCARPE ---
-        shoes = athlete_data.get('shoes', [])
+            # --- SYNC SCARPE ---
+            shoes = athlete_data.get('shoes', [])
         strava_shoe_ids = []
         for s in shoes:
             strava_shoe_ids.append(s['id'])
@@ -798,133 +822,138 @@ def sincronizza_strava(request):
             )
         
         # Le scarpe che abbiamo nel DB ma non sono più nella lista di Strava sono considerate "Dismesse"
-        Scarpa.objects.filter(atleta=profilo).exclude(strava_id__in=strava_shoe_ids).update(retired=True)
-    profilo.save()
-
-    # Se richiesto solo aggiornamento scarpe, ci fermiamo qui (Sync Rapido)
-    if only_shoes:
-        messages.success(request, "Scarpe e Attrezzatura aggiornate con successo!")
-        return redirect('attrezzatura_scarpe')
-
-    # --- GESTIONE DATI PROFILO MANCANTI (con fallback) ---
-    # 1. Gestione FC Riposo
-    if not profilo.fc_riposo:
-        profilo.fc_riposo = 50
+            Scarpa.objects.filter(atleta=profilo).exclude(strava_id__in=strava_shoe_ids).update(retired=True)
         profilo.save()
-        msg = "FC a Riposo non impostata. È stato usato un valore di default (50bpm). Per calcoli precisi, vai nelle Impostazioni e inserisci il tuo valore reale."
-        messages.warning(request, msg)
-        LogSistema.objects.create(livello='WARNING', azione='Sync Manuale', utente=request.user, messaggio=f"FC Riposo mancante, impostato default a 50.")
 
-    # 2. CHECK BLOCCANTE: Peso (è l'unico dato critico senza un default sensato)
-    # Il peso dovrebbe essere stato aggiornato da Strava poco fa. Se è ancora mancante, blocchiamo.
-    if not profilo.peso or profilo.peso <= 0:
-        msg = "Sincronizzazione interrotta. Il tuo peso non è impostato. Inseriscilo nelle Impostazioni o configuralo sul tuo profilo Strava."
-        LogSistema.objects.create(livello='ERROR', azione='Sync Manuale', utente=request.user, messaggio="Peso mancante, sync bloccata.")
-        messages.error(request, msg)
-        return redirect('impostazioni')
+        if only_shoes:
+            cache.set(cache_key, {'status': 'Completato!', 'progress': 100}, timeout=300)
+            return
 
-    # --- 4. SCARICAMENTO ATTIVITÀ (FULL SYNC + CHECKPOINT) ---
-    # Cerchiamo l'ultima attività salvata per usare il parametro 'after' (Checkpoint)
-    last_activity = Attivita.objects.filter(atleta=profilo).order_by('-data').first()
-    timestamp_checkpoint = None
+        # --- GESTIONE DATI PROFILO MANCANTI (con fallback) ---
+        if not profilo.fc_riposo:
+            profilo.fc_riposo = 50
+            profilo.save()
+            LogSistema.objects.create(livello='WARNING', azione='Sync Manuale', utente=user, messaggio=f"FC Riposo mancante, impostato default a 50.")
+
+        if not profilo.peso or profilo.peso <= 0:
+            LogSistema.objects.create(livello='ERROR', azione='Sync Manuale', utente=user, messaggio="Peso mancante, sync bloccata.")
+            cache.set(cache_key, {'status': 'Errore: Peso mancante. Aggiornalo nelle Impostazioni.', 'progress': 100}, timeout=300)
+            return
+
+        # --- 4. SCARICAMENTO ATTIVITÀ (FULL SYNC + CHECKPOINT) ---
+        last_activity = Attivita.objects.filter(atleta=profilo).order_by('-data').first()
+        timestamp_checkpoint = None
     
     # FIX: Usiamo il checkpoint solo se abbiamo completato con successo almeno una sync in passato (e non è richiesto force_full).
     # Se data_ultima_sincronizzazione è None, significa che la prima sync è fallita o è parziale,
     # quindi forziamo un riscaricamento completo (senza 'after') per recuperare lo storico mancante.
-    if last_activity and profilo.data_ultima_sincronizzazione and not force_full:
-        # Aggiungiamo 1 secondo per non riscaricare l'ultima attività
-        timestamp_checkpoint = int(last_activity.data.timestamp()) + 1
-    else:
-        LogSistema.objects.create(livello='INFO', azione='Sync Manuale', utente=request.user, messaggio="Avvio download completo (storico/recovery).")
-
-    url_activities = "https://www.strava.com/api/v3/athlete/activities"
-    
-    page = 1
-    per_page = 100 # Ottimizzazione: scarichiamo blocchi più grandi (max supportato ~200)
-    
-    while True:
-        params = {'page': page, 'per_page': per_page}
-        cache.set(cache_key, {'status': f'Scaricamento attività (Pagina {page})...', 'progress': min(15 + (page * 10), 80)}, timeout=300)
-        if timestamp_checkpoint:
-            params['after'] = timestamp_checkpoint
-            
-        response = requests.get(url_activities, headers=headers, params=params)
-        
-
-        if response.status_code == 401:
-            # TENTATIVO DI RECOVERY: Il token potrebbe essere revocato o scaduto nonostante il DB dica il contrario.
-            # Tentiamo un refresh forzato e riproviamo.
-            new_token = refresh_strava_token(token_obj, force=True)
-            if new_token:
-                access_token = new_token # Aggiorniamo anche la variabile locale per le chiamate successive (es. VAM)
-                headers = {'Authorization': f'Bearer {new_token}'}
-                response = requests.get(url_activities, headers=headers, params=params)
-            
-            if response.status_code == 401:
-                # Logghiamo il corpo della risposta per capire il motivo (es. Scope mancanti)
-                err_msg = f"Token rifiutato dopo refresh. Strava dice: {response.text[:150]}"
-                LogSistema.objects.create(livello='WARNING', azione='Sync Manuale', utente=request.user, messaggio=err_msg)
-                return redirect('/accounts/strava/login/')
-
-        if response.status_code == 429:
-            LogSistema.objects.create(livello='WARNING', azione='Sync Manuale', utente=request.user, messaggio="Rate Limit Strava raggiunto.")
-            break
-
-        if response.status_code != 200:
-            LogSistema.objects.create(livello='ERROR', azione='Sync Manuale', utente=request.user, messaggio=f"Errore API: {response.text}")
-            break
-            
-        activities = response.json()
-        if not activities:
-            break
-            
-
-        for act in activities:
-            # Aggiunto supporto per Hike (Trekking) trattato come Trail
-            if act['type'] in ['Run', 'TrailRun', 'Hike']:
-                # Usiamo la nuova utility centralizzata
-                processa_attivita_strava(act, profilo, access_token, force_detail_update=force_full)
-        
-        # Se la pagina è incompleta, significa che abbiamo finito
-        if len(activities) < per_page:
-            break
-            
-        page += 1
-
-    cache.set(cache_key, {'status': 'Analisi fisiologica e statistiche...', 'progress': 90}, timeout=300)
-    # --- 8. AUTO-CALCOLO FC MAX REALE ---
-    # Modifica: cattura la fc max degli ultimi 3 mesi (approx 90 giorni)
-    three_months_ago = timezone.now() - timedelta(days=90)
-    
-    # Cerchiamo l'attività con la FC più alta nel periodo per estrarre anche la data
-    best_activity = Attivita.objects.filter(
-        atleta=profilo, 
-        data__gte=three_months_ago,
-        fc_max_sessione__gt=160  # Filtriamo valori non fisiologici/bassi
-    ).order_by('-fc_max_sessione').first()
-    
-    if best_activity:
-        max_fc_reale = best_activity.fc_max_sessione
-        data_record = best_activity.data.strftime('%d/%m/%Y')
-        data_obj = best_activity.data.date()
-        
-        # Aggiorniamo il profilo al "Season Best" (ultimi 3 mesi).
-        # FIX: Se l'utente ha impostato la FC manualmente, NON sovrascriviamo.
-        if not profilo.fc_max_manuale:
-            profilo.fc_massima_teorica = max_fc_reale
-            profilo.fc_max = max_fc_reale
-            profilo.data_fc_max = data_obj
-            profilo.save()
+        if last_activity and profilo.data_ultima_sincronizzazione and not force_full:
+            timestamp_checkpoint = int(last_activity.data.timestamp()) + 1
         else:
-            pass
+            LogSistema.objects.create(livello='INFO', azione='Sync Manuale', utente=user, messaggio="Avvio download completo (storico/recovery).")
 
-    # --- 9. CALCOLO VO2MAX CONSOLIDATO (MEDIA MOBILE) ---
-    profilo.data_ultima_sincronizzazione = timezone.now()
-    stima_vo2max_atleta(profilo)
+        url_activities = "https://www.strava.com/api/v3/athlete/activities"
+    
+        page = 1
+        per_page = 100 
+        token_obj = SocialToken.objects.filter(account__user=user, account__provider='strava').first()
+    
+        while True:
+            params = {'page': page, 'per_page': per_page}
+            cache.set(cache_key, {'status': f'Scaricamento attività (Pagina {page})...', 'progress': min(15 + (page * 10), 80)}, timeout=300)
+            if timestamp_checkpoint:
+                params['after'] = timestamp_checkpoint
+            
+            response = requests.get(url_activities, headers=headers, params=params)
+        
+            if response.status_code == 401:
+                new_token = refresh_strava_token(token_obj, force=True)
+                if new_token:
+                    access_token = new_token
+                    headers = {'Authorization': f'Bearer {new_token}'}
+                    response = requests.get(url_activities, headers=headers, params=params)
+            
+                if response.status_code == 401:
+                    err_msg = f"Token rifiutato dopo refresh. Strava dice: {response.text[:150]}"
+                    LogSistema.objects.create(livello='WARNING', azione='Sync Manuale', utente=user, messaggio=err_msg)
+                    cache.set(cache_key, {'status': 'Errore: Token scaduto', 'progress': 100}, timeout=300)
+                    return
 
-    cache.set(cache_key, {'status': 'Completato!', 'progress': 100}, timeout=300)
-    LogSistema.objects.create(livello='INFO', azione='Sync Manuale', utente=request.user, messaggio="Sincronizzazione completata con successo.")
-    return redirect('home')
+            if response.status_code == 429:
+                LogSistema.objects.create(livello='WARNING', azione='Sync Manuale', utente=user, messaggio="Rate Limit Strava raggiunto in background.")
+                cache.set(cache_key, {'status': 'Limite API Strava raggiunto. Riprova più tardi per completare l\'archivio.', 'progress': 100}, timeout=300)
+                return
+
+            if response.status_code != 200:
+                LogSistema.objects.create(livello='ERROR', azione='Sync Manuale', utente=user, messaggio=f"Errore API: {response.text}")
+                cache.set(cache_key, {'status': f'Errore API: {response.status_code}', 'progress': 100}, timeout=300)
+                break
+            
+            activities = response.json()
+            if not activities:
+                break
+            
+            tot_act = len(activities)
+            is_last_page = tot_act < per_page
+            
+            for i, act in enumerate(activities, 1):
+                # Aggiorniamo la barra di stato ogni 5 attività per dare feedback continuo
+                if i % 5 == 0 or i == tot_act:
+                    if is_last_page:
+                        # Se è l'ultima pagina (o l'unica), colmiamo la percentuale rimanente fino all'85%
+                        base_prog = min(15 + ((page - 1) * 10), 75)
+                        remaining_prog = 85 - base_prog
+                        current_prog = base_prog + int((i / tot_act) * remaining_prog)
+                    else:
+                        # Avanzamento standard: +10% per ogni pagina intera (blocchi da 100)
+                        base_prog = 15 + ((page - 1) * 10)
+                        fraction = int((i / tot_act) * 10)
+                        current_prog = min(base_prog + fraction, 85)
+                        
+                    cache.set(cache_key, {'status': f'Elaborazione (Pag. {page}: {i}/{tot_act})...', 'progress': current_prog}, timeout=300)
+                    
+                if act['type'] in ['Run', 'TrailRun', 'Hike']:
+                    # OTIMIZZAZIONE: Per archivi vecchi/grandi omoettiamo le chiamate ai dettagli, limitando le API Calls
+                    skip_detail = page > 1 or getattr(profilo, 'data_ultima_sincronizzazione', None) is None
+                    processa_attivita_strava(act, profilo, access_token, force_detail_update=force_full, skip_detail=skip_detail)
+        
+            if len(activities) < per_page:
+                break
+            
+            page += 1
+
+        cache.set(cache_key, {'status': 'Analisi fisiologica e statistiche...', 'progress': 90}, timeout=300)
+        
+        # --- 8. AUTO-CALCOLO FC MAX REALE ---
+        three_months_ago = timezone.now() - timedelta(days=90)
+    
+        best_activity = Attivita.objects.filter(
+            atleta=profilo, 
+            data__gte=three_months_ago,
+            fc_max_sessione__gt=160
+        ).order_by('-fc_max_sessione').first()
+    
+        if best_activity:
+            max_fc_reale = best_activity.fc_max_sessione
+            data_obj = best_activity.data.date()
+        
+            if not profilo.fc_max_manuale:
+                profilo.fc_massima_teorica = max_fc_reale
+                profilo.fc_max = max_fc_reale
+                profilo.data_fc_max = data_obj
+                profilo.save()
+
+        # --- 9. CALCOLO VO2MAX CONSOLIDATO ---
+        profilo.data_ultima_sincronizzazione = timezone.now()
+        stima_vo2max_atleta(profilo)
+
+        cache.set(cache_key, {'status': 'Completato!', 'progress': 100}, timeout=300)
+        LogSistema.objects.create(livello='INFO', azione='Sync Manuale', utente=user, messaggio="Sincronizzazione background completata.")
+    except Exception as e:
+        LogSistema.objects.create(livello='ERROR', azione='Sync Manuale', utente=user, messaggio=f"Errore critico in background: {e}")
+        cache.set(cache_key, {'status': 'Errore interno durante il sync.', 'progress': 100}, timeout=300)
+    finally:
+        close_old_connections()
 
 @login_required
 def ricalcola_statistiche(request):

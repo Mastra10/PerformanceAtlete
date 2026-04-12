@@ -192,6 +192,54 @@
     </div>
     {% endif %}
     
+    {% if is_syncing %}
+    <div class="alert alert-info shadow-sm mb-4">
+        <div class="d-flex align-items-center mb-2">
+            <div class="spinner-border spinner-border-sm text-info me-2" role="status"></div>
+            <h5 class="mb-0 fw-bold">Sincronizzazione archivio in corso...</h5>
+        </div>
+        <p id="sync-status-text" class="text-muted small mb-2">{{ sync_status_text }}</p>
+        <div class="progress" style="height: 20px;">
+            <div id="sync-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated bg-info" 
+                 role="progressbar" 
+                 style="width: {{ sync_progress }}%;" 
+                 aria-valuenow="{{ sync_progress }}" 
+                 aria-valuemin="0" 
+                 aria-valuemax="100">
+                {{ sync_progress }}%
+            </div>
+        </div>
+    </div>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            const progressBar = document.getElementById('sync-progress-bar');
+            const statusText = document.getElementById('sync-status-text');
+            const interval = setInterval(() => {
+                fetch('?sync_status=1')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.progress !== undefined) {
+                            progressBar.style.width = data.progress + '%';
+                            progressBar.innerText = data.progress + '%';
+                            statusText.innerText = data.status;
+                            if (data.progress >= 100) {
+                                clearInterval(interval);
+                                progressBar.classList.remove('progress-bar-animated');
+                                progressBar.classList.replace('bg-info', 'bg-success');
+                                statusText.innerText = "Sincronizzazione completata! Aggiornamento dashboard...";
+                                setTimeout(() => window.location.href = window.location.pathname, 2000);
+                            }
+                        } else {
+                            clearInterval(interval);
+                            setTimeout(() => window.location.href = window.location.pathname, 1500);
+                        }
+                    })
+                    .catch(err => console.error("Errore recupero stato sync:", err));
+            }, 2000);
+        });
+    </script>
+    {% endif %}
+
     <h2 class="fw-bold mb-4">Dashboard Personale</h2>
     <div class="row g-4">
         <div class="col-lg-4">
