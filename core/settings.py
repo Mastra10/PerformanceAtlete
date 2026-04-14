@@ -21,7 +21,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-5i9fyk&@_^8+2)@05u6l85b(00%&buy-^e+$@#h=5+_!ds)&=s')
+SECRET_KEY = os.environ.get('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG', 'True') == 'True'
@@ -89,16 +89,23 @@ WSGI_APPLICATION = 'core.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('DB_NAME', 'atleti_db'),
-        'USER': os.environ.get('DB_USER', 'admin'),
-        'PASSWORD': os.environ.get('DB_PASSWORD', 'cr00586'),
+        # Rimuoviamo i valori di default per non esporre nomi e password
+        'NAME': os.environ.get('DB_NAME'),
+        'USER': os.environ.get('DB_USER'),
+        'PASSWORD': os.environ.get('DB_PASSWORD'),
+        # Per Host e Port possiamo tenere dei default tecnici (interni a Docker)
         'HOST': os.environ.get('DB_HOST', 'db'),
         'PORT': os.environ.get('DB_PORT', '5432'),
         'OPTIONS': {
-            'options': '-c timezone=Europe/Rome', # <--- AGGIUNGI QUESTA
+            'options': '-c timezone=Europe/Rome',
         },
     }
 }
+
+# Controllo di sicurezza: se mancano i dati essenziali, il server non deve partire
+if not DATABASES['default']['PASSWORD']:
+    from django.core.exceptions import ImproperlyConfigured
+    raise ImproperlyConfigured("ERRORE: Credenziali Database mancanti nel file .env")
 
 
 # Password validation

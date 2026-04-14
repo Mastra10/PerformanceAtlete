@@ -152,3 +152,8 @@ staticfiles/
 
 # Media files (upload utenti)
 media/
+
+# Cartelle temporanee del browser
+chrome_data/
+chromedriver
+*.log
