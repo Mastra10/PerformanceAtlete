@@ -1,0 +1,19 @@
+# Escludi la cartella incriminata
+chrome_data/
+
+# Escludi dati di sistema e python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.db.sqlite3
+.pytest_cache/
+.venv/
+venv/
+
+# Escludi Git e ambiente
+.git/
+.env
+
+# Escludi log
+*.log
