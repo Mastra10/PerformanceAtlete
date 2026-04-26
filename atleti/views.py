@@ -33,6 +33,7 @@ from django.utils.safestring import mark_safe
 from django.urls import reverse
 from django.utils.dateparse import parse_datetime, parse_duration
 from django.views.decorators.csrf import csrf_exempt
+from django.core.mail import send_mail
 from zoneinfo import ZoneInfo
 
 def _get_active_team(request):
@@ -3405,8 +3406,21 @@ def calendario_parchetto(request):
         if action == 'create':
             form = PrenotazioneParchettoForm(request.POST)
             if form.is_valid():
-                form.save()
+                prenotazione = form.save()
                 messages.success(request, "Evento aggiunto con successo!")
+                
+                try:
+                    inizio = timezone.localtime(prenotazione.data_orario_inizio).strftime("%d/%m/%Y %H:%M")
+                    fine = timezone.localtime(prenotazione.data_orario_fine).strftime("%d/%m/%Y %H:%M")
+                    send_mail(
+                        f"Nuovo evento Parchetto: {prenotazione.titolo_evento}",
+                        f"È stato registrato un NUOVO evento nel calendario del Parchetto.\n\nRichiedente: {prenotazione.nome_richiedente}\nTitolo: {prenotazione.titolo_evento}\nInizio: {inizio}\nFine: {fine}\nDescrizione: {prenotazione.descrizione or 'Nessuna'}\n\nCalendario: https://performance-atlete.freeddns.org/calendario-parchetto/",
+                        None,
+                        ['andrea.mastrapasqua@gmail.com', 'sabino.mastrapasqua@gmail.com'],
+                        fail_silently=True,
+                    )
+                except Exception as e:
+                    print(f"Errore invio mail parchetto: {e}")
             else:
                 messages.error(request, "Errore nella creazione dell'evento.")
         elif action == 'edit':
@@ -3415,8 +3429,21 @@ def calendario_parchetto(request):
                 prenotazione = get_object_or_404(PrenotazioneParchetto, id=prenotazione_id)
                 form = PrenotazioneParchettoForm(request.POST, instance=prenotazione)
                 if form.is_valid():
-                    form.save()
+                    prenotazione = form.save()
                     messages.success(request, "Evento modificato con successo!")
+                    
+                    try:
+                        inizio = timezone.localtime(prenotazione.data_orario_inizio).strftime("%d/%m/%Y %H:%M")
+                        fine = timezone.localtime(prenotazione.data_orario_fine).strftime("%d/%m/%Y %H:%M")
+                        send_mail(
+                            f"Modifica evento Parchetto: {prenotazione.titolo_evento}",
+                            f"È stato MODIFICATO un evento nel calendario del Parchetto.\n\nRichiedente: {prenotazione.nome_richiedente}\nTitolo: {prenotazione.titolo_evento}\nInizio: {inizio}\nFine: {fine}\nDescrizione: {prenotazione.descrizione or 'Nessuna'}\n\nCalendario: https://performance-atlete.freeddns.org/calendario-parchetto/",
+                            None,
+                            ['andrea.mastrapasqua@gmail.com', 'sabino.mastrapasqua@gmail.com'],
+                            fail_silently=True,
+                        )
+                    except Exception as e:
+                        print(f"Errore invio mail parchetto: {e}")
                 else:
                     messages.error(request, "Errore nella modifica dell'evento.")
         elif action == 'delete':
