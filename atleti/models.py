@@ -484,3 +484,18 @@ class Notifica(models.Model):
 
     def __str__(self):
         return f"Notifica per {self.utente}: {self.messaggio}"
+
+class PrenotazioneParchetto(models.Model):
+    nome_richiedente = models.CharField(max_length=100)
+    titolo_evento = models.CharField(max_length=200)
+    data_orario_inizio = models.DateTimeField()
+    data_orario_fine = models.DateTimeField()
+    descrizione = models.TextField(blank=True, null=True)
+    data_creazione = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name_plural = "Prenotazioni Parchetto"
+        ordering = ['-data_orario_inizio']
+
+    def __str__(self):
+        return f"{self.titolo_evento} - {self.data_orario_inizio.date()}"

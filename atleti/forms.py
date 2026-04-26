@@ -1,5 +1,5 @@
 from django import forms
-from .models import Allenamento, CommentoAllenamento, Partecipazione, Team
+from .models import Allenamento, CommentoAllenamento, Partecipazione, Team, PrenotazioneParchetto
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm
 
@@ -118,3 +118,22 @@ class RegistrazioneUtenteForm(UserCreationForm):
         if commit:
             user.save()
         return user
+
+class PrenotazioneParchettoForm(forms.ModelForm):
+    data_orario_inizio = forms.DateTimeField(
+        input_formats=['%Y-%m-%dT%H:%M', '%Y-%m-%dT%H:%M:%S'],
+        widget=forms.DateTimeInput(attrs={'type': 'datetime-local', 'class': 'form-control'})
+    )
+    data_orario_fine = forms.DateTimeField(
+        input_formats=['%Y-%m-%dT%H:%M', '%Y-%m-%dT%H:%M:%S'],
+        widget=forms.DateTimeInput(attrs={'type': 'datetime-local', 'class': 'form-control'})
+    )
+
+    class Meta:
+        model = PrenotazioneParchetto
+        fields = ['nome_richiedente', 'titolo_evento', 'data_orario_inizio', 'data_orario_fine', 'descrizione']
+        widgets = {
+            'nome_richiedente': forms.TextInput(attrs={'class': 'form-control'}),
+            'titolo_evento': forms.TextInput(attrs={'class': 'form-control'}),
+            'descrizione': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        }

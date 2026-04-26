@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calendario del parchetto di Pontescodogna</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
+</head>
+<body class="bg-light">
+    <div class="container mt-5">
+        <h1 class="text-center mb-4">Calendario del parchetto di Pontescodogna</h1>
+        
+        <div class="alert alert-info shadow-sm mb-4" role="alert">
+            <strong>Nota bene:</strong> L'uso del campetto non richiede prenotazione, ma è necessario dare preavviso. L'area rimane comunque di libero accesso a tutti. L'utilizzo è riservato ai residenti di Pontescodogna, inclusi amici e parenti che si aggregano.
+        </div>
+        
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <div class="row">
+            <div class="col-md-4 mb-4">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="card-title mb-0">Nuova Prenotazione</h5>
+                    </div>
+                    <div class="card-body">
+                        <form method="post">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="create">
+                            {% for field in form %}
+                                <div class="mb-3">
+                                    <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+                                    {{ field }}
+                                    {% if field.errors %}
+                                        <div class="text-danger small">{{ field.errors|join:", " }}</div>
+                                    {% endif %}
+                                </div>
+                            {% endfor %}
+                            <button type="submit" class="btn btn-primary w-100">Prenota</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-8">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Eventi Segnati</h5>
+                        <button class="btn btn-outline-danger btn-sm fw-bold" onclick="scaricaPDF()">📄 Scarica PDF</button>
+                    </div>
+                    <div class="card-body">
+                        <div id="calendar"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Modifica/Elimina Evento -->
+    <div class="modal fade" id="editModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Gestisci Prenotazione</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="post">
+                    <div class="modal-body">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" id="form-action" value="edit">
+                        <input type="hidden" name="id" id="edit-id">
+                        <div class="mb-3">
+                            <label class="form-label">Nome Richiedente</label>
+                            <input type="text" name="nome_richiedente" id="edit-nome_richiedente" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Titolo Evento</label>
+                            <input type="text" name="titolo_evento" id="edit-titolo_evento" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Data e Orario di Inizio</label>
+                            <input type="datetime-local" name="data_orario_inizio" id="edit-data_orario_inizio" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Data e Orario di Fine</label>
+                            <input type="datetime-local" name="data_orario_fine" id="edit-data_orario_fine" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Descrizione</label>
+                            <textarea name="descrizione" id="edit-descrizione" class="form-control" rows="3"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer d-flex justify-content-between">
+                        <button type="submit" class="btn btn-danger" onclick="document.getElementById('form-action').value='delete'; return confirm('Sei sicuro di voler eliminare questa prenotazione?');">Elimina</button>
+                        <div>
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                            <button type="submit" class="btn btn-primary" onclick="document.getElementById('form-action').value='edit';">Salva</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var calendarEl = document.getElementById('calendar');
+            var eventsData = {{ events_json|safe }};
+            
+            var calendar = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'dayGridMonth',
+                locale: 'it',
+                headerToolbar: {
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: 'dayGridMonth,timeGridWeek,timeGridDay'
+                },
+                events: eventsData,
+                eventClick: function(info) {
+                    var modal = new bootstrap.Modal(document.getElementById('editModal'));
+                    
+                    document.getElementById('edit-id').value = info.event.id;
+                    document.getElementById('edit-titolo_evento').value = info.event.extendedProps.titolo_evento;
+                    document.getElementById('edit-nome_richiedente').value = info.event.extendedProps.richiedente;
+                    document.getElementById('edit-descrizione').value = info.event.extendedProps.descrizione;
+                    
+                    function formatDate(date) {
+                        if (!date) return '';
+                        var d = new Date(date);
+                        var tzoffset = d.getTimezoneOffset() * 60000;
+                        return (new Date(d - tzoffset)).toISOString().slice(0, 16);
+                    }
+
+                    document.getElementById('edit-data_orario_inizio').value = formatDate(info.event.start);
+                    
+                    var endDate = info.event.end ? info.event.end : info.event.start;
+                    document.getElementById('edit-data_orario_fine').value = formatDate(endDate);
+                    
+                    modal.show();
+                }
+            });
+            
+            calendar.render();
+        });
+
+        function scaricaPDF() {
+            var events = {{ events_json|safe }};
+            if (events.length === 0) {
+                alert("Nessun evento da stampare.");
+                return;
+            }
+
+            var container = document.createElement('div');
+            container.style.padding = '20px';
+            container.style.fontFamily = 'Arial, sans-serif';
+            
+            var title = document.createElement('h3');
+            title.innerText = 'Prenotazioni Parchetto di Pontescodogna';
+            title.style.textAlign = 'center';
+            title.style.color = '#003366';
+            title.style.marginBottom = '20px';
+            container.appendChild(title);
+
+            var table = document.createElement('table');
+            table.style.width = '100%';
+            table.style.borderCollapse = 'collapse';
+            table.innerHTML = `
+                <thead>
+                    <tr style="background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
+                        <th style="padding: 10px; text-align: left;">Inizio</th>
+                        <th style="padding: 10px; text-align: left;">Fine</th>
+                        <th style="padding: 10px; text-align: left;">Richiedente</th>
+                        <th style="padding: 10px; text-align: left;">Evento</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${events.map(e => `
+                        <tr style="border-bottom: 1px solid #dee2e6;">
+                            <td style="padding: 10px;">${new Date(e.start).toLocaleString('it-IT', {day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute:'2-digit'})}</td>
+                            <td style="padding: 10px;">${new Date(e.end).toLocaleString('it-IT', {day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute:'2-digit'})}</td>
+                            <td style="padding: 10px;"><strong>${e.extendedProps.richiedente || '-'}</strong></td>
+                            <td style="padding: 10px;">${e.title.replace(' - ' + e.extendedProps.richiedente, '')}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            `;
+            container.appendChild(table);
+
+            var opt = {
+                margin:       10,
+                filename:     'Prenotazioni_Parchetto.pdf',
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2 },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            html2pdf().set(opt).from(container).save();
+        }
+    </script>
+</body>
+</html>

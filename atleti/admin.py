@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import ProfiloAtleta, Attivita, TaskSettings, LogSistema, Scarpa, Allenamento, Partecipazione, CommentoAllenamento
+from .models import ProfiloAtleta, Attivita, TaskSettings, LogSistema, Scarpa, Allenamento, Partecipazione, CommentoAllenamento, PrenotazioneParchetto
 from .forms import AllenamentoForm
 from allauth.socialaccount.models import SocialAccount, SocialToken
 from django.utils import timezone
@@ -129,3 +129,9 @@ class CommentoAllenamentoAdmin(admin.ModelAdmin):
     def testo_short(self, obj):
         return obj.testo[:50]
     testo_short.short_description = 'Testo'
+
+@admin.register(PrenotazioneParchetto)
+class PrenotazioneParchettoAdmin(admin.ModelAdmin):
+    list_display = ('titolo_evento', 'nome_richiedente', 'data_orario_inizio', 'data_orario_fine', 'data_creazione')
+    list_filter = ('data_orario_inizio',)
+    search_fields = ('titolo_evento', 'nome_richiedente')

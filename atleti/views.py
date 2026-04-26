@@ -19,8 +19,8 @@ from django.db import close_old_connections
 import csv
 from django_apscheduler.models import DjangoJobExecution, DjangoJob
 from .models import TaskSettings
-from .models import Allenamento, Partecipazione, CommentoAllenamento, Notifica, Team, RichiestaAdesioneTeam
-from .forms import AllenamentoForm, CommentoForm, TeamForm, InvitoTeamForm, RegistrazioneUtenteForm
+from .models import Allenamento, Partecipazione, CommentoAllenamento, Notifica, Team, RichiestaAdesioneTeam, PrenotazioneParchetto
+from .forms import AllenamentoForm, CommentoForm, TeamForm, InvitoTeamForm, RegistrazioneUtenteForm, PrenotazioneParchettoForm
 from django.core.management import call_command
 from django.contrib import messages
 from datetime import timedelta
@@ -3397,3 +3397,56 @@ def api_team_list(request):
         } for i in invites]
     }
     return JsonResponse(data)
+
+def calendario_parchetto(request):
+    timezone.activate(ZoneInfo("Europe/Rome"))
+    if request.method == 'POST':
+        action = request.POST.get('action', 'create')
+        if action == 'create':
+            form = PrenotazioneParchettoForm(request.POST)
+            if form.is_valid():
+                form.save()
+                messages.success(request, "Prenotazione aggiunta con successo!")
+            else:
+                messages.error(request, "Errore nella creazione della prenotazione.")
+        elif action == 'edit':
+            prenotazione_id = request.POST.get('id')
+            if prenotazione_id:
+                prenotazione = get_object_or_404(PrenotazioneParchetto, id=prenotazione_id)
+                form = PrenotazioneParchettoForm(request.POST, instance=prenotazione)
+                if form.is_valid():
+                    form.save()
+                    messages.success(request, "Prenotazione modificata con successo!")
+                else:
+                    messages.error(request, "Errore nella modifica della prenotazione.")
+        elif action == 'delete':
+            prenotazione_id = request.POST.get('id')
+            if prenotazione_id:
+                prenotazione = get_object_or_404(PrenotazioneParchetto, id=prenotazione_id)
+                prenotazione.delete()
+                messages.success(request, "Prenotazione eliminata con successo!")
+        return redirect('calendario_parchetto')
+    else:
+        form = PrenotazioneParchettoForm()
+        
+    prenotazioni = PrenotazioneParchetto.objects.all().order_by('data_orario_inizio')
+    
+    events = []
+    for p in prenotazioni:
+        events.append({
+            'id': p.id,
+            'title': f"{p.titolo_evento} - {p.nome_richiedente}",
+            'start': p.data_orario_inizio.isoformat(),
+            'end': p.data_orario_fine.isoformat(),
+            'extendedProps': {
+                'titolo_evento': p.titolo_evento,
+                'richiedente': p.nome_richiedente,
+                'descrizione': p.descrizione or ''
+            }
+        })
+        
+    context = {
+        'form': form,
+        'events_json': json.dumps(events)
+    }
+    return render(request, 'atleti/calendario_parchetto.html', context)
