@@ -8,8 +8,8 @@
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
 </head>
 <body class="bg-light">
-    <div class="container mt-5">
-        <h1 class="text-center mb-4">Calendario del parchetto di Pontescodogna</h1>
+    <div class="container mt-3 mt-md-5">
+        <h2 class="text-center fw-bold mb-4">Calendario Parchetto Pontescodogna</h2>
         
         <div class="alert alert-info shadow-sm mb-4" role="alert">
             <strong>Nota bene:</strong> L'uso del campetto non richiede autorizzazioni, ma è necessario registrare l'evento per dare preavviso. L'area rimane comunque di libero accesso a tutti. L'utilizzo è riservato ai residenti di Pontescodogna, inclusi amici e parenti che si aggregano. Chi segna l'evento si assume le relative responsabilità.
@@ -25,7 +25,8 @@
         {% endif %}
 
         <div class="row">
-            <div class="col-md-4 mb-4">
+            <!-- Il Form passa sotto su mobile (order-2), ma resta a sinistra su PC (order-md-1) -->
+            <div class="col-md-4 order-2 order-md-1 mb-4">
                 <div class="card shadow-sm">
                     <div class="card-header bg-primary text-white">
                         <h5 class="card-title mb-0">Nuovo Evento</h5>
@@ -48,11 +49,15 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-8">
+            
+            <!-- Il Calendario passa sopra su mobile (order-1), ma resta a destra su PC (order-md-2) -->
+            <div class="col-md-8 order-1 order-md-2">
                 <div class="card shadow-sm mb-4">
                     <div class="card-header bg-white d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">Eventi Segnati</h5>
-                        <button class="btn btn-outline-danger btn-sm fw-bold" onclick="scaricaPDF()">📄 Scarica PDF</button>
+                        <button class="btn btn-outline-danger btn-sm fw-bold" onclick="scaricaPDF()">
+                            📄 <span class="d-none d-sm-inline">Scarica PDF</span>
+                        </button>
                     </div>
                     <div class="card-body">
                         <div id="calendar"></div>
@@ -68,8 +73,8 @@
                             <table class="table table-hover mb-0">
                                 <thead class="table-light">
                                     <tr>
-                                        <th>Data e Ora</th>
-                                        <th>Fine</th>
+                                        <th>Inizio</th>
+                                        <th class="d-none d-sm-table-cell">Fine</th>
                                         <th>Evento</th>
                                         <th>Organizzatore</th>
                                     </tr>
@@ -77,8 +82,8 @@
                                 <tbody>
                                     {% for p in prenotazioni %}
                                     <tr>
-                                        <td>{{ p.data_orario_inizio|date:"d/m/Y H:i" }}</td>
-                                        <td>{{ p.data_orario_fine|date:"d/m/Y H:i" }}</td>
+                                        <td class="text-nowrap">{{ p.data_orario_inizio|date:"d/m/y H:i" }}</td>
+                                        <td class="text-nowrap d-none d-sm-table-cell">{{ p.data_orario_fine|date:"d/m/y H:i" }}</td>
                                         <td><strong>{{ p.titolo_evento }}</strong></td>
                                         <td>{{ p.nome_richiedente }}</td>
                                     </tr>
@@ -98,7 +103,7 @@
 
     <!-- Modal Modifica/Elimina Evento -->
     <div class="modal fade" id="editModal" tabindex="-1">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">Gestisci Evento</h5>
@@ -149,14 +154,16 @@
         document.addEventListener('DOMContentLoaded', function() {
             var calendarEl = document.getElementById('calendar');
             var eventsData = {{ events_json|safe }};
+            var isMobile = window.innerWidth < 768;
             
             var calendar = new FullCalendar.Calendar(calendarEl, {
                 initialView: 'dayGridMonth',
                 locale: 'it',
+                contentHeight: 'auto', // Previene lo schiacciamento verticale delle celle su mobile
                 headerToolbar: {
-                    left: 'prev,next today',
+                    left: 'prev,next',
                     center: 'title',
-                    right: 'dayGridMonth,timeGridWeek,timeGridDay'
+                    right: isMobile ? 'dayGridMonth,timeGridDay' : 'dayGridMonth,timeGridWeek,timeGridDay'
                 },
                 events: eventsData,
                 eventClick: function(info) {
