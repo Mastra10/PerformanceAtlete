@@ -181,7 +181,6 @@
                 headerTable.style.width = '100%';
                 headerTable.style.marginBottom = '20px';
                 
-                var imgHtml = loadedImg ? '<img src="' + loadedImg.src + '" crossorigin="anonymous" style="width: 80px; height: 80px;"/><br>' : '';
                 var imgHtml = '<img src="' + qrBase64 + '" style="width: 80px; height: 80px;"/><br>';
                 
                 headerTable.innerHTML = `
@@ -191,7 +190,7 @@
                         </td>
                         <td style="vertical-align: middle; text-align: right;">
                             ${imgHtml}
-                            <span style="font-size: 10px; color: #555;">Inquadra per prenotare</span>
+                            <span style="font-size: 10px; color: #555;">Inquadra il QR code</span>
                         </td>
                     </tr>
                 `;
@@ -226,7 +225,6 @@
                 margin:       10,
                 filename:     'Eventi_Parchetto.pdf',
                 image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2, useCORS: true },
                 html2canvas:  { scale: 2 },
                 jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
             };
