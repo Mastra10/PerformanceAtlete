@@ -12,7 +12,7 @@
         <h1 class="text-center mb-4">Calendario del parchetto di Pontescodogna</h1>
         
         <div class="alert alert-info shadow-sm mb-4" role="alert">
-            <strong>Nota bene:</strong> L'uso del campetto non richiede autorizzazioni, ma è necessario registrare l'evento per dare preavviso. L'area rimane comunque di libero accesso a tutti. L'utilizzo è riservato ai residenti di Pontescodogna, inclusi amici e parenti che si aggregano.
+            <strong>Nota bene:</strong> L'uso del campetto non richiede autorizzazioni, ma è necessario registrare l'evento per dare preavviso. L'area rimane comunque di libero accesso a tutti. L'utilizzo è riservato ai residenti di Pontescodogna, inclusi amici e parenti che si aggregano. Chi segna l'evento si assume le relative responsabilità.
         </div>
         
         {% if messages %}
@@ -213,7 +213,10 @@
                 headerTable.innerHTML = `
                     <tr>
                         <td style="vertical-align: middle;">
-                            <h3 style="color: #003366; margin: 0;">Eventi Parchetto</h3>
+                            <h3 style="color: #003366; margin: 0; margin-bottom: 8px;">Eventi Parchetto</h3>
+                            <p style="font-size: 11px; color: #555; margin: 0; max-width: 85%;">
+                                <strong>Nota bene:</strong> L'uso del campetto non richiede autorizzazioni, ma è necessario registrare l'evento per dare preavviso. L'area rimane comunque di libero accesso a tutti. L'utilizzo è riservato ai residenti di Pontescodogna, inclusi amici e parenti che si aggregano. Chi segna l'evento si assume le relative responsabilità.
+                            </p>
                         </td>
                         <td style="vertical-align: middle; text-align: right;">
                             ${imgHtml}
