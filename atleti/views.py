@@ -3406,9 +3406,9 @@ def calendario_parchetto(request):
             form = PrenotazioneParchettoForm(request.POST)
             if form.is_valid():
                 form.save()
-                messages.success(request, "Prenotazione aggiunta con successo!")
+                messages.success(request, "Evento aggiunto con successo!")
             else:
-                messages.error(request, "Errore nella creazione della prenotazione.")
+                messages.error(request, "Errore nella creazione dell'evento.")
         elif action == 'edit':
             prenotazione_id = request.POST.get('id')
             if prenotazione_id:
@@ -3416,15 +3416,15 @@ def calendario_parchetto(request):
                 form = PrenotazioneParchettoForm(request.POST, instance=prenotazione)
                 if form.is_valid():
                     form.save()
-                    messages.success(request, "Prenotazione modificata con successo!")
+                    messages.success(request, "Evento modificato con successo!")
                 else:
-                    messages.error(request, "Errore nella modifica della prenotazione.")
+                    messages.error(request, "Errore nella modifica dell'evento.")
         elif action == 'delete':
             prenotazione_id = request.POST.get('id')
             if prenotazione_id:
                 prenotazione = get_object_or_404(PrenotazioneParchetto, id=prenotazione_id)
                 prenotazione.delete()
-                messages.success(request, "Prenotazione eliminata con successo!")
+                messages.success(request, "Evento eliminato con successo!")
         return redirect('calendario_parchetto')
     else:
         form = PrenotazioneParchettoForm()
@@ -3447,6 +3447,7 @@ def calendario_parchetto(request):
         
     context = {
         'form': form,
-        'events_json': json.dumps(events)
+        'events_json': json.dumps(events),
+        'prenotazioni': prenotazioni
     }
     return render(request, 'atleti/calendario_parchetto.html', context)
