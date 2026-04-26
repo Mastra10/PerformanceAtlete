@@ -234,6 +234,7 @@
             // per evitare il salto pagina interrotto!
             container.style.width = '1020px';
             container.style.padding = '20px';
+            container.style.backgroundColor = '#ffffff';
             container.style.fontFamily = 'Arial, sans-serif';
             
             var headerTable = document.createElement('table');
@@ -287,16 +288,29 @@
             `;
             container.appendChild(table);
 
+            // FIX MOBILE: Agganciamo il container alla pagina, ma lo rendiamo invisibile 
+            // e lo posizioniamo sotto gli altri elementi. Questo forza il browser del telefono 
+            // a calcolare l'altezza totale reale della tabella larga 1020px prima di fotografarla.
+            container.style.position = 'absolute';
+            container.style.top = '0';
+            container.style.left = '0';
+            container.style.zIndex = '-1';
+            container.style.visibility = 'hidden';
+            document.body.appendChild(container);
+
             var opt = {
                 margin:       10,
                 filename:     'Eventi_Parchetto.pdf',
                 image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2 },
+                html2canvas:  { scale: 2, windowWidth: 1020 },
                 jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' },
                 pagebreak:    { mode: ['css', 'legacy'] }
             };
 
-            html2pdf().set(opt).from(container).save();
+            html2pdf().set(opt).from(container).save().then(function() {
+                // Pulizia: rimuoviamo l'elemento nascosto una volta generato il PDF
+                document.body.removeChild(container);
+            });
         }
     </script>
 </body>
