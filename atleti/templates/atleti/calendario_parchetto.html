@@ -187,9 +187,12 @@
         });
 
         function scaricaPDF() {
-            var events = {{ events_json|safe }};
+            var allEvents = {{ events_json|safe }};
+            var now = new Date();
+            var events = allEvents.filter(e => new Date(e.end) >= now);
+
             if (events.length === 0) {
-                alert("Nessun evento da stampare.");
+                alert("Nessun evento futuro da stampare.");
                 return;
             }
 
@@ -255,16 +258,26 @@
             `;
             container.appendChild(table);
 
+            // Fissiamo la larghezza del container simulando un foglio A4 in orizzontale e lo
+            // inseriamo temporaneamente nella pagina. Questo evita che su schermi piccoli (es. cellulari)
+            // la tabella si comprima, generando righe altissime che causano il taglio del PDF!
+            container.style.position = 'absolute';
+            container.style.left = '-9999px';
+            container.style.width = '1100px';
+            document.body.appendChild(container);
+
             var opt = {
                 margin:       10,
                 filename:     'Eventi_Parchetto.pdf',
                 image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2 },
+                html2canvas:  { scale: 2, windowWidth: 1200 },
                 jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' },
                 pagebreak:    { mode: ['css', 'legacy'] }
             };
 
-            html2pdf().set(opt).from(container).save();
+            html2pdf().set(opt).from(container).save().then(function() {
+                document.body.removeChild(container);
+            });
         }
     </script>
 </body>

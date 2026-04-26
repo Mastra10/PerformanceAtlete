@@ -3429,10 +3429,12 @@ def calendario_parchetto(request):
     else:
         form = PrenotazioneParchettoForm()
         
-    prenotazioni = PrenotazioneParchetto.objects.all().order_by('data_orario_inizio')
+    now = timezone.now()
+    prenotazioni_all = PrenotazioneParchetto.objects.all().order_by('data_orario_inizio')
+    prenotazioni_future = prenotazioni_all.filter(data_orario_fine__gte=now)
     
     events = []
-    for p in prenotazioni:
+    for p in prenotazioni_all:
         events.append({
             'id': p.id,
             'title': f"{p.titolo_evento} - {p.nome_richiedente}",
@@ -3448,6 +3450,6 @@ def calendario_parchetto(request):
     context = {
         'form': form,
         'events_json': json.dumps(events),
-        'prenotazioni': prenotazioni
+        'prenotazioni': prenotazioni_future
     }
     return render(request, 'atleti/calendario_parchetto.html', context)
