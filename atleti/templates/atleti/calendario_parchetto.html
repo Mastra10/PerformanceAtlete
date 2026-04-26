@@ -158,16 +158,36 @@
                 return;
             }
 
-            var container = document.createElement('div');
-            container.style.padding = '20px';
-            container.style.fontFamily = 'Arial, sans-serif';
-            
-            var title = document.createElement('h3');
-            title.innerText = 'Prenotazioni Parchetto di Pontescodogna';
-            title.style.textAlign = 'center';
-            title.style.color = '#003366';
-            title.style.marginBottom = '20px';
-            container.appendChild(title);
+            // Preload del QR Code come Immagine per evitare problemi di rendering asincrono
+            var qrImg = new Image();
+            qrImg.crossOrigin = "Anonymous";
+            qrImg.onload = function() { generaDocumento(qrImg); };
+            qrImg.onerror = function() { generaDocumento(null); }; // Fallback senza immagine in caso di errore di rete
+            qrImg.src = "https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=https://performance-atlete.freeddns.org/calendario-parchetto/";
+
+            function generaDocumento(loadedImg) {
+                var container = document.createElement('div');
+                container.style.padding = '20px';
+                container.style.fontFamily = 'Arial, sans-serif';
+                
+                var headerTable = document.createElement('table');
+                headerTable.style.width = '100%';
+                headerTable.style.marginBottom = '20px';
+                
+                var imgHtml = loadedImg ? '<img src="' + loadedImg.src + '" crossorigin="anonymous" style="width: 80px; height: 80px;"/><br>' : '';
+                
+                headerTable.innerHTML = `
+                    <tr>
+                        <td style="vertical-align: middle;">
+                            <h3 style="color: #003366; margin: 0;">Prenotazioni Parchetto di Pontescodogna</h3>
+                        </td>
+                        <td style="vertical-align: middle; text-align: right;">
+                            ${imgHtml}
+                            <span style="font-size: 10px; color: #555;">Inquadra per prenotare</span>
+                        </td>
+                    </tr>
+                `;
+                container.appendChild(headerTable);
 
             var table = document.createElement('table');
             table.style.width = '100%';
@@ -198,11 +218,12 @@
                 margin:       10,
                 filename:     'Prenotazioni_Parchetto.pdf',
                 image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2 },
+                html2canvas:  { scale: 2, useCORS: true },
                 jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
             };
 
             html2pdf().set(opt).from(container).save();
+            }
         }
     </script>
 </body>
