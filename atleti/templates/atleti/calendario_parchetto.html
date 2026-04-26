@@ -258,13 +258,10 @@
             `;
             container.appendChild(table);
 
-            // Fissiamo la larghezza del container simulando un foglio A4 in orizzontale e lo
-            // inseriamo temporaneamente nella pagina. Questo evita che su schermi piccoli (es. cellulari)
-            // la tabella si comprima, generando righe altissime che causano il taglio del PDF!
-            container.style.position = 'absolute';
-            container.style.left = '-9999px';
+            // Fissiamo la larghezza del container simulando un foglio A4 in orizzontale.
+            // Passandolo direttamente a html2pdf (senza appenderlo nascosto alla pagina web)
+            // eviteremo problemi di rendering o PDF completamente bianchi.
             container.style.width = '1100px';
-            document.body.appendChild(container);
 
             var opt = {
                 margin:       10,
@@ -275,9 +272,7 @@
                 pagebreak:    { mode: ['css', 'legacy'] }
             };
 
-            html2pdf().set(opt).from(container).save().then(function() {
-                document.body.removeChild(container);
-            });
+            html2pdf().set(opt).from(container).save();
         }
     </script>
 </body>
