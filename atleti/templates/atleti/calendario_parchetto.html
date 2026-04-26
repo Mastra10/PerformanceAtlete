@@ -193,12 +193,6 @@
                 return;
             }
 
-            // Preload del QR Code come Immagine per evitare problemi di rendering asincrono
-            var qrImg = new Image();
-            qrImg.crossOrigin = "Anonymous";
-            qrImg.onload = function() { generaDocumento(qrImg); };
-            qrImg.onerror = function() { generaDocumento(null); }; // Fallback senza immagine in caso di errore di rete
-            qrImg.src = "https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=https://performance-atlete.freeddns.org/calendario-parchetto/";
             // Generazione QR Code lato client (risolve tutti i problemi CORS in produzione)
             var qr = new QRious({
                 value: 'https://performance-atlete.freeddns.org/calendario-parchetto/',
@@ -206,7 +200,6 @@
             });
             var qrBase64 = qr.toDataURL();
 
-            function generaDocumento(loadedImg) {
                 var container = document.createElement('div');
                 container.style.padding = '20px';
                 container.style.fontFamily = 'Arial, sans-serif';
@@ -233,22 +226,26 @@
             var table = document.createElement('table');
             table.style.width = '100%';
             table.style.borderCollapse = 'collapse';
+            table.style.tableLayout = 'fixed';
+            table.style.wordWrap = 'break-word';
             table.innerHTML = `
                 <thead>
                     <tr style="background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
-                        <th style="padding: 10px; text-align: left;">Inizio</th>
-                        <th style="padding: 10px; text-align: left;">Fine</th>
-                        <th style="padding: 10px; text-align: left;">Richiedente</th>
-                        <th style="padding: 10px; text-align: left;">Evento</th>
+                        <th style="padding: 10px; text-align: left; width: 15%;">Inizio</th>
+                        <th style="padding: 10px; text-align: left; width: 15%;">Fine</th>
+                        <th style="padding: 10px; text-align: left; width: 20%;">Richiedente</th>
+                        <th style="padding: 10px; text-align: left; width: 20%;">Evento</th>
+                        <th style="padding: 10px; text-align: left; width: 30%;">Descrizione</th>
                     </tr>
                 </thead>
                 <tbody>
                     ${events.map(e => `
-                        <tr style="border-bottom: 1px solid #dee2e6;">
+                        <tr style="border-bottom: 1px solid #dee2e6; page-break-inside: avoid;">
                             <td style="padding: 10px;">${new Date(e.start).toLocaleString('it-IT', {day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute:'2-digit'})}</td>
                             <td style="padding: 10px;">${new Date(e.end).toLocaleString('it-IT', {day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute:'2-digit'})}</td>
                             <td style="padding: 10px;"><strong>${e.extendedProps.richiedente || '-'}</strong></td>
                             <td style="padding: 10px;">${e.title.replace(' - ' + e.extendedProps.richiedente, '')}</td>
+                            <td style="padding: 10px;">${e.extendedProps.descrizione || '-'}</td>
                         </tr>
                     `).join('')}
                 </tbody>
@@ -260,11 +257,11 @@
                 filename:     'Eventi_Parchetto.pdf',
                 image:        { type: 'jpeg', quality: 0.98 },
                 html2canvas:  { scale: 2 },
-                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' },
+                pagebreak:    { mode: ['css', 'legacy'] }
             };
 
             html2pdf().set(opt).from(container).save();
-            }
         }
     </script>
 </body>
