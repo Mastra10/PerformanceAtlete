@@ -23,7 +23,7 @@ from django.conf.urls.static import static
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from django.contrib.auth import views as auth_views
 from atleti.views import statistiche_dispositivi 
-
+#from squadra_calcio.views import api_get_giocatori, api_crea_giocatore, api_salva_presenza, api_get_eventi
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -98,6 +98,7 @@ urlpatterns = [
     path('team/gestisci/<int:richiesta_id>/<str:azione>/', views.gestisci_adesione_team, name='gestisci_adesione_team'),
     path('team/image/<int:team_id>/', views.serve_team_image, name='serve_team_image'),
     path('calendario-parchetto/', views.calendario_parchetto, name='calendario_parchetto'),
+    path('squadra/', include('squadra_calcio.urls')),
     ]
 
 
