@@ -79,38 +79,30 @@ def api_salva_presenza(request):
 
 @csrf_exempt
 def api_crea_giocatore(request):
-    """
-    Riceve i dati dall'app e crea un nuovo giocatore nel database.
-    """
     if request.method == "POST":
         try:
             body = json.loads(request.body)
+            def clean_date(d):
+                return d if d and str(d).strip() != '' else None
             
-            # Estraiamo chi ha fatto l'operazione per i log
-            firma_dispositivo = body.get('firma_dispositivo', 'Sconosciuto')
-            
-            # Creazione del record
-            nuovo_giocatore = Giocatore.objects.create(
+            Giocatore.objects.create(
                 nome_cognome=body.get('nome_cognome'),
                 categoria=body.get('categoria'),
-                telefono_giocatore=body.get('telefono_giocatore', ''),
-                telefono_genitore=body.get('telefono_genitore', ''),
-                note_mediche=body.get('note_mediche', '')
+                telefono_giocatore=body.get('telefono_giocatore'),
+                telefono_genitore=body.get('telefono_genitore'),
+                tessera_csi=body.get('tessera_csi'),
+                tessera_figc=body.get('tessera_figc'),
+                scadenza_visita_medica=clean_date(body.get('scadenza_visita_medica')),
+                scadenza_carta_identita=clean_date(body.get('scadenza_carta_identita')),
+                data_nascita=clean_date(body.get('data_nascita')),
+                ruolo=body.get('ruolo', 'Giocatore')
             )
-            
-            # Stampa nel terminale di Django per debug/storico
-            print(f"[{firma_dispositivo}] ha aggiunto un nuovo giocatore: {nuovo_giocatore.nome_cognome}")
-            
-            return JsonResponse({
-                "status": "success", 
-                "message": "Giocatore creato con successo!",
-                "giocatore_id": nuovo_giocatore.id
-            })
-            
+            return JsonResponse({"status": "success"})
         except Exception as e:
             return JsonResponse({"status": "error", "message": str(e)}, status=400)
+
             
-    return JsonResponse({"status": "error", "message": "Metodo non consentito. Usa POST"}, status=405)
+    
 
 
 def api_get_eventi(request, categoria):
@@ -137,29 +129,34 @@ def api_get_eventi(request, categoria):
         return JsonResponse({"status": "success", "eventi": dati})
 
 @csrf_exempt
-def api_modifica_giocatore(request, giocatore_id):
-    if request.method == "POST":
-        try:
-            body = json.loads(request.body)
-            g = Giocatore.objects.get(id=giocatore_id)
-            g.nome_cognome = body.get('nome_cognome', g.nome_cognome)
-            g.telefono_giocatore = body.get('telefono_giocatore', g.telefono_giocatore)
-            g.telefono_genitore = body.get('telefono_genitore', g.telefono_genitore)
-            g.tessera_csi = body.get('tessera_csi', g.tessera_csi)
-            g.tessera_figc = body.get('tessera_figc', g.tessera_figc)
-            
-            # Gestione sicura delle date
-            visita = body.get('scadenza_visita_medica')
-            g.scadenza_visita_medica = visita if visita else None
-            
-            carta = body.get('scadenza_carta_identita')
-            g.scadenza_carta_identita = carta if carta else None
-            
-            g.save()
-            return JsonResponse({"status": "success"})
-        except Exception as e:
-            return JsonResponse({"status": "error", "message": str(e)}, status=400)
-
+def api_get_giocatori(request, categoria):
+    try:
+        anno_inizio = str(categoria)[:4]
+        # Adesso estraiamo esplicitamente tutti i campi, comprese le date!
+        giocatori = Giocatore.objects.filter(categoria__startswith=anno_inizio).values(
+            'id', 'nome_cognome', 'categoria', 'telefono_giocatore', 'telefono_genitore',
+            'scadenza_visita_medica', 'scadenza_carta_identita', 'tessera_csi', 'tessera_figc',
+            'data_nascita', 'ruolo'
+        )
+        lista = []
+        for g in giocatori:
+            lista.append({
+                'id': g['id'],
+                'nome': g['nome_cognome'],
+                'categoria': g['categoria'],
+                'telefono_giocatore': g['telefono_giocatore'],
+                'telefono_genitore': g['telefono_genitore'],
+                'tessera_csi': g['tessera_csi'],
+                'tessera_figc': g['tessera_figc'],
+                'scadenza_visita_medica': str(g['scadenza_visita_medica']) if g['scadenza_visita_medica'] else None,
+                'scadenza_carta_identita': str(g['scadenza_carta_identita']) if g['scadenza_carta_identita'] else None,
+                'data_nascita': str(g['data_nascita']) if g['data_nascita'] else None,
+                'ruolo': g['ruolo'] or 'Giocatore'
+            })
+        return JsonResponse({"status": "success", "giocatori": lista})
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": str(e)}, status=400)
+    
 @csrf_exempt
 def api_statistiche_giocatore(request, giocatore_id):
     try:
@@ -335,3 +332,31 @@ def api_get_date_eventi(request, tipo_evento):
         return JsonResponse({"status": "success", "date": date_list})
     except Exception as e:
         return JsonResponse({"status": "error", "message": str(e)}, status=400)
+
+@csrf_exempt
+def api_modifica_giocatore(request, giocatore_id):
+    if request.method == "POST":
+        try:
+            body = json.loads(request.body)
+            g = Giocatore.objects.get(id=giocatore_id)
+            g.nome_cognome = body.get('nome_cognome', g.nome_cognome)
+            g.telefono_giocatore = body.get('telefono_giocatore', g.telefono_giocatore)
+            g.telefono_genitore = body.get('telefono_genitore', g.telefono_genitore)
+            g.tessera_csi = body.get('tessera_csi', g.tessera_csi)
+            g.tessera_figc = body.get('tessera_figc', g.tessera_figc)
+            g.ruolo = body.get('ruolo', g.ruolo)
+            
+            def clean_date(d):
+                return d if d and str(d).strip() != '' else None
+            
+            if 'scadenza_visita_medica' in body:
+                g.scadenza_visita_medica = clean_date(body.get('scadenza_visita_medica'))
+            if 'scadenza_carta_identita' in body:
+                g.scadenza_carta_identita = clean_date(body.get('scadenza_carta_identita'))
+            if 'data_nascita' in body:
+                g.data_nascita = clean_date(body.get('data_nascita'))
+            
+            g.save()
+            return JsonResponse({"status": "success"})
+        except Exception as e:
+            return JsonResponse({"status": "error", "message": str(e)}, status=400)

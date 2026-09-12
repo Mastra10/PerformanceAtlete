@@ -22,6 +22,15 @@ class Giocatore(models.Model):
     tessera_csi = models.CharField(max_length=50, null=True, blank=True)
     tessera_figc = models.CharField(max_length=50, null=True, blank=True)
 
+    # NUOVI CAMPI:
+    data_nascita = models.DateField(null=True, blank=True)
+    RUOLI_SCELTE = [
+        ('Giocatore', 'Giocatore'),
+        ('Allenatore', 'Allenatore'),
+        ('Dirigente', 'Dirigente'),
+    ]
+    ruolo = models.CharField(max_length=50, choices=RUOLI_SCELTE, default='Giocatore')
+
 
     attivo = models.BooleanField(default=True)
     note_mediche = models.TextField(blank=True, null=True, help_text="Allergie, infortuni pregressi, ecc.")

@@ -3480,3 +3480,112 @@ def calendario_parchetto(request):
         'prenotazioni': prenotazioni_future
     }
     return render(request, 'atleti/calendario_parchetto.html', context)
+
+
+@csrf_exempt
+def api_presenze_data(request, data_str, tipo_evento):
+    try:
+        # Troviamo l'evento del giorno (indipendentemente dal tipo)
+        evento = Evento.objects.filter(data=data_str).first()
+        
+        presenze = {}
+        tipo_reale = tipo_evento
+        
+        if evento:
+            tipo_reale = evento.tipo # Restituiamo il VERO tipo salvato nel DB
+            for p in Presenza.objects.filter(evento=evento):
+                if p.giocatore:
+                    stato = 'Presente' if p.presente else p.situazione
+                    presenze[str(p.giocatore.id)] = stato
+                    
+        return JsonResponse({"status": "success", "presenze": presenze, "tipo_evento_salvato": tipo_reale})
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": str(e)}, status=400)
+
+@csrf_exempt
+def salva_foglio_presenze(request):
+    if request.method == "POST":
+        try:
+            body = json.loads(request.body)
+            data_ev = body.get('data_allenamento')
+            tipo_ev = body.get('tipo_evento')
+            presenze_lista = body.get('presenze', [])
+            firma = body.get('firma_dispositivo', 'Sconosciuto')
+
+            # Prendi l'evento di quella data (se esiste) e AGGIORNA il tipo (Partita/Allenamento)
+            evento = Evento.objects.filter(data=data_ev).first()
+            if not evento:
+                evento = Evento.objects.create(data=data_ev, tipo=tipo_ev)
+            else:
+                evento.tipo = tipo_ev
+                evento.save()
+
+            # Salva o aggiorna i giocatori
+            for p in presenze_lista:
+                g_id = p.get('giocatore_id')
+                stato = p.get('stato')
+                giocatore = Giocatore.objects.filter(id=g_id).first()
+                if giocatore:
+                    is_presente = (stato == 'Presente')
+                    Presenza.objects.update_or_create(
+                        evento=evento,
+                        giocatore=giocatore,
+                        defaults={
+                            'presente': is_presente,
+                            'situazione': '' if is_presente else stato,
+                            'firma_dispositivo': firma
+                        }
+                    )
+            return JsonResponse({"status": "success"})
+        except Exception as e:
+            return JsonResponse({"status": "error", "message": str(e)}, status=400)
+
+@csrf_exempt
+def api_statistiche_globali(request, categoria):
+    try:
+        giocatori = Giocatore.objects.filter(categoria__startswith=categoria, ruolo='Giocatore')
+        giocatori_ids = giocatori.values_list('id', flat=True)
+        presenze_totali = Presenza.objects.filter(giocatore__in=giocatori_ids)
+        
+        def calcola_stats(queryset):
+            tot = queryset.count()
+            pres = queryset.filter(presente=True).count()
+            giust = queryset.filter(situazione='Assenza Giustificata').count()
+            ingiust = queryset.filter(situazione='Assenza Ingiustificata').count()
+            return {'totale': tot, 'presenti': pres, 'giustificate': giust, 'ingiustificate': ingiust}
+
+        # Separiamo allenamenti e partite
+        stats_all = calcola_stats(presenze_totali.filter(evento__tipo='allenamento'))
+        stats_par = calcola_stats(presenze_totali.filter(evento__tipo='partita'))
+
+        # Creiamo la classifica
+        classifica = []
+        for g in giocatori:
+            p_player = presenze_totali.filter(giocatore=g)
+            t_count = p_player.count()
+            p_count = p_player.filter(presente=True).count()
+            perc = (p_count / t_count * 100) if t_count > 0 else 0
+            classifica.append({
+                'nome': g.nome_cognome,
+                'presenze': p_count,
+                'totale': t_count,
+                'percentuale': round(perc, 1)
+            })
+            
+        classifica.sort(key=lambda x: x['percentuale'], reverse=True)
+        top = classifica[:3]
+        flop = classifica[-3:] if len(classifica) >= 3 else classifica
+
+        return JsonResponse({
+            "status": "success",
+            "allenamenti": stats_all,
+            "partite": stats_par,
+            "classifica": classifica,
+            "top": top,
+            "flop": flop
+        })
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": str(e)}, status=400)
+
+
+
