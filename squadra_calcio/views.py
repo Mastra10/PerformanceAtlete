@@ -202,40 +202,62 @@ def api_salva_foglio_presenze(request):
     if request.method == 'POST':
         try:
             data = json.loads(request.body)
-            data_evento = data.get('data_allenamento')
-            tipo_evento = data.get('tipo_evento')
+            data_evento = data.get('data_allenamento')   # Es. '2026-09-13'
+            tipo_evento = data.get('tipo_evento')          # Es. 'Allenamento' o 'Partita'
             presenze_list = data.get('presenze', [])
-            
+            firma_dispositivo = data.get('firma_dispositivo', 'Sconosciuto')
+
+            # 1. Recuperiamo o creiamo l'oggetto Evento associato a questa data e tipo
+            # (Nota: verifica che nel tuo modello Evento i campi si chiamino 'data' e 'tipo', 
+            #  oppure adatta i nomi se nel tuo models.py dell'Evento si chiamano diversamente)
+            evento, created = Evento.objects.get_or_create(
+                data=data_evento,
+                tipo=tipo_evento
+            )
+
+            # 2. Salviamo la presenza per ogni giocatore della lista
             for p in presenze_list:
                 giocatore_id = p.get('giocatore_id')
-                stato = p.get('stato')
+                stato = p.get('stato')  # Es. 'Presente', 'Assente Giustificata', ecc.
                 
                 giocatore = Giocatore.objects.get(id=giocatore_id)
                 
-                # IL FIX È QUI:
+                # Mappiamo lo stato del frontend nei campi reali del database Presenza:
+                is_presente = (stato == 'Presente')
+                situazione_val = None if is_presente else stato
+
                 Presenza.objects.update_or_create(
                     giocatore=giocatore,
-                    data_evento=data_evento,  # Cerca SOLO per giocatore e data
+                    evento=evento,  # <--- Usiamo la relazione corretta verso l'Evento!
                     defaults={
-                        'tipo_evento': tipo_evento,  # Aggiorna il tipo di evento
-                        'stato': stato               # Aggiorna se è presente/assente
+                        'presente': is_presente,
+                        'situazione': situazione_val,
+                        'firma_dispositivo': firma_dispositivo
                     }
                 )
 
             return JsonResponse({'status': 'success', 'message': 'Presenze salvate correttamente!'})
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
 @csrf_exempt
 def api_elimina_foglio_presenze(request, data_allenamento):
-    if request.method == 'POST':
-        try:
-            # Cancella tutte le presenze (Record) registrate in quella specifica data
-            Presenza.objects.filter(data_evento=data_allenamento).delete()
-            return JsonResponse({'status': 'success', 'message': 'Evento eliminato!'})
-        except Exception as e:
-            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
-
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'Metodo non consentito. Usa POST'}, status=405)
+    try:
+        # Trova tutti gli Eventi (allenamento/partita) di quella data,
+        # poi cancella le Presenze collegate e infine l'Evento stesso.
+        eventi = Evento.objects.filter(data__date=data_allenamento)
+        cancellate = Presenza.objects.filter(evento__in=eventi).count()
+        Presenza.objects.filter(evento__in=eventi).delete()
+        eventi.delete()
+        return JsonResponse({'status': 'success', 'message': f'Evento eliminato! ({cancellate} presenze rimosse)'})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
 @csrf_exempt
 def api_get_presenze_data(request, data_allenamento, tipo_evento):
