@@ -1,8 +1,12 @@
 import json
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from .models import Giocatore, Evento, Presenza
+from .models import Giocatore, Evento, Presenza , LogModifica , Risultato, AllarmeAck
 import traceback
+import urllib.request
+import urllib.error
+import json
+import os
 
 def api_get_giocatori(request, categoria):
     """
@@ -195,37 +199,43 @@ def api_elimina_giocatore(request, giocatore_id):
 
 @csrf_exempt
 def api_salva_foglio_presenze(request):
-    if request.method == "POST":
+    if request.method == 'POST':
         try:
-            body = json.loads(request.body)
-            data_allenamento = body.get('data_allenamento')
-            tipo_evento = body.get('tipo_evento', 'allenamento') # Legge se è partita o allenamento
-            presenze_list = body.get('presenze', []) 
-            firma = body.get('firma_dispositivo', 'Sconosciuto')
-
-            # Troviamo o creiamo l'evento filtrando ANCHE per il tipo
-            evento, created = Evento.objects.get_or_create(
-                data=data_allenamento,
-                tipo=tipo_evento,
-                defaults={'note_evento': f'Generato da app il {data_allenamento}'}
-            )
-
+            data = json.loads(request.body)
+            data_evento = data.get('data_allenamento')
+            tipo_evento = data.get('tipo_evento')
+            presenze_list = data.get('presenze', [])
+            
             for p in presenze_list:
                 giocatore_id = p.get('giocatore_id')
-                stato = p.get('stato', 'Assenza Ingiustificata')
-                presente = (stato == 'Presente')
-                situazione = '' if presente else stato
-
+                stato = p.get('stato')
+                
+                giocatore = Giocatore.objects.get(id=giocatore_id)
+                
+                # IL FIX È QUI:
                 Presenza.objects.update_or_create(
-                    giocatore_id=giocatore_id,
-                    evento=evento,
-                    defaults={'presente': presente, 'situazione': situazione, 'firma_dispositivo': firma}
+                    giocatore=giocatore,
+                    data_evento=data_evento,  # Cerca SOLO per giocatore e data
+                    defaults={
+                        'tipo_evento': tipo_evento,  # Aggiorna il tipo di evento
+                        'stato': stato               # Aggiorna se è presente/assente
+                    }
                 )
-            return JsonResponse({"status": "success"})
+
+            return JsonResponse({'status': 'success', 'message': 'Presenze salvate correttamente!'})
         except Exception as e:
-            import traceback
-            traceback.print_exc()
-            return JsonResponse({"status": "error", "message": str(e)}, status=400)
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+@csrf_exempt
+def api_elimina_foglio_presenze(request, data_allenamento):
+    if request.method == 'POST':
+        try:
+            # Cancella tutte le presenze (Record) registrate in quella specifica data
+            Presenza.objects.filter(data_evento=data_allenamento).delete()
+            return JsonResponse({'status': 'success', 'message': 'Evento eliminato!'})
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
 
 @csrf_exempt
 def api_get_presenze_data(request, data_allenamento, tipo_evento):
@@ -360,3 +370,115 @@ def api_modifica_giocatore(request, giocatore_id):
             return JsonResponse({"status": "success"})
         except Exception as e:
             return JsonResponse({"status": "error", "message": str(e)}, status=400)
+
+@csrf_exempt
+def api_salva_log(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            LogModifica.objects.create(
+                utente=data.get('utente', 'Sconosciuto'),
+                azione=data.get('azione', '')
+            )
+            return JsonResponse({'status': 'success'})
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)})
+
+def api_get_logs(request):
+    try:
+        logs = LogModifica.objects.all()[:50]
+        lista = [{'data_ora': l.data_ora.strftime('%d/%m/%Y %H:%M'), 'utente': l.utente, 'azione': l.azione} for l in logs]
+        return JsonResponse({'status': 'success', 'logs': lista})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)})
+
+@csrf_exempt
+def api_risultati(request, categoria):
+    if request.method == 'GET':
+        risultati = Risultato.objects.filter(categoria=categoria).order_by('-data_partita')
+        dati = [{'id': r.id, 'data_partita': r.data_partita.strftime('%Y-%m-%d'), 'avversario': r.avversario, 'gol_fatti': r.gol_fatti, 'gol_subiti': r.gol_subiti, 'marcatori': r.marcatori} for r in risultati]
+        return JsonResponse({'status': 'success', 'risultati': dati})
+    elif request.method == 'POST':
+        data = json.loads(request.body)
+        Risultato.objects.create(
+            categoria=categoria, data_partita=data['data_partita'], avversario=data['avversario'],
+            gol_fatti=data['gol_fatti'], gol_subiti=data['gol_subiti'], marcatori=data.get('marcatori', '')
+        )
+        return JsonResponse({'status': 'success'})
+
+@csrf_exempt
+def api_elimina_risultato(request, pk):
+    Risultato.objects.filter(id=pk).delete()
+    return JsonResponse({'status': 'success'})
+
+@csrf_exempt
+def api_ack_allarme(request):
+    if request.method == 'GET':
+        acks = AllarmeAck.objects.all()
+        dati = [{'giocatore_id': a.giocatore_id, 'chiave': a.chiave_allarme} for a in acks]
+        return JsonResponse({'status': 'success', 'acks': dati})
+    elif request.method == 'POST':
+        data = json.loads(request.body)
+        AllarmeAck.objects.get_or_create(giocatore_id=data['giocatore_id'], chiave_allarme=data['chiave_allarme'])
+        return JsonResponse({'status': 'success'})
+
+import urllib.request # Mettilo in alto tra gli import se non c'è
+
+# Incolla questo in fondo al file:
+
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY_2", "")
+
+@csrf_exempt
+def api_analisi_ia(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            annata = data.get('annata', 'Sconosciuta')
+            classifica = data.get('classifica', [])
+            risultati = data.get('risultati', [])
+
+            prompt = f"""
+            Sei 'Mastra-AI', un assistente per un allenatore di calcio giovanile in Italia (categoria {annata}).
+            Ricorda che l'obiettivo primario di questa età è la CRESCITA dei ragazzi, la coesione del gruppo e il divertimento, non solo la vittoria. Tuttavia i buoni risultati aiutano il morale.
+
+            Analizza questi dati della squadra:
+            1. Dati Presenze: {json.dumps(classifica)}
+            2. Ultimi Risultati Partite: {json.dumps(risultati)}
+
+            Per favore genera un breve report diviso in:
+            - VALUTAZIONE PARTECIPAZIONE: Analizza se i ragazzi vengono agli allenamenti. Chi c'è di più, chi sta mollando (troppe assenze).
+            - ANALISI RISULTATI: Come stanno andando le partite. Segnamo? Subiamo troppo?
+            - CONSIGLI PRATICI: Dammi 2 o 3 consigli pratici (esercizi, approccio psicologico o tattico di base) per migliorare le debolezze che vedi nei numeri, tenendo a mente la loro età. Sii conciso e diretto.
+            """
+                       
+            
+            # L'URL esatto suggerito dall'errore di Google:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={GEMINI_API_KEY}"
+
+            payload = json.dumps({"contents": [{"parts": [{"text": prompt}]}]}).encode('utf-8')
+            req = urllib.request.Request(url, data=payload, headers={'Content-Type': 'application/json'})
+            
+            try:
+                with urllib.request.urlopen(req) as response:
+                    res_data = json.loads(response.read().decode('utf-8'))
+                    testo = res_data['candidates'][0]['content']['parts'][0]['text']
+                    return JsonResponse({'status': 'success', 'testo': testo})
+            except urllib.error.HTTPError as e:
+                errore_google = e.read().decode('utf-8')
+                
+                # DIAGNOSTICA AVANZATA: Chiediamo a Google quali modelli sono sbloccati per te!
+                modelli_trovati = "Nessuno (Chiave bloccata o account senza permessi)"
+                try:
+                    url_check = f"https://generativelanguage.googleapis.com/v1beta/models?key={GEMINI_API_KEY}"
+                    with urllib.request.urlopen(urllib.request.Request(url_check)) as resp:
+                        modelli = json.loads(resp.read().decode('utf-8'))
+                        # Estrae solo i nomi dei modelli che contengono 'gemini'
+                        modelli_trovati = ", ".join([m['name'].replace('models/', '') for m in modelli.get('models', []) if 'gemini' in m['name']])
+                except Exception:
+                    pass
+                
+                messaggio_finale = f"Errore Google:\n{errore_google}\n\n💡 I MODELLI CHE LA TUA CHIAVE PUO' USARE SONO:\n{modelli_trovati}"
+                return JsonResponse({'status': 'error', 'message': messaggio_finale})
+
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': f"Errore Python: {str(e)}"})

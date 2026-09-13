@@ -164,3 +164,24 @@ class SquadraClassifica(models.Model):
 
     def __str__(self):
         return f"{self.nome_squadra} - {self.punti} pt"
+    
+class LogModifica(models.Model):
+    data_ora = models.DateTimeField(auto_now_add=True)
+    utente = models.CharField(max_length=100)
+    azione = models.CharField(max_length=255)
+
+    class Meta:
+        ordering = ['-data_ora']
+
+class Risultato(models.Model):
+    categoria = models.CharField(max_length=50)
+    data_partita = models.DateField()
+    avversario = models.CharField(max_length=150)
+    gol_fatti = models.IntegerField(default=0)
+    gol_subiti = models.IntegerField(default=0)
+    marcatori = models.TextField(blank=True, null=True)
+
+class AllarmeAck(models.Model):
+    giocatore_id = models.IntegerField()
+    chiave_allarme = models.CharField(max_length=100) # Es: "visita_2026", "compleanno_2026", "assenza_settembre"
+    data_ack = models.DateTimeField(auto_now_add=True)
