@@ -157,3 +157,4 @@ media/
 chrome_data/
 chromedriver
 *.log
+serviceAccountKey.json*

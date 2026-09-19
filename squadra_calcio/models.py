@@ -2,6 +2,50 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
 from collections import Counter
+from django.db import models
+from django.contrib.auth.models import User
+
+class DispositivoToken(models.Model):
+    utente = models.CharField(max_length=50) # Es. 'Mastra10' o il nome del mister
+    token_fcm = models.TextField(unique=True)
+    data_aggiornamento = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Token di {self.utente}"
+
+
+class PrenotazioneCampo(models.Model):
+    data_ora_inizio = models.DateTimeField()
+    data_ora_fine = models.DateTimeField()
+    categoria_richiedente = models.CharField(max_length=50)
+    avversario = models.CharField(max_length=100)
+    stato = models.CharField(max_length=20, default='In Attesa') # In Attesa, Approvato, Rifiutato
+    richiedente = models.CharField(max_length=50)
+    note = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.categoria_richiedente} vs {self.avversario} - {self.data_ora_inizio}"
+
+class SegnalazioneScouting(models.Model):
+    data_creazione = models.DateTimeField(auto_now_add=True)
+    squadra_avversaria = models.CharField(max_length=100)
+    categoria_avversaria = models.CharField(max_length=50)
+    nome_giocatore = models.CharField(max_length=100)
+    note = models.TextField()
+    segnalatore = models.CharField(max_length=50)
+
+    def __str__(self):
+        return f"{self.nome_giocatore} ({self.squadra_avversaria})"
+
+
+# Un "profilo" collegato a ogni utente
+class ProfiloMister(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profilo')
+    # Quando si registra, Flutter manderà qui la categoria scelta (es. '2013/2014')
+    categoria_gestita = models.CharField(max_length=50, blank=True, null=True) 
+
+    def __str__(self):
+        return f"Profilo di {self.user.username} ({self.categoria_gestita})"
 
 class Categoria(models.TextChoices):
     CAT_09_10 = '2009/2010', 'Allievi (2009/2010)'

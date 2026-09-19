@@ -12,3 +12,5 @@ gpxpy
 tzdata                   # Database fusi orari IANA (Fix Europe/Rome)
 pillow
 gunicorn==23.0.0
+djangorestframework
+firebase-admin==6.5.0

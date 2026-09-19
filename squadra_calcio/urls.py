@@ -3,7 +3,7 @@ from . import views
 
 urlpatterns = [
     path('api/giocatori/<str:categoria>/', views.api_get_giocatori, name='api_giocatori'),
-    path('api/presenza/salva/', views.api_salva_presenza, name='api_salva_presenza'),
+    #path('api/presenza/salva/', views.api_salva_presenza, name='api_salva_presenza'),
     path('api/eventi/<str:categoria>/', views.api_get_eventi, name='api_eventi'),
     # path('api/crea_giocatore/', views.api_crea_giocatore, name='crea_giocatore'),
     # path('api/modifica_giocatore/<int:pk>/', views.api_modifica_giocatore, name='modifica_giocatore'),
@@ -24,5 +24,12 @@ urlpatterns = [
     path('api/elimina_risultato/<int:pk>/', views.api_elimina_risultato),
     path('api/allarmi_ack/', views.api_ack_allarme),
     path('api/analisi_ia/', views.api_analisi_ia, name='api_analisi_ia'),
+    path('api/scouting/', views.api_scouting, name='api_scouting'),
+    path('api/prenotazioni/', views.api_prenotazioni, name='api_prenotazioni'),
+    path('api/prenotazioni/approva/<int:pk>/', views.api_approva_prenotazione, name='api_approva_prenotazione'),
+    path('api/prenotazioni/elimina/<int:pk>/', views.api_elimina_prenotazione, name='api_elimina_prenotazione'),
+    path('api/scouting/elimina/<int:pk>/', views.api_elimina_scouting, name='api_elimina_scouting'),
+    path('api/salva_token_fcm/', views.api_salva_token_fcm, name='api_salva_token_fcm'),
+    path('api/api_check_update/', views.api_check_update, name='api_check_update'),
     # ...
 ]
