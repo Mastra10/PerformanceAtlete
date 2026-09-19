@@ -443,21 +443,6 @@ def api_statistiche_globali(request, categoria):
         return JsonResponse({"status": "error", "message": f"Errore Backend Python: {str(e)}"}, status=400)
 
 
-@csrf_exempt
-@check_admin_o_categoria
-def api_risultati(request, categoria):
-    if request.method == 'GET':
-        risultati = Risultato.objects.filter(categoria=categoria).order_by('-data_partita')
-        dati = [{'id': r.id, 'data_partita': r.data_partita.strftime('%Y-%m-%d'), 'avversario': r.avversario, 'gol_fatti': r.gol_fatti, 'gol_subiti': r.gol_subiti, 'marcatori': r.marcatori} for r in risultati]
-        return JsonResponse({'status': 'success', 'risultati': dati})
-    elif request.method == 'POST':
-        data = json.loads(request.body)
-        Risultato.objects.create(
-            categoria=categoria, data_partita=data['data_partita'], avversario=data['avversario'],
-            gol_fatti=data['gol_fatti'], gol_subiti=data['gol_subiti'], marcatori=data.get('marcatori', '')
-        )
-        return JsonResponse({'status': 'success'})
-
 
 @csrf_exempt
 def api_elimina_risultato(request, pk):
@@ -561,21 +546,29 @@ def api_analisi_ia(request):
 @check_admin_o_categoria
 def api_risultati(request, categoria):
     try:
-        # Uniformiamo la categoria, sia che arrivi con "-" che con "/"
-        categoria = categoria.replace('-', '/')
+        # Uniformiamo la categoria (es. 2013-2014 diventa 2013/2014)
+        categoria = str(categoria).replace('-', '/')
         
         if request.method == 'GET':
             risultati = Risultato.objects.filter(categoria=categoria).order_by('-data_partita')
             dati = [{'id': r.id, 'data_partita': r.data_partita.strftime('%Y-%m-%d'), 'avversario': r.avversario, 'gol_fatti': r.gol_fatti, 'gol_subiti': r.gol_subiti, 'marcatori': r.marcatori} for r in risultati]
             return JsonResponse({'status': 'success', 'risultati': dati})
+            
         elif request.method == 'POST':
             data = json.loads(request.body)
             Risultato.objects.create(
-                categoria=categoria, data_partita=data['data_partita'], avversario=data['avversario'],
-                gol_fatti=data['gol_fatti'], gol_subiti=data['gol_subiti'], marcatori=data.get('marcatori', '')
+                categoria=categoria, 
+                data_partita=data['data_partita'], 
+                avversario=data['avversario'],
+                gol_fatti=data['gol_fatti'], 
+                gol_subiti=data['gol_subiti'], 
+                marcatori=data.get('marcatori', '')
             )
             return JsonResponse({'status': 'success'})
+            
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return JsonResponse({'status': 'error', 'message': f"Errore Risultati: {str(e)}"}, status=400)
 
 
@@ -738,46 +731,6 @@ def api_salva_token_fcm(request):
             )
             print(f"Token registrato in modo sicuro per {utente}")
             
-        return JsonResponse({"status": "success"})
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return JsonResponse({"status": "error", "message": str(e)}, status=400)
-
-@csrf_exempt
-def api_elimina_prenotazione(request, pk):
-    try:
-        utente = request.headers.get('X-Utente-App', '')
-        p = PrenotazioneCampo.objects.get(id=pk)
-        
-        # Verifichiamo i permessi (solo chi ha creato la richiesta o gli admin possono cancellarla)
-        admins_possibili = ['Mastra10', 'Francesco11', 'mastra10', 'francesco11']
-        is_admin = utente in admins_possibili
-        
-        if p.richiedente != utente and not is_admin:
-            return JsonResponse({"status": "error", "message": "Non hai i permessi per eliminare questa prenotazione."}, status=403)
-        
-        avversario = p.avversario
-        richiedente = p.richiedente
-        
-        # Eliminiamo la prenotazione dal database
-        p.delete()
-        
-        # 🔔 INVIA NOTIFICA AGLI ADMIN (Solo se ad annullare è il Mister)
-        if not is_admin and richiedente == utente:
-            try:
-                tokens_admin = DispositivoToken.objects.filter(utente__in=admins_possibili)
-                for admin_dispositivo in tokens_admin:
-                    if admin_dispositivo.token_fcm:
-                        invia_push_firebase(
-                            admin_dispositivo.token_fcm,
-                            "❌ Prenotazione Annullata",
-                            f"Il Mister {richiedente} ha annullato la richiesta campo per {avversario}."
-                        )
-                print(f"Notifica di annullamento inviata agli admin.")
-            except Exception as notif_err:
-                print(f"Errore notifica annullamento: {notif_err}")
-
         return JsonResponse({"status": "success"})
     except Exception as e:
         import traceback
