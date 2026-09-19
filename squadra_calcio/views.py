@@ -388,10 +388,13 @@ def api_statistiche_globali(request, categoria):
 @check_admin_o_categoria
 def api_risultati(request, categoria):
     try:
-        categoria = str(categoria).replace('-', '/')
+        # Creiamo entrambe le varianti per sicurezza
+        cat_trattino = str(categoria).replace('/', '-')
+        cat_slash = str(categoria).replace('-', '/')
         
         if request.method == 'GET':
-            risultati = Risultato.objects.filter(categoria=categoria).order_by('-data_partita')
+            # Cerchiamo i risultati che corrispondono all'una o all'altra formattazione
+            risultati = Risultato.objects.filter(categoria__in=[categoria, cat_trattino, cat_slash]).order_by('-data_partita')
             dati = [{'id': r.id, 'data_partita': r.data_partita.strftime('%Y-%m-%d'), 'avversario': r.avversario, 'gol_fatti': r.gol_fatti, 'gol_subiti': r.gol_subiti, 'marcatori': r.marcatori} for r in risultati]
             return JsonResponse({'status': 'success', 'risultati': dati})
             
@@ -408,6 +411,7 @@ def api_risultati(request, categoria):
             return JsonResponse({'status': 'success'})
             
     except Exception as e:
+        import traceback
         traceback.print_exc()
         return JsonResponse({'status': 'error', 'message': f"Errore Risultati: {str(e)}"}, status=400)
 
