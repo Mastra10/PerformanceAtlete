@@ -30,6 +30,7 @@ urlpatterns = [
     path('api/prenotazioni/elimina/<int:pk>/', views.api_elimina_prenotazione, name='api_elimina_prenotazione'),
     path('api/scouting/elimina/<int:pk>/', views.api_elimina_scouting, name='api_elimina_scouting'),
     path('api/salva_token_fcm/', views.api_salva_token_fcm, name='api_salva_token_fcm'),
-    path('api/api_check_update/', views.api_check_update, name='api_check_update'),
+    #path('api/api_check_update/', views.api_check_update, name='api_check_update'),
+    path('api/check_update/', views.api_check_update, name='api_check_update'),
     # ...
 ]
