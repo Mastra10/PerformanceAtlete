@@ -32,5 +32,7 @@ urlpatterns = [
     path('api/salva_token_fcm/', views.api_salva_token_fcm, name='api_salva_token_fcm'),
     #path('api/api_check_update/', views.api_check_update, name='api_check_update'),
     path('api/check_update/', views.api_check_update, name='api_check_update'),
+    # Aggiungi questa riga sotto le altre rotte API
+    path('api/andamento_chart/<str:categoria>/', views.api_andamento_chart, name='api_andamento_chart'),
     # ...
 ]

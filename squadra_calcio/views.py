@@ -10,6 +10,7 @@ from .models import Giocatore, Evento, Presenza, LogModifica, Risultato, Allarme
 import firebase_admin
 from firebase_admin import credentials, messaging
 from django.conf import settings
+from datetime import timedelta
 
 
 # --- INIZIALIZZAZIONE FIREBASE ADMIN ---
@@ -691,7 +692,7 @@ def api_salva_token_fcm(request):
 
 @csrf_exempt
 def api_check_update(request):
-    LATEST_VERSION = "1.0.1" 
+    LATEST_VERSION = "1.0.2" 
     
     DOWNLOAD_URL = "https://performance-atlete.freeddns.org/static/fraore_lab_update.apk"
     
@@ -701,3 +702,58 @@ def api_check_update(request):
         "download_url": DOWNLOAD_URL,
         "release_notes": "Aggiunta eliminazione prenotazioni e fix presenze."
     })
+
+
+
+from datetime import timedelta
+
+from datetime import timedelta
+
+@csrf_exempt
+@check_admin_o_categoria
+def api_andamento_chart(request, categoria):
+    try:
+        cat_trattino = str(categoria).replace('/', '-')
+        cat_slash = str(categoria).replace('-', '/')
+        
+        partite = Risultato.objects.filter(categoria__in=[categoria, cat_trattino, cat_slash]).order_by('data_partita')
+        
+        anno_inizio = str(categoria)[:4]
+        giocatori_ids = list(Giocatore.objects.filter(categoria__startswith=anno_inizio).values_list('id', flat=True))
+        
+        dati_grafico = []
+        
+        for p in partite:
+            if not p.data_partita: continue
+            
+            # Ricerca presenze allargata a 30 giorni prima della partita
+            data_fine = p.data_partita
+            data_inizio = data_fine - timedelta(days=30)
+            
+            presenze_periodo = Presenza.objects.filter(
+                giocatore_id__in=giocatori_ids,
+                evento__tipo__iexact='allenamento',
+                evento__data__date__gte=data_inizio,
+                evento__data__date__lte=data_fine
+            )
+            
+            totali = presenze_periodo.count()
+            presenti = presenze_periodo.filter(presente=True).count()
+            perc_pres = round((presenti / totali) * 100, 1) if totali > 0 else 0.0
+            
+            if p.gol_fatti > p.gol_subiti: rendimento = 100.0
+            elif p.gol_fatti == p.gol_subiti: rendimento = 50.0
+            else: rendimento = 0.0
+            
+            etichetta = data_fine.strftime('%d/%m')
+            
+            dati_grafico.append({
+                "etichetta": f"{etichetta}\n{p.avversario[:5]}",
+                "rendimento_partite": rendimento,
+                "perc_presenze": perc_pres
+            })
+            
+        return JsonResponse({"status": "success", "dati": dati_grafico})
+        
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": f"Errore Andamento: {str(e)}"}, status=400)
