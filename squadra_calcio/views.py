@@ -13,10 +13,8 @@ from django.conf import settings
 
 
 # --- INIZIALIZZAZIONE FIREBASE ADMIN ---
-# Viene eseguita una sola volta all'avvio del server
 if not firebase_admin._apps:
     try:
-        # Percorso del file JSON che hai appena scaricato
         cred_path = os.path.join(settings.BASE_DIR, 'serviceAccountKey.json')
         cred = credentials.Certificate(cred_path)
         firebase_admin.initialize_app(cred)
@@ -34,16 +32,14 @@ def invia_push_firebase(token_destinatario, titolo, corpo):
             ),
             token=token_destinatario,
         )
-        # Questa riga spedisce fisicamente il messaggio a Google/Firebase
         response = messaging.send(message)
         print(f"✅ Notifica inviata con successo! ID: {response}")
     except Exception as e:
         print(f"❌ Errore nell'invio della notifica: {e}")
 
 
-
 # ==============================================================================
-# 🛡️ DECORATORE DI SICUREZZA (IL NOSTRO "TOKEN" CUSTOM)
+# 🛡️ DECORATORE DI SICUREZZA
 # ==============================================================================
 def check_admin_o_categoria(view_func):
     """
@@ -55,15 +51,12 @@ def check_admin_o_categoria(view_func):
         utente_app = request.headers.get('X-Utente-App', 'Sconosciuto')
         categoria_dichiarata = request.headers.get('X-Categoria-App', '')
         
-        # 1. Se è una richiesta in LETTURA (GET), lasciala passare per tutti (Sola Lettura)
         if request.method == 'GET':
             return view_func(request, *args, **kwargs)
             
-        # 2. Super Admin? Passa sempre anche in scrittura!
         if utente_app in ['Mastra10', 'Francesco11']:
             return view_func(request, *args, **kwargs)
             
-        # 3. Per le scritture, controlliamo la categoria nell'URL o nel body
         categoria_url = kwargs.get('categoria', None)
         if categoria_url:
             if len(categoria_url) == 4:
@@ -88,12 +81,10 @@ def check_admin_o_categoria(view_func):
 @check_admin_o_categoria
 def api_get_giocatori(request, categoria):
     try:
-        # Fix temporaneo se passi solo l'anno iniziale
         if len(categoria) == 4:
             categoria = f"{categoria}/{str(int(categoria)+1)}"
             
         anno_inizio = str(categoria)[:4]
-        # Cerchiamo tramite startswith per massima flessibilità e controlliamo se attivo
         giocatori = Giocatore.objects.filter(categoria__startswith=anno_inizio, attivo=True)
         
         lista = []
@@ -112,7 +103,7 @@ def api_get_giocatori(request, categoria):
                 'ruolo': g.ruolo or 'Giocatore',
                 "modulo_golee_compilato": g.modulo_golee_compilato,
                 "note_mediche": g.note_mediche, 
-                "certificato_scaduto": getattr(g, 'certificato_scaduto', False) # Evita errori se il property non c'è
+                "certificato_scaduto": getattr(g, 'certificato_scaduto', False) 
             })
         return JsonResponse({"status": "success", "giocatori": lista})
     except Exception as e:
@@ -128,7 +119,6 @@ def api_crea_giocatore(request):
             def clean_date(d):
                 return d if d and str(d).strip() != '' else None
             
-            # Sicurezza extra: verifichiamo il body se non sei admin
             utente_app = request.headers.get('X-Utente-App', '')
             cat_dichiarata = request.headers.get('X-Categoria-App', '')
             if utente_app not in ['Mastra10', 'Francesco11'] and body.get('categoria') != cat_dichiarata:
@@ -240,8 +230,6 @@ def api_get_eventi(request, categoria):
 @csrf_exempt
 @check_admin_o_categoria
 def api_get_date_eventi(request, tipo_evento):
-    # NOTA: qui si prendono le date, andrebbe passata la categoria per sicurezza, 
-    # ma visto che restituisce solo date lo lasciamo passare
     try:
         eventi = Evento.objects.filter(tipo=tipo_evento).order_by('-data')
         date_list = []
@@ -265,17 +253,14 @@ def api_salva_foglio_presenze(request):
         firma = body.get('firma_dispositivo', 'Sconosciuto')
         presenze_list = body.get('presenze', [])
 
-        # 🔥 3. PULIZIA: Se in questa data c'era un evento di tipo diverso, lo eliminiamo
-        # (Es. se c'era un allenamento e ora salvi una partita, l'allenamento sparisce)
+        # 🔥 PULIZIA: Se in questa data c'era un evento di tipo diverso, lo eliminiamo
         Evento.objects.filter(data=data_evento).exclude(tipo=tipo_evento).delete()
 
-        # 4. Recuperiamo o creiamo l'evento corretto per oggi
         evento, created = Evento.objects.get_or_create(
             data=data_evento,
             defaults={'tipo': tipo_evento}
         )
         
-        # 5. Salviamo le presenze di tutti i giocatori in blocco
         for p in presenze_list:
             giocatore_id = p.get('giocatore_id')
             stato = p.get('stato')
@@ -295,50 +280,8 @@ def api_salva_foglio_presenze(request):
 
         return JsonResponse({"status": "success"})
     except Exception as e:
-        import traceback
         traceback.print_exc()
         return JsonResponse({"status": "error", "message": str(e)}, status=400)
-
-
-@csrf_exempt
-def api_salva_foglio_presenze(request):
-    if request.method == 'POST':
-        try:
-            data = json.loads(request.body)
-            data_evento = data.get('data_allenamento')
-            tipo_evento = data.get('tipo_evento')
-            presenze_list = data.get('presenze', [])
-            firma_dispositivo = data.get('firma_dispositivo', 'Sconosciuto')
-            
-            # Qui servirebbe inserire la categoria dell'evento per separare 
-            # gli allenamenti della 2013 da quelli della 2011! (consiglio per il futuro)
-            evento, created = Evento.objects.get_or_create(
-                data=data_evento,
-                tipo=tipo_evento
-            )
-
-            for p in presenze_list:
-                giocatore_id = p.get('giocatore_id')
-                stato = p.get('stato')
-                
-                giocatore = Giocatore.objects.get(id=giocatore_id)
-                is_presente = (stato == 'Presente')
-                situazione_val = None if is_presente else stato
-
-                Presenza.objects.update_or_create(
-                    giocatore=giocatore,
-                    evento=evento,
-                    defaults={
-                        'presente': is_presente,
-                        'situazione': situazione_val,
-                        'firma_dispositivo': firma_dispositivo
-                    }
-                )
-
-            return JsonResponse({'status': 'success', 'message': 'Presenze salvate correttamente!'})
-        except Exception as e:
-            traceback.print_exc()
-            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
 
 @csrf_exempt
@@ -359,7 +302,6 @@ def api_elimina_foglio_presenze(request, data_allenamento):
 @csrf_exempt
 def api_get_presenze_data(request, data_allenamento, tipo_evento):
     try:
-        # 🔥 1. CERCHIAMO SOLO PER DATA (Ignoriamo il tipo per trovare l'unico evento della giornata)
         evento = Evento.objects.filter(data=data_allenamento).first()
         dati_presenze = {}
         
@@ -371,13 +313,12 @@ def api_get_presenze_data(request, data_allenamento, tipo_evento):
 
             return JsonResponse({
                 "status": "success", 
-                "tipo_evento_salvato": evento.tipo, # 🔥 2. Dice a Flutter di cambiare la tendina se serve
+                "tipo_evento_salvato": evento.tipo,
                 "presenze": dati_presenze
             })
 
         return JsonResponse({"status": "success", "presenze": None})
     except Exception as e:
-        import traceback
         traceback.print_exc()
         return JsonResponse({"status": "error", "message": str(e)}, status=400)
 
@@ -442,6 +383,33 @@ def api_statistiche_globali(request, categoria):
         traceback.print_exc()
         return JsonResponse({"status": "error", "message": f"Errore Backend Python: {str(e)}"}, status=400)
 
+
+@csrf_exempt
+@check_admin_o_categoria
+def api_risultati(request, categoria):
+    try:
+        categoria = str(categoria).replace('-', '/')
+        
+        if request.method == 'GET':
+            risultati = Risultato.objects.filter(categoria=categoria).order_by('-data_partita')
+            dati = [{'id': r.id, 'data_partita': r.data_partita.strftime('%Y-%m-%d'), 'avversario': r.avversario, 'gol_fatti': r.gol_fatti, 'gol_subiti': r.gol_subiti, 'marcatori': r.marcatori} for r in risultati]
+            return JsonResponse({'status': 'success', 'risultati': dati})
+            
+        elif request.method == 'POST':
+            data = json.loads(request.body)
+            Risultato.objects.create(
+                categoria=categoria, 
+                data_partita=data['data_partita'], 
+                avversario=data['avversario'],
+                gol_fatti=data['gol_fatti'], 
+                gol_subiti=data['gol_subiti'], 
+                marcatori=data.get('marcatori', '')
+            )
+            return JsonResponse({'status': 'success'})
+            
+    except Exception as e:
+        traceback.print_exc()
+        return JsonResponse({'status': 'error', 'message': f"Errore Risultati: {str(e)}"}, status=400)
 
 
 @csrf_exempt
@@ -526,50 +494,11 @@ def api_analisi_ia(request):
             except urllib.error.HTTPError as e:
                 errore_google = e.read().decode('utf-8')
                 
-                modelli_trovati = "Nessuno (Chiave bloccata o account senza permessi)"
-                try:
-                    url_check = f"https://generativelanguage.googleapis.com/v1beta/models?key={GEMINI_API_KEY}"
-                    with urllib.request.urlopen(urllib.request.Request(url_check)) as resp:
-                        modelli = json.loads(resp.read().decode('utf-8'))
-                        modelli_trovati = ", ".join([m['name'].replace('models/', '') for m in modelli.get('models', []) if 'gemini' in m['name']])
-                except Exception:
-                    pass
-                
-                messaggio_finale = f"Errore Google:\n{errore_google}\n\n💡 I MODELLI CHE LA TUA CHIAVE PUO' USARE SONO:\n{modelli_trovati}"
+                messaggio_finale = f"Errore Google:\n{errore_google}"
                 return JsonResponse({'status': 'error', 'message': messaggio_finale})
 
         except Exception as e:
             return JsonResponse({'status': 'error', 'message': f"Errore Python: {str(e)}"})
-
-
-@csrf_exempt
-@check_admin_o_categoria
-def api_risultati(request, categoria):
-    try:
-        # Uniformiamo la categoria (es. 2013-2014 diventa 2013/2014)
-        categoria = str(categoria).replace('-', '/')
-        
-        if request.method == 'GET':
-            risultati = Risultato.objects.filter(categoria=categoria).order_by('-data_partita')
-            dati = [{'id': r.id, 'data_partita': r.data_partita.strftime('%Y-%m-%d'), 'avversario': r.avversario, 'gol_fatti': r.gol_fatti, 'gol_subiti': r.gol_subiti, 'marcatori': r.marcatori} for r in risultati]
-            return JsonResponse({'status': 'success', 'risultati': dati})
-            
-        elif request.method == 'POST':
-            data = json.loads(request.body)
-            Risultato.objects.create(
-                categoria=categoria, 
-                data_partita=data['data_partita'], 
-                avversario=data['avversario'],
-                gol_fatti=data['gol_fatti'], 
-                gol_subiti=data['gol_subiti'], 
-                marcatori=data.get('marcatori', '')
-            )
-            return JsonResponse({'status': 'success'})
-            
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return JsonResponse({'status': 'error', 'message': f"Errore Risultati: {str(e)}"}, status=400)
 
 
 @csrf_exempt
@@ -591,6 +520,21 @@ def api_scouting(request):
             return JsonResponse({"status": "success"})
     except Exception as e:
         return JsonResponse({"status": "error", "message": f"Errore DB Scouting: {str(e)}"}, status=400)
+
+
+@csrf_exempt
+@check_admin_o_categoria
+def api_elimina_scouting(request, pk):
+    try:
+        s = SegnalazioneScouting.objects.get(id=pk)
+        utente_app = request.headers.get('X-Utente-App', '')
+        if utente_app not in ['Mastra10', 'Francesco11'] and s.segnalatore != utente_app:
+            return JsonResponse({"status": "error", "message": "Non puoi eliminare una segnalazione fatta da altri."}, status=403)
+            
+        s.delete()
+        return JsonResponse({"status": "success"})
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": f"Errore: {str(e)}"}, status=400)
 
 
 @csrf_exempt
@@ -619,7 +563,6 @@ def api_prenotazioni(request):
                 richiedente=richiedente
             )
             
-            # 🔔 INVIA NOTIFICA PUSH AI SUPERADMIN
             try:
                 admins_possibili = ['Mastra10', 'Francesco11', 'mastra10', 'francesco11']
                 tokens_admin = DispositivoToken.objects.filter(utente__in=admins_possibili)
@@ -638,7 +581,6 @@ def api_prenotazioni(request):
             return JsonResponse({"status": "success"})
             
     except Exception as e:
-        import traceback
         traceback.print_exc()
         return JsonResponse({"status": "error", "message": f"Errore DB Prenotazioni: {str(e)}"}, status=400)
 
@@ -651,13 +593,12 @@ def api_approva_prenotazione(request, pk):
             return JsonResponse({"status": "error", "message": "Solo gli admin possono approvare i campi."}, status=403)
             
         body = json.loads(request.body)
-        nuovo_stato = body.get('stato') # 'Approvata' o 'Rifiutata'
+        nuovo_stato = body.get('stato')
         
         p = PrenotazioneCampo.objects.get(id=pk)
         p.stato = nuovo_stato
         p.save()
         
-        # 🔔 INVIAMO LA NOTIFICA PUSH AL RICHIEDENTE
         try:
             dispositivo = DispositivoToken.objects.filter(utente=p.richiedente).first()
             if dispositivo and dispositivo.token_fcm:
@@ -675,39 +616,48 @@ def api_approva_prenotazione(request, pk):
         return JsonResponse({"status": "success"})
         
     except Exception as e:
-        import traceback
         traceback.print_exc()
         return JsonResponse({"status": "error", "message": f"Errore approvazione: {str(e)}"}, status=400)
 
-@csrf_exempt
-@check_admin_o_categoria
-def api_elimina_prenotazione(request, pk):
-    try:
-        p = PrenotazioneCampo.objects.get(id=pk)
-        utente_app = request.headers.get('X-Utente-App', '')
-        # Si può cancellare solo se si è SuperAdmin oppure se si è il richiedente originale
-        if utente_app not in ['Mastra10', 'Francesco11'] and p.richiedente != utente_app:
-            return JsonResponse({"status": "error", "message": "Non puoi eliminare una prenotazione fatta da altri."}, status=403)
-            
-        p.delete()
-        return JsonResponse({"status": "success"})
-    except Exception as e:
-        return JsonResponse({"status": "error", "message": f"Errore: {str(e)}"}, status=400)
 
 @csrf_exempt
-@check_admin_o_categoria
-def api_elimina_scouting(request, pk):
+def api_elimina_prenotazione(request, pk):
     try:
-        s = SegnalazioneScouting.objects.get(id=pk)
-        utente_app = request.headers.get('X-Utente-App', '')
-        # Si può cancellare solo se si è SuperAdmin oppure se si è il segnalatore originale
-        if utente_app not in ['Mastra10', 'Francesco11'] and s.segnalatore != utente_app:
-            return JsonResponse({"status": "error", "message": "Non puoi eliminare una segnalazione fatta da altri."}, status=403)
-            
-        s.delete()
+        utente = request.headers.get('X-Utente-App', '')
+        p = PrenotazioneCampo.objects.get(id=pk)
+        
+        # Verifichiamo i permessi (solo chi ha creato la richiesta o gli admin possono cancellarla)
+        admins_possibili = ['Mastra10', 'Francesco11', 'mastra10', 'francesco11']
+        is_admin = utente in admins_possibili
+        
+        if p.richiedente != utente and not is_admin:
+            return JsonResponse({"status": "error", "message": "Non hai i permessi per eliminare questa prenotazione."}, status=403)
+        
+        avversario = p.avversario
+        richiedente = p.richiedente
+        
+        # Eliminiamo la prenotazione dal database
+        p.delete()
+        
+        # 🔔 INVIA NOTIFICA AGLI ADMIN (Solo se ad annullare è il Mister)
+        if not is_admin and richiedente == utente:
+            try:
+                tokens_admin = DispositivoToken.objects.filter(utente__in=admins_possibili)
+                for admin_dispositivo in tokens_admin:
+                    if admin_dispositivo.token_fcm:
+                        invia_push_firebase(
+                            admin_dispositivo.token_fcm,
+                            "❌ Prenotazione Annullata",
+                            f"Il Mister {richiedente} ha annullato la richiesta campo per {avversario}."
+                        )
+                print(f"Notifica di annullamento inviata agli admin.")
+            except Exception as notif_err:
+                print(f"Errore notifica annullamento: {notif_err}")
+
         return JsonResponse({"status": "success"})
     except Exception as e:
-        return JsonResponse({"status": "error", "message": f"Errore: {str(e)}"}, status=400)
+        traceback.print_exc()
+        return JsonResponse({"status": "error", "message": str(e)}, status=400)
 
 
 @csrf_exempt
@@ -721,10 +671,8 @@ def api_salva_token_fcm(request):
         nuovo_token = body.get('token')
 
         if nuovo_token:
-            # 1. Se questo token era associato a qualcun altro (es. due utenti usano lo stesso cell), scolleghiamolo
             DispositivoToken.objects.filter(token_fcm=nuovo_token).exclude(utente=utente).delete()
 
-            # 2. Aggiorna o crea il record per l'utente (così ne avrà sempre e solo UNO)
             DispositivoToken.objects.update_or_create(
                 utente=utente,
                 defaults={'token_fcm': nuovo_token}
@@ -733,21 +681,15 @@ def api_salva_token_fcm(request):
             
         return JsonResponse({"status": "success"})
     except Exception as e:
-        import traceback
         traceback.print_exc()
         return JsonResponse({"status": "error", "message": str(e)}, status=400)
 
 
 @csrf_exempt
 def api_check_update(request):
-    # Quando compili una nuova versione di Flutter, aggiorni questo numero
     LATEST_VERSION = "1.0.1" 
     
-    # L'URL da cui il telefono scaricherà l'APK
-    # Assicurati che punti alla cartella dei file statici o media del tuo Django
-    #DOWNLOAD_URL = "http://192.168.1.100:8001/static/fraore_lab_update.apk"
     DOWNLOAD_URL = "https://performance-atlete.freeddns.org/static/fraore_lab_update.apk"
-    
     
     return JsonResponse({
         "status": "success",
