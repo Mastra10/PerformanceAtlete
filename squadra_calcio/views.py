@@ -703,7 +703,7 @@ def api_check_update(request):
         "status": "success",
         "latest_version": LATEST_VERSION,
         "download_url": DOWNLOAD_URL,
-        "release_notes": "Aggiunta grafico andamento."
+        "release_notes": "Sistemata Formatazzione pdf Calendario"
     })
 
 
