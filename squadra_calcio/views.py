@@ -98,8 +98,11 @@ def api_get_giocatori(request, categoria):
                 'telefono_genitore': g.telefono_genitore,
                 'tessera_csi': g.tessera_csi,
                 'tessera_figc': g.tessera_figc,
-                'scadenza_visita_medica': g.scadenza_visita_medica.strftime("%d/%m/%Y") if g.scadenza_visita_medica else None,
-                'scadenza_carta_identita': g.scadenza_carta_identita.strftime("%d/%m/%Y") if g.scadenza_carta_identita else None,
+                
+                # --- CORREZIONE FORMATO DATE ---
+                'scadenza_visita_medica': g.scadenza_visita_medica.strftime("%Y-%m-%d") if g.scadenza_visita_medica else None,
+                'scadenza_carta_identita': g.scadenza_carta_identita.strftime("%Y-%m-%d") if g.scadenza_carta_identita else None,
+                
                 'data_nascita': g.data_nascita.strftime("%Y-%m-%d") if g.data_nascita else None,
                 'ruolo': g.ruolo or 'Giocatore',
                 "modulo_golee_compilato": g.modulo_golee_compilato,
