@@ -257,11 +257,16 @@ def api_salva_foglio_presenze(request):
         firma = body.get('firma_dispositivo', 'Sconosciuto')
         presenze_list = body.get('presenze', [])
 
-        # 🔥 PULIZIA: Se in questa data c'era un evento di tipo diverso, lo eliminiamo
-        Evento.objects.filter(data=data_evento).exclude(tipo=tipo_evento).delete()
+        # 1. Recupera la categoria dall'header inviato dall'app
+        categoria = request.headers.get('X-Categoria-App', '').replace('-', '/')
 
+        # 2. 🔥 PULIZIA: Aggiunto il filtro categoria_squadra
+        Evento.objects.filter(data=data_evento, categoria_squadra=categoria).exclude(tipo=tipo_evento).delete()
+
+        # 3. Creazione o ricerca evento specificando la categoria
         evento, created = Evento.objects.get_or_create(
             data=data_evento,
+            categoria_squadra=categoria,
             defaults={'tipo': tipo_evento}
         )
         
@@ -293,7 +298,11 @@ def api_elimina_foglio_presenze(request, data_allenamento):
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'message': 'Metodo non consentito. Usa POST'}, status=405)
     try:
-        eventi = Evento.objects.filter(data__date=data_allenamento)
+        # 1. Recupera la categoria dall'header
+        categoria = request.headers.get('X-Categoria-App', '').replace('-', '/')
+        
+        # 2. Filtra per data E per categoria
+        eventi = Evento.objects.filter(data__date=data_allenamento, categoria_squadra=categoria)
         cancellate = Presenza.objects.filter(evento__in=eventi).count()
         Presenza.objects.filter(evento__in=eventi).delete()
         eventi.delete()
