@@ -235,7 +235,15 @@ def api_get_eventi(request, categoria):
 @check_admin_o_categoria
 def api_get_date_eventi(request, tipo_evento):
     try:
-        eventi = Evento.objects.filter(tipo=tipo_evento).order_by('-data')
+        categoria = request.headers.get('X-Categoria-App', '').replace('-', '/')
+        print(f"[DEBUG] CALENDARIO - Richiesta date per: {categoria} (Tipo: {tipo_evento})")
+        
+        # 🛡️ FIX: Adesso estrae SOLO le date della categoria che stai guardando!
+        if categoria:
+            eventi = Evento.objects.filter(tipo=tipo_evento, categoria_squadra=categoria).order_by('-data')
+        else:
+            eventi = Evento.objects.filter(tipo=tipo_evento).order_by('-data')
+            
         date_list = []
         for e in eventi:
             d = e.data
@@ -245,6 +253,7 @@ def api_get_date_eventi(request, tipo_evento):
                 
         return JsonResponse({"status": "success", "date": date_list})
     except Exception as e:
+        traceback.print_exc()
         return JsonResponse({"status": "error", "message": str(e)}, status=400)
 
 
@@ -257,30 +266,30 @@ def api_salva_foglio_presenze(request):
         firma = body.get('firma_dispositivo', 'Sconosciuto')
         presenze_list = body.get('presenze', [])
 
-        # 1. Prova a prendere la categoria dall'header
-        categoria = request.headers.get('X-Categoria-App', '').replace('-', '/')
+        categoria_header = request.headers.get('X-Categoria-App', '').replace('-', '/')
+        categoria_reale = categoria_header
+        
+        # 🛡️ SCUDO ANTI-BUG DELL'APP: Deduce la categoria vera dai giocatori salvati!
+        if presenze_list:
+            primo_id = presenze_list[0].get('giocatore_id')
+            giocatore_test = Giocatore.objects.filter(id=primo_id).first()
+            if giocatore_test:
+                categoria_reale = giocatore_test.categoria
 
-        # 2. SCUDO INFALLIBILE: Se l'app non invia l'header, deduciamo la categoria 
-        # direttamente dal database guardando il primo giocatore della lista presenze!
-        if not categoria and presenze_list:
-            primo_giocatore_id = presenze_list[0].get('giocatore_id')
-            giocatore = Giocatore.objects.filter(id=primo_giocatore_id).first()
-            if giocatore:
-                categoria = giocatore.categoria
+        print(f"[DEBUG] SALVATAGGIO - Data: {data_evento}. Header App: '{categoria_header}' -> Categoria FORZATA: '{categoria_reale}'")
 
-        # Se per un'anomalia totale non c'è ancora la categoria, blocca tutto per non fare danni globali
-        if not categoria:
-            return JsonResponse({"status": "error", "message": "Impossibile determinare la categoria del foglio presenze."}, status=400)
+        if not categoria_reale:
+            return JsonResponse({"status": "error", "message": "Impossibile capire l'annata"}, status=400)
 
-        # 3. Pulizia chirurgica
-        Evento.objects.filter(data=data_evento, categoria_squadra=categoria).exclude(tipo=tipo_evento).delete()
-
-        # 4. Creazione evento blindato
+        # Pulizia evento precedente della STESSA categoria
+        cancellati, _ = Evento.objects.filter(data=data_evento, categoria_squadra=categoria_reale).exclude(tipo=tipo_evento).delete()
+        
         evento, created = Evento.objects.get_or_create(
             data=data_evento,
-            categoria_squadra=categoria,
+            categoria_squadra=categoria_reale,
             defaults={'tipo': tipo_evento}
         )
+        print(f"[DEBUG] SALVATAGGIO - Evento ID {evento.id} aggiornato/creato con successo.")
         
         for p in presenze_list:
             giocatore_id = p.get('giocatore_id')
@@ -311,13 +320,14 @@ def api_elimina_foglio_presenze(request, data_allenamento):
         return JsonResponse({'status': 'error', 'message': 'Metodo non consentito. Usa POST'}, status=405)
     try:
         categoria = request.headers.get('X-Categoria-App', '').replace('-', '/')
-        
-        # Se l'header è vuoto, blocca la cancellazione! 
-        # Evita che un comando senza categoria svuoti l'intero database.
+        print(f"[DEBUG] ELIMINAZIONE - Richiesta cancellazione data: {data_allenamento} per la squadra: {categoria}")
+
         if not categoria:
-            return JsonResponse({'status': 'error', 'message': 'Errore di sicurezza: Categoria mancante, cancellazione bloccata.'}, status=400)
+            return JsonResponse({'status': 'error', 'message': 'Categoria mancante, operazione bloccata.'}, status=400)
 
         eventi = Evento.objects.filter(data__date=data_allenamento, categoria_squadra=categoria)
+        print(f"[DEBUG] ELIMINAZIONE - Trovati {eventi.count()} eventi da cancellare.")
+        
         cancellate = Presenza.objects.filter(evento__in=eventi).count()
         Presenza.objects.filter(evento__in=eventi).delete()
         eventi.delete()
@@ -331,9 +341,8 @@ def api_elimina_foglio_presenze(request, data_allenamento):
 def api_get_presenze_data(request, data_allenamento, tipo_evento):
     try:
         categoria = request.headers.get('X-Categoria-App', '').replace('-', '/')
+        print(f"[DEBUG] LETTURA - Cerco evento il {data_allenamento} per la squadra {categoria}")
         
-        # FIX CRITICO: Aggiunto il filtro categoria_squadra. 
-        # Ora ogni squadra carica solo il proprio evento e non si sovrappongono più!
         evento = Evento.objects.filter(data=data_allenamento, categoria_squadra=categoria).first()
         
         dati_presenze = {}
@@ -342,13 +351,15 @@ def api_get_presenze_data(request, data_allenamento, tipo_evento):
             for p in presenze:
                 stato = "Presente" if p.presente else (p.situazione if p.situazione else "Assenza Ingiustificata")
                 dati_presenze[str(p.giocatore_id)] = stato
-
+                
+            print(f"[DEBUG] LETTURA - Trovate {presenze.count()} presenze nell'evento ID {evento.id}")
             return JsonResponse({
                 "status": "success", 
                 "tipo_evento_salvato": evento.tipo,
                 "presenze": dati_presenze
             })
 
+        print(f"[DEBUG] LETTURA - Nessun evento trovato in questa data per i {categoria}")
         return JsonResponse({"status": "success", "presenze": None})
     except Exception as e:
         traceback.print_exc()
