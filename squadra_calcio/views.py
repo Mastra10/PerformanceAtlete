@@ -257,13 +257,25 @@ def api_salva_foglio_presenze(request):
         firma = body.get('firma_dispositivo', 'Sconosciuto')
         presenze_list = body.get('presenze', [])
 
-        # 1. Recupera la categoria dall'header inviato dall'app
+        # 1. Prova a prendere la categoria dall'header
         categoria = request.headers.get('X-Categoria-App', '').replace('-', '/')
 
-        # 2. 🔥 PULIZIA: Aggiunto il filtro categoria_squadra
+        # 2. SCUDO INFALLIBILE: Se l'app non invia l'header, deduciamo la categoria 
+        # direttamente dal database guardando il primo giocatore della lista presenze!
+        if not categoria and presenze_list:
+            primo_giocatore_id = presenze_list[0].get('giocatore_id')
+            giocatore = Giocatore.objects.filter(id=primo_giocatore_id).first()
+            if giocatore:
+                categoria = giocatore.categoria
+
+        # Se per un'anomalia totale non c'è ancora la categoria, blocca tutto per non fare danni globali
+        if not categoria:
+            return JsonResponse({"status": "error", "message": "Impossibile determinare la categoria del foglio presenze."}, status=400)
+
+        # 3. Pulizia chirurgica
         Evento.objects.filter(data=data_evento, categoria_squadra=categoria).exclude(tipo=tipo_evento).delete()
 
-        # 3. Creazione o ricerca evento specificando la categoria
+        # 4. Creazione evento blindato
         evento, created = Evento.objects.get_or_create(
             data=data_evento,
             categoria_squadra=categoria,
@@ -298,10 +310,13 @@ def api_elimina_foglio_presenze(request, data_allenamento):
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'message': 'Metodo non consentito. Usa POST'}, status=405)
     try:
-        # 1. Recupera la categoria dall'header
         categoria = request.headers.get('X-Categoria-App', '').replace('-', '/')
         
-        # 2. Filtra per data E per categoria
+        # Se l'header è vuoto, blocca la cancellazione! 
+        # Evita che un comando senza categoria svuoti l'intero database.
+        if not categoria:
+            return JsonResponse({'status': 'error', 'message': 'Errore di sicurezza: Categoria mancante, cancellazione bloccata.'}, status=400)
+
         eventi = Evento.objects.filter(data__date=data_allenamento, categoria_squadra=categoria)
         cancellate = Presenza.objects.filter(evento__in=eventi).count()
         Presenza.objects.filter(evento__in=eventi).delete()
@@ -315,9 +330,13 @@ def api_elimina_foglio_presenze(request, data_allenamento):
 @csrf_exempt
 def api_get_presenze_data(request, data_allenamento, tipo_evento):
     try:
-        evento = Evento.objects.filter(data=data_allenamento).first()
-        dati_presenze = {}
+        categoria = request.headers.get('X-Categoria-App', '').replace('-', '/')
         
+        # FIX CRITICO: Aggiunto il filtro categoria_squadra. 
+        # Ora ogni squadra carica solo il proprio evento e non si sovrappongono più!
+        evento = Evento.objects.filter(data=data_allenamento, categoria_squadra=categoria).first()
+        
+        dati_presenze = {}
         if evento:
             presenze = Presenza.objects.filter(evento=evento)
             for p in presenze:
