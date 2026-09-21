@@ -723,7 +723,7 @@ def api_salva_token_fcm(request):
 
 @csrf_exempt
 def api_check_update(request):
-    LATEST_VERSION = "1.0.4" 
+    LATEST_VERSION = "1.0.5" 
     
     DOWNLOAD_URL = "https://performance-atlete.freeddns.org/static/fraore_lab_update.apk"
     
@@ -731,7 +731,7 @@ def api_check_update(request):
         "status": "success",
         "latest_version": LATEST_VERSION,
         "download_url": DOWNLOAD_URL,
-        "release_notes": "Sistemata Formatazzione pdf Calendario"
+        "release_notes": "Sistemata bug cancellazione presenze"
     })
 
 
