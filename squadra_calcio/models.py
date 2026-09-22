@@ -5,6 +5,22 @@ from collections import Counter
 from django.db import models
 from django.contrib.auth.models import User
 
+
+class LogConnessione(models.Model):
+    utente = models.CharField(max_length=100)
+    categoria = models.CharField(max_length=50, blank=True, null=True)
+    endpoint = models.CharField(max_length=255)
+    metodo = models.CharField(max_length=10) # GET o POST
+    status_code = models.IntegerField() # 200 (OK), 400, 500 (Errori)
+    data_ora = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-data_ora']
+
+    def __str__(self):
+        return f"{self.utente} - {self.endpoint} [{self.status_code}]"
+
+
 class DispositivoToken(models.Model):
     utente = models.CharField(max_length=50) # Es. 'Mastra10' o il nome del mister
     token_fcm = models.TextField(unique=True)

@@ -6,11 +6,13 @@ import urllib.error
 from functools import wraps
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from .models import Giocatore, Evento, Presenza, LogModifica, Risultato, AllarmeAck, PrenotazioneCampo, SegnalazioneScouting, DispositivoToken
+from .models import Giocatore, Evento, Presenza, LogModifica, Risultato, AllarmeAck, PrenotazioneCampo, SegnalazioneScouting, DispositivoToken, LogConnessione
 import firebase_admin
 from firebase_admin import credentials, messaging
 from django.conf import settings
 from datetime import timedelta
+from django.utils import timezone
+from django.shortcuts import render
 
 
 # --- INIZIALIZZAZIONE FIREBASE ADMIN ---
@@ -22,6 +24,41 @@ if not firebase_admin._apps:
         print("✅ Firebase Admin inizializzato con successo!")
     except Exception as e:
         print(f"❌ Errore inizializzazione Firebase: {e}")
+
+
+def pannello_accessi_web(request):
+    logs = LogConnessione.objects.all()
+    oggi = timezone.now().date()
+
+    # --- GESTIONE FILTRI ---
+    filtro_oggi = request.GET.get('oggi')
+    filtro_errori = request.GET.get('errori')
+    filtro_utente = request.GET.get('utente', '').strip()
+
+    if filtro_oggi == 'true':
+        logs = logs.filter(data_ora__date=oggi)
+    if filtro_errori == 'true':
+        logs = logs.filter(status_code__gte=400) # Prende gli errori 4xx e 5xx
+    if filtro_utente:
+        logs = logs.filter(utente__icontains=filtro_utente)
+
+    # --- STATISTICHE INVENTATE PER LA DASHBOARD ---
+    utenti_unici_oggi = LogConnessione.objects.filter(data_ora__date=oggi).values('utente').distinct().count()
+    chiamate_oggi = LogConnessione.objects.filter(data_ora__date=oggi).count()
+    errori_oggi = LogConnessione.objects.filter(data_ora__date=oggi, status_code__gte=400).count()
+
+    context = {
+        'logs': logs[:300], # Mostriamo max gli ultimi 300 per non far laggare il browser
+        'utenti_unici_oggi': utenti_unici_oggi,
+        'chiamate_oggi': chiamate_oggi,
+        'errori_oggi': errori_oggi,
+        'filtro_oggi': filtro_oggi,
+        'filtro_errori': filtro_errori,
+        'filtro_utente': filtro_utente,
+    }
+    
+    return render(request, 'dashboard_accessi.html', context)
+
 
 # --- FUNZIONE REALE PER INVIARE LA NOTIFICA ---
 def invia_push_firebase(token_destinatario, titolo, corpo):

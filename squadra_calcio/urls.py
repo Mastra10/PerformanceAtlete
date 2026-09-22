@@ -34,5 +34,6 @@ urlpatterns = [
     path('api/check_update/', views.api_check_update, name='api_check_update'),
     # Aggiungi questa riga sotto le altre rotte API
     path('api/andamento_chart/<str:categoria>/', views.api_andamento_chart, name='api_andamento_chart'),
+    path('monitoraggio/accessi/', views.pannello_accessi_web, name='dashboard_accessi'),
     # ...
 ]

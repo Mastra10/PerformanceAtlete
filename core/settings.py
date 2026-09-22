@@ -62,6 +62,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     # Aggiungi questa riga qui sotto:
     'allauth.account.middleware.AccountMiddleware',
+    'squadra_calcio.middleware.TracciamentoAccessiMiddleware',
 ]
 
 ROOT_URLCONF = 'core.urls'
