@@ -469,7 +469,7 @@ def api_statistiche_globali(request, categoria):
 
 
 @csrf_exempt
-@check_admin_o_categoria
+#@check_admin_o_categoria
 def api_risultati(request, categoria):
     try:
         # Creiamo entrambe le varianti per sicurezza
