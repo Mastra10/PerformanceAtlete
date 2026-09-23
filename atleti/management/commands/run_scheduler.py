@@ -3,6 +3,7 @@ from django.conf import settings
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 from django.core.management.base import BaseCommand
+from django.core.management import call_command  # <-- NUOVO IMPORT
 from django_apscheduler.jobstores import DjangoJobStore, register_events
 from django_apscheduler.models import DjangoJobExecution
 from django_apscheduler import util
@@ -10,6 +11,15 @@ from atleti.tasks import task_ricalcolo_vam, task_ricalcolo_statistiche, task_sc
 from atleti.models import TaskSettings
 
 logger = logging.getLogger(__name__)
+
+# --- NUOVA FUNZIONE PER RICHIAMARE LO SCRIPT DI MASTRA AI ---
+def task_aggiorna_mastra_ai():
+    logger.info("Avvio esecuzione schedulata: Mastra AI...")
+    try:
+        call_command('aggiorna_mastra_ai')
+        logger.info("Aggiornamento Mastra AI completato.")
+    except Exception as e:
+        logger.error(f"Errore critico durante l'aggiornamento AI: {e}")
 
 @util.close_old_connections
 def delete_old_job_executions(max_age=604_800):
@@ -162,8 +172,15 @@ class Command(BaseCommand):
             "calcola_feedback_allenamenti",
             default_hour=2, default_minute=0
         )
+
+        # 9. Aggiornamento Mastra AI (3 volte al giorno: 08:00, 14:00, 21:00)
+        schedule_task(
+            task_aggiorna_mastra_ai,
+            "aggiorna_mastra_ai_giornaliero",
+            default_hour='8,14,21', default_minute=0
+        )
         
-        # 5. SYSTEM HEARTBEAT (Ogni 10 secondi)
+        # 10. SYSTEM HEARTBEAT (Ogni 10 secondi)
         # Serve a svegliare lo scheduler per fargli leggere i task manuali dal DB
         scheduler.add_job(
             task_heartbeat,

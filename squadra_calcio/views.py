@@ -6,7 +6,8 @@ import urllib.error
 from functools import wraps
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from .models import Giocatore, Evento, Presenza, LogModifica, Risultato, AllarmeAck, PrenotazioneCampo, SegnalazioneScouting, DispositivoToken, LogConnessione
+from .models import Giocatore, Evento, Presenza, LogModifica, Risultato, AllarmeAck, PrenotazioneCampo, SegnalazioneScouting, DispositivoToken, LogConnessione , CacheApi , Categoria   
+
 import firebase_admin
 from firebase_admin import credentials, messaging
 from django.conf import settings
@@ -24,6 +25,9 @@ if not firebase_admin._apps:
         print("✅ Firebase Admin inizializzato con successo!")
     except Exception as e:
         print(f"❌ Errore inizializzazione Firebase: {e}")
+
+
+
 
 
 def pannello_accessi_web(request):
@@ -548,38 +552,27 @@ def api_analisi_ia(request):
         try:
             data = json.loads(request.body)
             annata = data.get('annata', 'Sconosciuta')
-            classifica = data.get('classifica', [])
-            risultati = data.get('risultati', [])
 
-            prompt = f"""
-            Sei 'Mastra-AI', un assistente per un allenatore di calcio giovanile in Italia (categoria {annata}).
-            Ricorda che l'obiettivo primario di questa età è la CRESCITA dei ragazzi, la coesione del gruppo e il divertimento, non solo la vittoria. Tuttavia i buoni risultati aiutano il morale.
+            # Normalizza la stringa per cercare sia la versione con trattino che con slash
+            cat_trattino = str(annata).replace('/', '-')
+            cat_slash = str(annata).replace('-', '/')
 
-            Analizza questi dati della squadra:
-            1. Dati Presenze: {json.dumps(classifica)}
-            2. Ultimi Risultati Partite: {json.dumps(risultati)}
+            # Cerca la cache includendo tutte le possibili formattazioni inviate dall'app
+            cache = CacheApi.objects.filter(
+                endpoint='analisi_ia', 
+                categoria__in=[annata, cat_trattino, cat_slash]
+            ).first()
 
-            Per favore genera un breve report diviso in:
-            - VALUTAZIONE PARTECIPAZIONE: Analizza se i ragazzi vengono agli allenamenti. Chi c'è di più, chi sta mollando (troppe assenze).
-            - ANALISI RISULTATI: Come stanno andando le partite. Segnamo? Subiamo troppo?
-            - CONSIGLI PRATICI: Dammi 2 o 3 consigli pratici (esercizi, approccio psicologico o tattico di base) per migliorare le debolezze che vedi nei numeri, tenendo a mente la loro età. Sii conciso e diretto.
-            """
-            
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={GEMINI_API_KEY}"
-
-            payload = json.dumps({"contents": [{"parts": [{"text": prompt}]}]}).encode('utf-8')
-            req = urllib.request.Request(url, data=payload, headers={'Content-Type': 'application/json'})
-            
-            try:
-                with urllib.request.urlopen(req) as response:
-                    res_data = json.loads(response.read().decode('utf-8'))
-                    testo = res_data['candidates'][0]['content']['parts'][0]['text']
-                    return JsonResponse({'status': 'success', 'testo': testo})
-            except urllib.error.HTTPError as e:
-                errore_google = e.read().decode('utf-8')
-                
-                messaggio_finale = f"Errore Google:\n{errore_google}"
-                return JsonResponse({'status': 'error', 'message': messaggio_finale})
+            if cache and cache.payload_json:
+                return JsonResponse({
+                    'status': 'success', 
+                    'testo': cache.payload_json
+                })
+            else:
+                return JsonResponse({
+                    'status': 'success',
+                    'testo': "Mastra-AI sta analizzando i dati per la prima volta. Riprova tra qualche minuto!"
+                })
 
         except Exception as e:
             return JsonResponse({'status': 'error', 'message': f"Errore Python: {str(e)}"})

@@ -6,6 +6,18 @@ from django.db import models
 from django.contrib.auth.models import User
 
 
+
+class CacheApi(models.Model):
+    endpoint = models.CharField(max_length=100)
+    categoria = models.CharField(max_length=50)
+    payload_json = models.TextField() # Qui salveremo il testo generato da Gemini
+    ultima_modifica = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('endpoint', 'categoria')
+
+        
+
 class LogConnessione(models.Model):
     utente = models.CharField(max_length=100)
     categoria = models.CharField(max_length=50, blank=True, null=True)
