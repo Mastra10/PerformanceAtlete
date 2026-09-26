@@ -3,11 +3,14 @@ from . import views
 
 urlpatterns = [
     # SOSTITUITI I <str:categoria> CON <path:categoria>
+    path('api/allarmi_ack/reset/', views.api_reset_acks, name='api_reset_acks'),
+    path('api/risultati/convalida/<int:pk>/', views.api_convalida_risultato, name='api_convalida_risultato'),
     path('api/giocatori/<path:categoria>/', views.api_get_giocatori, name='api_giocatori'),
     path('api/eventi/<path:categoria>/', views.api_get_eventi, name='api_eventi'),
     path('api/statistiche_globali/<path:categoria>/', views.api_statistiche_globali, name='api_statistiche_globali'),
     path('api/risultati/<path:categoria>/', views.api_risultati),
     path('api/andamento_chart/<path:categoria>/', views.api_andamento_chart, name='api_andamento_chart'),
+    path('api/risultati_globali/', views.api_risultati_globali, name='api_risultati_globali'),
     
     # RESTO DELLE ROTTE INVARIATO
     path('api/statistiche_giocatore/<int:giocatore_id>/', views.api_statistiche_giocatore, name='api_statistiche_giocatore'),

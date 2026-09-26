@@ -90,7 +90,7 @@ class Categoria(models.TextChoices):
 class Giocatore(models.Model):
     nome_cognome = models.CharField(max_length=150)
     categoria = models.CharField(max_length=20, choices=Categoria.choices)
-    
+    codice_fiscale = models.CharField(max_length=16, blank=True, null=True)
     # Contatti e Burocrazia
     telefono_giocatore = models.CharField(max_length=150, blank=True, null=True)
     telefono_genitore = models.CharField(max_length=150, blank=True, null=True, help_text="Specifica anche il nome se necessario")

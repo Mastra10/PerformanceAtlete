@@ -16,16 +16,16 @@ from django.utils import timezone
 from django.shortcuts import render
 
 UTENTI_DIRIGENTI = {
-    'michelebiondo': '2009/2010',
-    'matteoborrini': '2011/2012',
-    'matteocattabiani': '2011/2012',
-    'cristiancavvi': '2013/2014',
-    'vincenzolama': '2009/2010',
-    'vincenzolaudadio': '2011/2012',
-    'andreamalpeli': '2009/2010',
+    'michelebiondo783': '2009/2010',
+    'matteoborrini520': '2011/2012',
+    'matteocattabian452': '2011/2012',
+    'cristiancavvi092': '2013/2014',
+    'vincenzolama210': '2009/2010',
+    'vincenzolaudadio538': '2011/2012',
+    'andreamalpeli586': '2009/2010',
     'marcospezia': '2013/2014',
-    'andreatoscani': '2013/2014',
-    'michelevotta': '2011/2012',
+    'andreatoscani736': '2013/2014',
+    'michelevotta023': '2011/2012',
 }
 SUPERADMINS = ['mastra10', 'francesco11','marcoboni','gianluigibonafede']
 
@@ -173,6 +173,7 @@ def api_get_giocatori(request, categoria):
                 'telefono_genitore': g.telefono_genitore,
                 'tessera_csi': g.tessera_csi,
                 'tessera_figc': g.tessera_figc,
+                'codice_fiscale': getattr(g, 'codice_fiscale', None),
                 
                 # --- CORREZIONE FORMATO DATE ---
                 'scadenza_visita_medica': g.scadenza_visita_medica.strftime("%Y-%m-%d") if g.scadenza_visita_medica else None,
@@ -503,7 +504,6 @@ def api_statistiche_globali(request, categoria):
 
 
 @csrf_exempt
-#@check_admin_o_categoria
 def api_risultati(request, categoria):
     try:
         # Creiamo entrambe le varianti per sicurezza
@@ -512,8 +512,22 @@ def api_risultati(request, categoria):
         
         if request.method == 'GET':
             # Cerchiamo i risultati che corrispondono all'una o all'altra formattazione
-            risultati = Risultato.objects.filter(categoria__in=[categoria, cat_trattino, cat_slash]).order_by('-data_partita')
-            dati = [{'id': r.id, 'data_partita': r.data_partita.strftime('%Y-%m-%d'), 'avversario': r.avversario, 'gol_fatti': r.gol_fatti, 'gol_subiti': r.gol_subiti, 'marcatori': r.marcatori} for r in risultati]
+            risultati = Risultato.objects.filter(categoria__in=[categoria, cat_trattino, cat_slash]).order_by('data_partita')
+            
+            dati = []
+            for r in risultati:
+                dati.append({
+                    'id': r.id, 
+                    'data_partita': r.data_partita.strftime('%Y-%m-%d'), 
+                    'orario': r.orario.strftime('%H:%M') if r.orario else None,
+                    'avversario': r.avversario, 
+                    'gol_fatti': r.gol_fatti, 
+                    'gol_subiti': r.gol_subiti, 
+                    'marcatori': r.marcatori,
+                    'giornata': r.giornata,          # NUOVO
+                    'in_casa': r.in_casa,            # NUOVO
+                    'convalidata': r.convalidata     # NUOVO: fondamentale per Flutter!
+                })
             return JsonResponse({'status': 'success', 'risultati': dati})
             
         elif request.method == 'POST':
@@ -841,7 +855,7 @@ def api_convalida_risultato(request, pk):
 
 @csrf_exempt
 def api_check_update(request):
-    LATEST_VERSION = "1.0.8" 
+    LATEST_VERSION = "1.0.9" 
     
     DOWNLOAD_URL = "https://performance-atlete.freeddns.org/static/fraore_lab_update.apk"
     
@@ -849,7 +863,7 @@ def api_check_update(request):
         "status": "success",
         "latest_version": LATEST_VERSION,
         "download_url": DOWNLOAD_URL,
-        "release_notes": "bugfix risultati e grafico andamento"
+        "release_notes": "aggiunta calendari , dashboard risultati , compilazione Dae"
     })
 
 
@@ -906,3 +920,36 @@ def api_andamento_chart(request, categoria):
         
     except Exception as e:
         return JsonResponse({"status": "error", "message": f"Errore Andamento: {str(e)}"}, status=400)
+
+@csrf_exempt
+def api_reset_acks(request):
+    if request.method == 'POST':
+        try:
+            AllarmeAck.objects.all().delete()
+            return JsonResponse({'status': 'success'})
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+    return JsonResponse({'status': 'error', 'message': 'Metodo non consentito'}, status=405)
+
+
+@csrf_exempt
+def api_risultati_globali(request):
+    try:
+        # Prende gli ultimi 100 risultati convalidati di tutto il club
+        risultati = Risultato.objects.filter(convalidata=True).order_by('-data_partita')[:100]
+        dati = []
+        for r in risultati:
+            dati.append({
+                'id': r.id, 
+                'categoria': r.categoria,
+                'data_partita': r.data_partita.strftime('%Y-%m-%d'), 
+                'avversario': r.avversario, 
+                'gol_fatti': r.gol_fatti, 
+                'gol_subiti': r.gol_subiti, 
+                'in_casa': r.in_casa
+            })
+        return JsonResponse({'status': 'success', 'risultati': dati})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
