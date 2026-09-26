@@ -797,6 +797,49 @@ def api_salva_token_fcm(request):
 
 
 @csrf_exempt
+@check_admin_o_categoria
+def api_convalida_risultato(request, pk):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            partita = Risultato.objects.get(id=pk)
+            
+            partita.gol_fatti = int(data.get('gol_fatti', 0))
+            partita.gol_subiti = int(data.get('gol_subiti', 0))
+            partita.marcatori = data.get('marcatori', '')
+            partita.convalidata = True
+            partita.save()
+            
+            # --- INNESCO NOTIFICHE PUSH A TUTTI GLI UTENTI ---
+            try:
+                # 1. Costruiamo il messaggio
+                titolo = f"⚽ Risultato Finale: {partita.categoria}"
+                if partita.in_casa:
+                    corpo = f"Fraore {partita.gol_fatti} - {partita.gol_subiti} {partita.avversario}"
+                else:
+                    corpo = f"{partita.avversario} {partita.gol_subiti} - {partita.gol_fatti} Fraore"
+                
+                # Aggiungiamo i marcatori se ci sono
+                if partita.marcatori:
+                    corpo += f"\nMarcatori: {partita.marcatori}"
+
+                # 2. Recuperiamo TUTTI i token registrati nel DB
+                tutti_i_dispositivi = DispositivoToken.objects.all()
+                
+                # 3. Inviamo la notifica usando la tua funzione esistente
+                for dispositivo in tutti_i_dispositivi:
+                    if dispositivo.token_fcm:
+                        invia_push_firebase(dispositivo.token_fcm, titolo, corpo)
+                
+                print(f"Notifica Push Risultato inviata a {tutti_i_dispositivi.count()} dispositivi.")
+            except Exception as notif_err:
+                print(f"Errore durante l'invio delle notifiche: {notif_err}")
+            
+            return JsonResponse({'status': 'success'})
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+
+@csrf_exempt
 def api_check_update(request):
     LATEST_VERSION = "1.0.8" 
     

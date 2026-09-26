@@ -255,10 +255,20 @@ class LogModifica(models.Model):
 class Risultato(models.Model):
     categoria = models.CharField(max_length=50)
     data_partita = models.DateField()
+    orario = models.TimeField(null=True, blank=True)
     avversario = models.CharField(max_length=150)
     gol_fatti = models.IntegerField(default=0)
     gol_subiti = models.IntegerField(default=0)
     marcatori = models.TextField(blank=True, null=True)
+    
+    # --- NUOVI CAMPI PER IL CALENDARIO ---
+    giornata = models.IntegerField(null=True, blank=True) # Es: 1 per "1ª Giornata"
+    in_casa = models.BooleanField(default=True)           # True se il Fraore gioca in casa
+    convalidata = models.BooleanField(default=True)       # False = Da Giocare, True = Giocata (fa media)
+
+    def __str__(self):
+        stato = "Convalidata" if self.convalidata else "Da Giocare"
+        return f"{self.data_partita} | Fraore vs {self.avversario} [{stato}]"
 
 class AllarmeAck(models.Model):
     giocatore_id = models.IntegerField()
