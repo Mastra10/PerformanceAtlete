@@ -798,7 +798,7 @@ def api_salva_token_fcm(request):
 
 @csrf_exempt
 def api_check_update(request):
-    LATEST_VERSION = "1.0.7" 
+    LATEST_VERSION = "1.0.8" 
     
     DOWNLOAD_URL = "https://performance-atlete.freeddns.org/static/fraore_lab_update.apk"
     
