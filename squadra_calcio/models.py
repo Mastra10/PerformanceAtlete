@@ -80,6 +80,13 @@ class Categoria(models.TextChoices):
     CAT_11_12 = '2011/2012', 'Giovanissimi (2011/2012)'
     CAT_13_14 = '2013/2014', 'Esordienti (2013/2014)'
 
+#class Categoria(models.TextChoices):
+#    LAB = 'LAB', 'LAB (Prima Squadra/Generico)'
+#    CAT_U17_18 = 'LAB Under 17-18', 'LAB Under 17-18'
+#    CAT_U15_16 = 'LAB Under 15-16', 'LAB Under 15-16'
+#    CAT_U13_14 = 'LAB Under 13-14', 'LAB Under 13-14'
+
+
 class Giocatore(models.Model):
     nome_cognome = models.CharField(max_length=150)
     categoria = models.CharField(max_length=20, choices=Categoria.choices)

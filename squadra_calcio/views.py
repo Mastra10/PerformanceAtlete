@@ -15,6 +15,23 @@ from datetime import timedelta
 from django.utils import timezone
 from django.shortcuts import render
 
+UTENTI_DIRIGENTI = {
+    'michelebiondo': '2009/2010',
+    'matteoborrini': '2011/2012',
+    'matteocattabiani': '2011/2012',
+    'cristiancavvi': '2013/2014',
+    'vincenzolama': '2009/2010',
+    'vincenzolaudadio': '2011/2012',
+    'andreamalpeli': '2009/2010',
+    'marcospezia': '2013/2014',
+    'andreatoscani': '2013/2014',
+    'michelevotta': '2011/2012',
+}
+SUPERADMINS = ['mastra10', 'francesco11','marcoboni','gianluigibonafede']
+
+
+
+
 
 # --- INIZIALIZZAZIONE FIREBASE ADMIN ---
 if not firebase_admin._apps:
@@ -85,30 +102,47 @@ def invia_push_firebase(token_destinatario, titolo, corpo):
 # ==============================================================================
 def check_admin_o_categoria(view_func):
     """
-    Permette la LETTURA (GET) a qualsiasi utente loggato per qualsiasi categoria (sola lettura).
-    Permette la SCRITTURA/MODIFICA solo a Mastra10, Francesco11 o al mister del gruppo corrispondente.
+    Schianta le richieste di utenti non autorizzati. 
+    Permette la LETTURA a tutti i dirigenti registrati.
+    Permette l'EDIT solo ai SuperAdmin o al dirigente per il suo specifico gruppo.
     """
     @wraps(view_func)
     def _wrapped_view(request, *args, **kwargs):
         utente_app = request.headers.get('X-Utente-App', 'Sconosciuto')
         categoria_dichiarata = request.headers.get('X-Categoria-App', '')
         
+        # Normalizza l'input (minuscolo, senza spazi)
+        utente_clean = utente_app.lower().replace(" ", "")
+        is_admin = utente_clean in SUPERADMINS
+
+        # 1. BARRIERA D'INGRESSO: Se non esisti, ti blocco subito
+        if not is_admin and utente_clean not in UTENTI_DIRIGENTI:
+            return JsonResponse({
+                "status": "error", 
+                "message": "Accesso negato. Utenza non riconosciuta."
+            }, status=401)
+            
+        # I Superadmin passano sempre
+        if is_admin:
+            return view_func(request, *args, **kwargs)
+            
+        # 2. PERMESSI DI LETTURA: Tutti i dirigenti autorizzati possono leggere (GET)
         if request.method == 'GET':
             return view_func(request, *args, **kwargs)
             
-        if utente_app in ['Mastra10', 'Francesco11']:
-            return view_func(request, *args, **kwargs)
-            
+        # 3. PERMESSI DI EDIT (POST): Solo sul proprio gruppo
+        gruppo_assegnato = UTENTI_DIRIGENTI[utente_clean]
         categoria_url = kwargs.get('categoria', None)
+        
+        # Sostituisce i vecchi slash in url se necessario, o verifica diretta
         if categoria_url:
-            if len(categoria_url) == 4:
-                categoria_url = f"{categoria_url}/{str(int(categoria_url)+1)}"
+            categoria_url = categoria_url.replace('-', ' ') # Adatta al formato LAB Under X
             
-            if categoria_url != categoria_dichiarata:
-                return JsonResponse({
-                    "status": "error", 
-                    "message": "Non hai i permessi di modifica per questo gruppo. Accesso in sola lettura."
-                }, status=403)
+        if (categoria_url and categoria_url != gruppo_assegnato) or (categoria_dichiarata != gruppo_assegnato):
+            return JsonResponse({
+                "status": "error", 
+                "message": f"Non hai i permessi di edit. Sei autorizzato solo per: {gruppo_assegnato}"
+            }, status=403)
         
         return view_func(request, *args, **kwargs)
         
