@@ -7,7 +7,6 @@ from functools import wraps
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from .models import Giocatore, Evento, Presenza, LogModifica, Risultato, AllarmeAck, PrenotazioneCampo, SegnalazioneScouting, DispositivoToken, LogConnessione , CacheApi , Categoria   
-
 import firebase_admin
 from firebase_admin import credentials, messaging
 from django.conf import settings
@@ -27,7 +26,7 @@ UTENTI_DIRIGENTI = {
     'andreatoscani736': '2013/2014',
     'michelevotta023': '2011/2012',
 }
-SUPERADMINS = ['mastra10', 'francesco11','marcoboni','gianluigibonafede']
+SUPERADMINS = ['mastra10', 'francesco11','marcoboni15','gianluigibonafede17']
 
 
 
@@ -868,9 +867,7 @@ def api_check_update(request):
 
 
 
-from datetime import timedelta
 
-from datetime import timedelta
 
 @csrf_exempt
 @check_admin_o_categoria
@@ -879,8 +876,8 @@ def api_andamento_chart(request, categoria):
         cat_trattino = str(categoria).replace('/', '-')
         cat_slash = str(categoria).replace('-', '/')
         
-        partite = Risultato.objects.filter(categoria__in=[categoria, cat_trattino, cat_slash]).order_by('data_partita')
-        
+        #partite = Risultato.objects.filter(categoria__in=[categoria, cat_trattino, cat_slash]).order_by('data_partita')
+        partite = Risultato.objects.filter(categoria__in=[categoria, cat_trattino, cat_slash], convalidata=True).order_by('data_partita')
         anno_inizio = str(categoria)[:4]
         giocatori_ids = list(Giocatore.objects.filter(categoria__startswith=anno_inizio).values_list('id', flat=True))
         
