@@ -17,7 +17,7 @@ from django.shortcuts import render
 UTENTI_DIRIGENTI = {
     'michelebiondo783': '2009/2010',
     'matteoborrini520': '2011/2012',
-    'matteocattabian452': '2011/2012',
+    'matteocattabiani452': '2011/2012',
     'cristiancavvi092': '2013/2014',
     'vincenzolama210': '2009/2010',
     'vincenzolaudadio538': '2011/2012',
