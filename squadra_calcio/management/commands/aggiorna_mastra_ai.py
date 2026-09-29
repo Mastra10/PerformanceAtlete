@@ -4,7 +4,7 @@ import urllib.error
 import os
 import time
 from django.core.management.base import BaseCommand
-from squadra_calcio.models import Giocatore, Presenza, Risultato, Categoria, CacheApi
+from squadra.models import Giocatore, Presenza, Risultato, Categoria, CacheApi
 
 class Command(BaseCommand):
     help = 'Chiama Gemini AI in background e salva il report in cache.'
@@ -30,10 +30,13 @@ class Command(BaseCommand):
                 classifica = []
                 for g in giocatori:
                     pres = Presenza.objects.filter(giocatore=g)
-                    totale = pres.filter(evento__tipo='Allenamento').count()
-                    presenti = pres.filter(evento__tipo='Allenamento', presente=True).count()
-                    giustificate = pres.filter(evento__tipo='Allenamento', presente=False, situazione='Assenza Giustificata').count()
-                    ingiustificate = pres.filter(evento__tipo='Allenamento', presente=False).exclude(situazione='Assenza Giustificata').count()
+                    
+                    # FIX APPLICATO QUI: Togliamo il filtro maiuscolo/minuscolo e 
+                    # calcoliamo i totali esatti come fa l'app!
+                    totale = pres.count()
+                    presenti = pres.filter(presente=True).count()
+                    giustificate = pres.filter(presente=False, situazione='Assenza Giustificata').count()
+                    ingiustificate = pres.filter(presente=False).exclude(situazione='Assenza Giustificata').count()
                     perc = round((presenti / totale) * 100, 1) if totale > 0 else 0.0
                     
                     classifica.append({
@@ -49,7 +52,7 @@ class Command(BaseCommand):
                 cat_trattino = str(categoria).replace('/', '-')
                 risultati_db = Risultato.objects.filter(
                     categoria__in=[categoria, cat_trattino], 
-                    convalidata=True # FILTRO CHIAVE
+                    convalidata=True
                 ).order_by('-data_partita')[:5]
                 
                 risultati = [{'avversario': r.avversario, 'gol_fatti': r.gol_fatti, 'gol_subiti': r.gol_subiti} for r in risultati_db]
@@ -59,7 +62,7 @@ class Command(BaseCommand):
                 Sei 'Mastra-AI', il mister in seconda per la squadra {categoria} del Fraore Lab.
                 Analizza questi dati aggiornati:
 
-                📊 PRESENZE AGLI ALLENAMENTI:
+                📊 PRESENZE AGLI ALLENAMENTI/PARTITE:
                 """
                 if not classifica:
                     prompt += "Nessun dato sulle presenze ancora inserito.\n"
@@ -84,7 +87,6 @@ class Command(BaseCommand):
                 3. **Consiglio Pratico:** Un suggerimento tecnico/tattico su cosa allenare questa settimana.
                 """
 
-                # url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
                 payload = json.dumps({"contents": [{"parts": [{"text": prompt}]}]}).encode('utf-8')
                 req = urllib.request.Request(url, data=payload, headers={'Content-Type': 'application/json'})
