@@ -4,7 +4,7 @@ import urllib.error
 import os
 import time
 from django.core.management.base import BaseCommand
-from squadra_calcio.models import Giocatore, Presenza, Risultato, Categoria, CacheApi # Assicurati che 'squadra_calcio' sia il nome corretto della tua app
+from squadra.models import Giocatore, Presenza, Risultato, Categoria, CacheApi
 
 class Command(BaseCommand):
     help = 'Chiama Gemini AI in background e salva il report in cache.'
@@ -21,54 +21,79 @@ class Command(BaseCommand):
             self.stdout.write(f"Avvio analisi AI per {categoria}...")
             
             try:
-                # 1. RICOSTRUISCE I DATI
+                # 1. RICOSTRUISCE I DATI (FILTRANDO I DIRIGENTI E I CALENDARI FUTURI)
                 anno_inizio = str(categoria)[:4]
-                giocatori = Giocatore.objects.filter(categoria__startswith=anno_inizio, attivo=True)
+                
+                # --- FILTRO 1: ESTRAIAMO SOLO I VERI GIOCATORI DAL DB ---
+                giocatori = Giocatore.objects.filter(categoria__startswith=anno_inizio, ruolo='Giocatore', attivo=True)
                 
                 classifica = []
                 for g in giocatori:
                     pres = Presenza.objects.filter(giocatore=g)
-                    presenti = pres.filter(presente=True).count()
-                    giustificate = pres.filter(presente=False, situazione='Assenza Giustificata').count()
-                    ingiustificate = pres.filter(presente=False).exclude(situazione='Assenza Giustificata').count()
+                    totale = pres.filter(evento__tipo='Allenamento').count()
+                    presenti = pres.filter(evento__tipo='Allenamento', presente=True).count()
+                    giustificate = pres.filter(evento__tipo='Allenamento', presente=False, situazione='Assenza Giustificata').count()
+                    ingiustificate = pres.filter(evento__tipo='Allenamento', presente=False).exclude(situazione='Assenza Giustificata').count()
+                    perc = round((presenti / totale) * 100, 1) if totale > 0 else 0.0
+                    
                     classifica.append({
                         'nome': g.nome_cognome,
                         'presenze': presenti,
+                        'totale': totale,
+                        'percentuale': str(perc),
                         'giustificate': giustificate,
                         'ingiustificate': ingiustificate
                     })
 
+                # --- FILTRO 2: PRENDIAMO SOLO LE PARTITE CONVALIDATE (GIA' GIOCATE) ---
                 cat_trattino = str(categoria).replace('/', '-')
-                risultati_db = Risultato.objects.filter(categoria__in=[categoria, cat_trattino]).order_by('-data_partita')[:5]
+                risultati_db = Risultato.objects.filter(
+                    categoria__in=[categoria, cat_trattino], 
+                    convalidata=True # FILTRO CHIAVE
+                ).order_by('-data_partita')[:5]
+                
                 risultati = [{'avversario': r.avversario, 'gol_fatti': r.gol_fatti, 'gol_subiti': r.gol_subiti} for r in risultati_db]
 
                 # 2. PREPARA IL PROMPT PER GEMINI
                 prompt = f"""
-                Sei 'Mastra-AI', un assistente per un allenatore di calcio giovanile in Italia (categoria {categoria}).
-                Ricorda che l'obiettivo primario di questa età è la CRESCITA dei ragazzi, la coesione del gruppo e il divertimento, non solo la vittoria. Tuttavia i buoni risultati aiutano il morale.
+                Sei 'Mastra-AI', il mister in seconda per la squadra {categoria} del Fraore Lab.
+                Analizza questi dati aggiornati:
 
-                Analizza questi dati della squadra:
-                1. Dati Presenze: {json.dumps(classifica)}
-                2. Ultimi Risultati Partite: {json.dumps(risultati)}
+                📊 PRESENZE AGLI ALLENAMENTI:
+                """
+                if not classifica:
+                    prompt += "Nessun dato sulle presenze ancora inserito.\n"
+                else:
+                    for c in classifica:
+                        prompt += f"- {c['nome']}: {c['presenze']} su {c['totale']} ({c['percentuale']}%) - Giust: {c['giustificate']}, Ingiust: {c['ingiustificate']}\n"
 
-                Per favore genera un breve report diviso in:
-                - VALUTAZIONE PARTECIPAZIONE: Analizza se i ragazzi vengono agli allenamenti. Chi c'è di più, chi sta mollando (troppe assenze).
-                - ANALISI RISULTATI: Come stanno andando le partite. Segnamo? Subiamo troppo?
-                - CONSIGLI PRATICI: Dammi 2 o 3 consigli pratici (esercizi, approccio psicologico o tattico di base) per migliorare le debolezze che vedi nei numeri, tenendo a mente la loro età. Sii conciso e diretto.
+                prompt += "\n⚽ RISULTATI PARTITE (Solo giocate e convalidate):\n"
+                if not risultati:
+                    prompt += "Nessuna partita convalidata al momento.\n"
+                else:
+                    for r in risultati:
+                        gol_f = r['gol_fatti']
+                        gol_s = r['gol_subiti']
+                        esito = "Vittoria" if gol_f > gol_s else "Sconfitta" if gol_f < gol_s else "Pareggio"
+                        prompt += f"- vs {r['avversario']} | Risultato: {gol_f}-{gol_s} ({esito})\n"
+
+                prompt += """
+                Scrivi un report tattico e motivazionale (massimo 15-20 righe) usando la formattazione Markdown e le emoji. Strutturalo sempre in questo modo:
+                1. **Analisi Presenze:** Loda i più presenti e segnala, con molto tatto e senza accusare, le situazioni critiche o chi ha assenze ingiustificate.
+                2. **Analisi Risultati:** Fai una disamina oggettiva di come stanno andando le partite basandoti sull'andamento e i gol fatti/subiti.
+                3. **Consiglio Pratico:** Un suggerimento tecnico/tattico su cosa allenare questa settimana.
                 """
 
-                # FIX APPLICATO QUI: gemini-1.5-flash
                 # url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
                 payload = json.dumps({"contents": [{"parts": [{"text": prompt}]}]}).encode('utf-8')
                 req = urllib.request.Request(url, data=payload, headers={'Content-Type': 'application/json'})
 
-                # 3. CHIAMA GEMINI
+                # 3. CHIAMA GEMINI E SALVA IN CACHE
                 with urllib.request.urlopen(req) as response:
                     res_data = json.loads(response.read().decode('utf-8'))
                     testo_ai = res_data['candidates'][0]['content']['parts'][0]['text']
 
-                    # 4. SALVA IN CACHE
                     CacheApi.objects.update_or_create(
                         endpoint='analisi_ia',
                         categoria=categoria,
@@ -80,7 +105,8 @@ class Command(BaseCommand):
                 errore_google = e.read().decode('utf-8')
                 self.stdout.write(self.style.ERROR(f"❌ Errore Google per {categoria}: {errore_google}"))
             except Exception as e:
+                import traceback
+                traceback.print_exc()
                 self.stdout.write(self.style.ERROR(f"❌ Errore generico per {categoria}: {str(e)}"))
             
-            # FIX APPLICATO QUI: Pausa di 2 secondi tra una categoria e l'altra per non saturare l'API
             time.sleep(2)
