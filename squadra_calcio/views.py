@@ -599,30 +599,104 @@ def api_analisi_ia(request):
         try:
             data = json.loads(request.body)
             annata = data.get('annata', 'Sconosciuta')
+            
+            # 1. PRENDIAMO I DATI CHE FLUTTER CI INVIA
+            classifica = data.get('classifica', [])
+            risultati = data.get('risultati', [])
 
-            # Normalizza la stringa per cercare sia la versione con trattino che con slash
             cat_trattino = str(annata).replace('/', '-')
             cat_slash = str(annata).replace('-', '/')
 
-            # Cerca la cache includendo tutte le possibili formattazioni inviate dall'app
+            # 2. CERCHIAMO LA CACHE
             cache = CacheApi.objects.filter(
                 endpoint='analisi_ia', 
                 categoria__in=[annata, cat_trattino, cat_slash]
             ).first()
 
-            if cache and cache.payload_json:
-                return JsonResponse({
-                    'status': 'success', 
-                    'testo': cache.payload_json
-                })
+            # 3. CONTROLLO SCADENZA CACHE (Rigeneriamo se è più vecchia di 6 ore)
+            if cache and cache.ultima_modifica:
+                ore_passate = (timezone.now() - cache.ultima_modifica).total_seconds() / 3600
+                if ore_passate < 6 and cache.payload_json:
+                    return JsonResponse({'status': 'success', 'testo': cache.payload_json})
+
+            # --- 4. CHIAMATA REALE A GEMINI AI ---
+            api_key = GEMINI_API_KEY
+            if not api_key:
+                return JsonResponse({'status': 'success', 'testo': "⚠️ Chiave API di Gemini non trovata nel server."})
+
+            # --- FILTRO DI FERRO: ESTRAIAMO SOLO I VERI GIOCATORI DAL DB ---
+            anno_inizio = str(annata)[:4]
+            nomi_giocatori = list(Giocatore.objects.filter(
+                categoria__startswith=anno_inizio, 
+                ruolo='Giocatore'
+            ).values_list('nome_cognome', flat=True))
+
+            # COSTRUIAMO IL PROMPT
+            prompt = f"Sei Mastra-AI, il mister in seconda per la squadra {annata} del Fraore Lab. Analizza questi dati aggiornati:\n\n"
+            
+            prompt += "📊 PRESENZE AGLI ALLENAMENTI:\n"
+            if not classifica:
+                prompt += "Nessun dato sulle presenze ancora inserito.\n"
             else:
-                return JsonResponse({
-                    'status': 'success',
-                    'testo': "Mastra-AI sta analizzando i dati per la prima volta. Riprova tra qualche minuto!"
-                })
+                giocatori_inseriti = 0
+                for c in classifica:
+                    nome = c.get('nome', '')
+                    # PASSANO SOLO QUELLI CHE HANNO IL RUOLO 'Giocatore' NEL DB!
+                    if nome in nomi_giocatori:
+                        prompt += f"- {nome}: {c.get('presenze', 0)} su {c.get('totale', 0)} ({c.get('percentuale', '0')}%) - Giustificate: {c.get('giustificate', 0)}, Ingiustificate: {c.get('ingiustificate', 0)}\n"
+                        giocatori_inseriti += 1
+                
+                if giocatori_inseriti == 0:
+                    prompt += "Nessun giocatore valido trovato nelle statistiche.\n"
+
+            prompt += "\n⚽ RISULTATI PARTITE:\n"
+            if not risultati:
+                prompt += "Nessuna partita giocata o convalidata al momento.\n"
+            for r in risultati:
+                gol_f = int(r.get('gol_fatti', 0))
+                gol_s = int(r.get('gol_subiti', 0))
+                esito = "Vittoria" if gol_f > gol_s else "Sconfitta" if gol_f < gol_s else "Pareggio"
+                prompt += f"- vs {r.get('avversario', '')} | Risultato: {gol_f}-{gol_s} ({esito})\n"
+
+            prompt += "\nScrivi un report tattico e motivazionale (massimo 15-20 righe) usando la formattazione Markdown e le emoji. Strutturalo sempre in questo modo:\n"
+            prompt += "1. **Analisi Presenze:** Loda i più presenti e segnala, con molto tatto e senza accusare, le situazioni critiche o chi ha assenze ingiustificate.\n"
+            prompt += "2. **Analisi Risultati:** Fai una disamina oggettiva di come stanno andando le partite basandoti sull'andamento e i gol fatti/subiti.\n"
+            prompt += "3. **Consiglio Pratico:** Un suggerimento tecnico/tattico su cosa allenare questa settimana."
+
+            # ESEGUIAMO LA CHIAMATA HTTP A GOOGLE GEMINI
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+            payload = {"contents": [{"parts": [{"text": prompt}]}]}
+            
+            req = urllib.request.Request(
+                url, 
+                data=json.dumps(payload).encode('utf-8'), 
+                headers={'Content-Type': 'application/json'}
+            )
+            
+            try:
+                response = urllib.request.urlopen(req, timeout=20)
+                result_json = json.loads(response.read().decode('utf-8'))
+                testo_ia = result_json['candidates'][0]['content']['parts'][0]['text']
+                
+                # 5. SALVIAMO O AGGIORNIAMO LA CACHE
+                if cache:
+                    cache.payload_json = testo_ia
+                    cache.save()
+                else:
+                    CacheApi.objects.create(endpoint='analisi_ia', categoria=annata, payload_json=testo_ia)
+
+                return JsonResponse({'status': 'success', 'testo': testo_ia})
+
+            except Exception as api_err:
+                print(f"Errore chiamata Gemini: {api_err}")
+                if cache and cache.payload_json:
+                    return JsonResponse({'status': 'success', 'testo': cache.payload_json})
+                return JsonResponse({'status': 'success', 'testo': "Mastra-AI è momentaneamente offline o i server di Google sono saturi. Riprova più tardi!"})
 
         except Exception as e:
-            return JsonResponse({'status': 'error', 'message': f"Errore Python: {str(e)}"})
+            import traceback
+            traceback.print_exc()
+            return JsonResponse({'status': 'error', 'message': f"Errore Python Backend: {str(e)}"})
 
 
 @csrf_exempt
