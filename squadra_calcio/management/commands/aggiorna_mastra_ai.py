@@ -4,7 +4,7 @@ import urllib.error
 import os
 import time
 from django.core.management.base import BaseCommand
-from squadra.models import Giocatore, Presenza, Risultato, Categoria, CacheApi
+from squadra_calcio.models import Giocatore, Presenza, Risultato, Categoria, CacheApi
 
 class Command(BaseCommand):
     help = 'Chiama Gemini AI in background e salva il report in cache.'
