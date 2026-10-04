@@ -1003,21 +1003,25 @@ def api_reset_acks(request):
     return JsonResponse({'status': 'error', 'message': 'Metodo non consentito'}, status=405)
 
 
+# Nel file views.py
+
 @csrf_exempt
 def api_risultati_globali(request):
     try:
-        # Prende gli ultimi 100 risultati convalidati di tutto il club
-        risultati = Risultato.objects.filter(convalidata=True).order_by('-data_partita')[:100]
+        # Prende gli ultimi 150 risultati del club (sia convalidati che da giocare)
+        risultati = Risultato.objects.all().order_by('-data_partita')[:150]
         dati = []
         for r in risultati:
             dati.append({
                 'id': r.id, 
                 'categoria': r.categoria,
                 'data_partita': r.data_partita.strftime('%Y-%m-%d'), 
+                'orario': r.orario.strftime('%H:%M') if r.orario else None,
                 'avversario': r.avversario, 
                 'gol_fatti': r.gol_fatti, 
                 'gol_subiti': r.gol_subiti, 
-                'in_casa': r.in_casa
+                'in_casa': r.in_casa,
+                'convalidata': r.convalidata
             })
         return JsonResponse({'status': 'success', 'risultati': dati})
     except Exception as e:
