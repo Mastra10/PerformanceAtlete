@@ -13,6 +13,8 @@ from django.conf import settings
 from datetime import timedelta
 from django.utils import timezone
 from django.shortcuts import render
+import re
+
 
 UTENTI_DIRIGENTI = {
     'michelebiondo783': '2009/2010',
@@ -704,8 +706,27 @@ def api_scouting(request):
     try:
         if request.method == 'GET':
             scouts = SegnalazioneScouting.objects.all().order_by('-data_creazione')
-            data = [{"id": s.id, "squadra": s.squadra_avversaria, "categoria": s.categoria_avversaria, "nome": s.nome_giocatore, "note": s.note, "segnalatore": s.segnalatore, "data": s.data_creazione.strftime("%d/%m/%Y")} for s in scouts]
+            data = []
+            
+            for s in scouts:
+                # 1. Recupera il segnalatore (es. "francesco11")
+                raw_segnalatore = s.segnalatore if s.segnalatore else "Sconosciuto"
+                
+                # 2. Rimuove tutti i numeri e mette la prima lettera maiuscola (es. "Francesco")
+                nome_pulito = re.sub(r'\d+', '', raw_segnalatore).capitalize()
+                
+                data.append({
+                    "id": s.id, 
+                    "squadra": s.squadra_avversaria, 
+                    "categoria": s.categoria_avversaria, 
+                    "nome": s.nome_giocatore, 
+                    "note": s.note, 
+                    "segnalatore": nome_pulito,  # <-- Inseriamo il nome pulito qui
+                    "data": s.data_creazione.strftime("%d/%m/%Y")
+                })
+                
             return JsonResponse({"status": "success", "scouting": data})
+            
         elif request.method == 'POST':
             body = json.loads(request.body)
             SegnalazioneScouting.objects.create(
@@ -716,6 +737,7 @@ def api_scouting(request):
                 segnalatore=request.headers.get('X-Utente-App', 'Sconosciuto')
             )
             return JsonResponse({"status": "success"})
+            
     except Exception as e:
         return JsonResponse({"status": "error", "message": f"Errore DB Scouting: {str(e)}"}, status=400)
 

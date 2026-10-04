@@ -177,7 +177,7 @@ class Command(BaseCommand):
         schedule_task(
             task_aggiorna_mastra_ai,
             "aggiorna_mastra_ai_giornaliero",
-            default_hour='8,14,21', default_minute=0
+            default_hour='5,8,10,12,14,15,16,17,18,19,20,22', default_minute=0
         )
         
         # 10. SYSTEM HEARTBEAT (Ogni 10 secondi)
