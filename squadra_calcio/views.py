@@ -928,7 +928,7 @@ def api_convalida_risultato(request, pk):
 
 @csrf_exempt
 def api_check_update(request):
-    LATEST_VERSION = "1.0.10" 
+    LATEST_VERSION = "1.0.11" 
     
     DOWNLOAD_URL = "https://performance-atlete.freeddns.org/static/fraore_lab_update.apk"
     
@@ -936,7 +936,7 @@ def api_check_update(request):
         "status": "success",
         "latest_version": LATEST_VERSION,
         "download_url": DOWNLOAD_URL,
-        "release_notes": "- Miglioramenti generali e correzioni di bug.\n- Ottimizzazione delle prestazioni dell'app.\n- Aggiornamento della libreria di sicurezza."
+        "release_notes": "- Miglioramenti generali e correzioni di bug.\n- Aggiunta gare in programma.\n- Aggiunta orario di ritrovo Convocazioni.\n- inversione nome cognome distinte pdf"
     })
 
 
